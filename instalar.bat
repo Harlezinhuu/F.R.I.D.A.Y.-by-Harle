@@ -29,16 +29,25 @@ echo Baixando o reconhecedor da palavra "Friday" (~40 MB)...
 call npm run modelo || echo   Aviso: nao deu para baixar o modelo. A FRIDAY funciona sem ele, acordando com qualquer fala.
 
 if not exist ".env" copy ".env.example" ".env" >nul
-findstr /r /c:"^GEMINI_API_KEY=..*" ".env" >nul 2>nul && goto rodar
 
+:chave
+findstr /r /c:"^GEMINI_API_KEY=..*" ".env" >nul 2>nul && goto rodar
 echo.
 echo ------------------------------------------------------------
 echo  Falta so a sua chave do Gemini.
 echo  1. Pegue uma chave gratis em https://aistudio.google.com/apikey
-echo  2. No Bloco de Notas que vai abrir, cole depois de GEMINI_API_KEY=
-echo  3. Salve (Ctrl+S), feche o Bloco de Notas e volte aqui.
+echo  2. No Bloco de Notas que vai abrir, cole a chave LOGO DEPOIS
+echo     de GEMINI_API_KEY=  (na mesma linha, sem espaco)
+echo  3. Aperte Ctrl+S para SALVAR. Fechar sem salvar nao grava a chave.
 echo ------------------------------------------------------------
-start /wait notepad ".env"
+notepad ".env"
+echo.
+echo Depois de salvar, volte aqui e aperte qualquer tecla.
+pause >nul
+findstr /r /c:"^GEMINI_API_KEY=..*" ".env" >nul 2>nul && goto rodar
+echo.
+echo A chave ainda nao foi salva no arquivo. Vamos tentar de novo.
+goto chave
 
 :rodar
 echo.
