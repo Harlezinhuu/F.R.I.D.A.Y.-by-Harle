@@ -31,7 +31,8 @@ function lerEnv(caminho: string): Record<string, string> {
     let valor = m[2].replace(/\s+#.*$/, '').trim().replace(/^["']|["']$/g, '').trim()
     // Chave colada na linha de baixo, em vez de depois do "="
     if (!valor && nome.endsWith('_API_KEY') && CHAVE_GOOGLE.test(linhas[i + 1]?.trim() ?? '')) valor = linhas[i + 1].trim()
-    saida[nome] = valor
+    // Uma linha vazia repetida nunca apaga um valor já preenchido
+    if (valor || !(nome in saida)) saida[nome] = valor
   }
   // Chave colada sozinha em qualquer linha
   if (!saida.GEMINI_API_KEY) {
