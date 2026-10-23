@@ -1,0 +1,38 @@
+{
+  "name": "friday",
+  "productName": "F.R.I.D.A.Y",
+  "version": "0.1.0",
+  "description": "F.R.I.D.A.Y — assistente pessoal para Windows controlada 100% por voz, com HUD holográfico em 3D.",
+  "private": true,
+  "author": "Harle (Ahmad Mourad)",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "modelo": "node scripts/baixar-modelo.mjs",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "dependencies": {
+    "@google/genai": "^1.20.0",
+    "three": "^0.170.0",
+    "vosk-browser": "^0.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/three": "^0.170.0",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^3.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  },
+  "build": {
+    "appId": "dev.harle.friday",
+    "productName": "F.R.I.D.A.Y",
+    "files": ["out/**"],
+    "extraResources": [{ "from": "resources", "to": "resources", "filter": ["**/*"] }],
+    "win": { "target": "nsis" }
+  }
+}

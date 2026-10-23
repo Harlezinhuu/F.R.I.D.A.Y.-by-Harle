@@ -1,0 +1,125 @@
+/* HUD da FRIDAY: sobreposição transparente na área de trabalho.
+   Compacto: só o núcleo no canto da tela. Expandido: véu escuro, núcleo no centro, cartões e legenda. */
+:root {
+  --ink: #E4ECFF;
+  --muted: #93A3C8;
+  --holo: #6FB8FF;
+  --alert: #FF8A3D;
+  --ok: #5BE3A8;
+  --glass: rgba(12, 24, 52, .5);
+  --line: rgba(111, 184, 255, .26);
+  --state: #6FB8FF;
+  --f-display: 'Tektur', 'Bahnschrift', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --f-data: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+html, body { height: 100%; margin: 0; overflow: hidden }
+body { background: transparent; color: var(--ink); font-family: var(--f-body); font-size: 15px; user-select: none; cursor: default }
+
+/* Véu do modo expandido */
+.veu { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 55%, rgba(14, 26, 58, .78), rgba(3, 5, 11, .9) 70%); opacity: 0; transition: opacity .6s ease }
+body.expandido .veu { opacity: 1 }
+
+/* Elementos que só existem no modo expandido */
+.top, .col, .bottom, .ro { transition: opacity .5s ease, transform .5s var(--ease) }
+body.compacto .top, body.compacto .col, body.compacto .bottom, body.compacto .ro { opacity: 0; pointer-events: none }
+body.compacto .top { transform: translateY(-12px) }
+
+/* Topo */
+.top { position: fixed; top: 24px; left: 32px; right: 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px }
+.brand { display: flex; align-items: center; gap: 14px }
+.wordmark { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .42em; margin: 0; text-shadow: 0 0 12px rgba(111, 184, 255, .55), 0 0 28px rgba(111, 184, 255, .25) }
+.status { display: flex; align-items: center; gap: 20px; font-family: var(--f-data); font-size: 12px; color: var(--muted); letter-spacing: .08em }
+.dot { width: 8px; height: 8px; background: var(--ok); display: inline-block; margin-right: 8px; box-shadow: 0 0 10px var(--ok); transition: background .4s, box-shadow .4s }
+.dot.blink { animation: blink 1s steps(1) infinite }
+.state-tag { color: var(--state); text-shadow: 0 0 10px var(--state); transition: color .6s }
+
+/* Núcleo: canto da tela ou centro */
+.core { position: fixed; right: 24px; bottom: 24px; width: 230px; height: 230px; transition: right .7s var(--ease), bottom .7s var(--ease), width .7s var(--ease), height .7s var(--ease) }
+body.expandido .core { right: calc(50% - min(28vw, 430px)); bottom: calc(50% - min(32vh, 320px)); width: min(56vw, 860px); height: min(64vh, 640px) }
+.core canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block }
+.core-label { position: absolute; left: 50%; bottom: 2%; transform: translateX(-50%); font-family: var(--f-display); font-size: 12px; letter-spacing: .5em; color: var(--state); text-shadow: 0 0 12px var(--state); white-space: nowrap; transition: color .6s, font-size .5s }
+body.compacto .core-label { font-size: 9px; letter-spacing: .35em }
+.ro { position: absolute; font-family: var(--f-data); font-size: 11px; letter-spacing: .1em; color: var(--muted); opacity: .5; display: flex; gap: 8px; font-variant-numeric: tabular-nums }
+.ro span { color: var(--state) }
+.ro.tl { left: 3%; top: 4% } .ro.tr { right: 3%; top: 4% } .ro.bl { left: 3%; bottom: 4% }
+body.expandido .core.pensando .ro { opacity: 1; color: var(--ink) }
+.confirm { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: min(340px, 90%); padding: 20px; background: rgba(30, 14, 4, .78); border: 1px solid rgba(255, 138, 61, .55); backdrop-filter: blur(8px); box-shadow: 0 0 40px rgba(255, 138, 61, .25), inset 0 0 20px rgba(255, 138, 61, .1); display: flex; flex-direction: column; gap: 12px }
+.confirm h2 { margin: 0; font-family: var(--f-display); font-size: 13px; letter-spacing: .3em; color: var(--alert) }
+.confirm p { margin: 0; font-size: 16px; line-height: 1.45 }
+.confirm small { font-family: var(--f-data); font-size: 12px; color: #E2C2AC }
+
+/* Painéis laterais (abrem só quando pedidos por voz) */
+.col { position: fixed; top: 50%; width: 290px; perspective: 1400px; transform: translateY(-50%) }
+.esquerda { left: 4vw } .direita { right: 4vw }
+.panel, .card { position: relative; padding: 18px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(10px); box-shadow: inset 0 0 24px rgba(111, 184, 255, .08), 0 0 32px rgba(111, 184, 255, .06); display: flex; flex-direction: column; gap: 16px }
+.panel { opacity: 0; visibility: hidden; transition: opacity .5s ease, transform .5s var(--ease), visibility 0s linear .5s }
+.panel.open { opacity: 1; visibility: visible; transition: opacity .5s ease, transform .5s var(--ease), visibility 0s; animation: flick 6s .6s infinite }
+.left { transform: rotateY(16deg) } .right, .card { transform: rotateY(-16deg) }
+.left:not(.open) { transform: rotateY(55deg) translateX(-40px) scale(.9) }
+.right:not(.open) { transform: rotateY(-55deg) translateX(40px) scale(.9) }
+.panel::before, .panel::after, .card::before, .card::after { content: ""; position: absolute; width: 14px; height: 14px; border-color: var(--state); border-style: solid; transition: border-color .6s }
+.panel::before, .card::before { left: -1px; top: -1px; border-width: 2px 0 0 2px }
+.panel::after, .card::after { right: -1px; bottom: -1px; border-width: 0 2px 2px 0 }
+.scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(111, 184, 255, .045) 2px 3px) }
+.label { font-family: var(--f-display); font-size: 11px; font-weight: 500; letter-spacing: .32em; color: var(--muted); margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px }
+@keyframes flick { 0%, 97%, 100% { opacity: 1 } 98% { opacity: .86 } 99% { opacity: .97 } }
+@keyframes blink { 50% { opacity: 0 } }
+
+/* Cartões contextuais */
+.cards { position: fixed; right: 24px; bottom: 270px; width: 290px; perspective: 1400px; transition: right .7s var(--ease), bottom .7s var(--ease) }
+body.expandido .cards { right: 4vw; bottom: calc(50% - 90px) }
+.card { transition: opacity .5s ease, transform .55s var(--ease) }
+.card.enter { opacity: 0; transform: rotateY(-62deg) translateX(60px) scale(.86) }
+.card .timer { height: 2px; background: rgba(111, 184, 255, .12); margin-top: -4px }
+.card .timer i { display: block; height: 100%; background: var(--state); animation: drain linear forwards }
+@keyframes drain { from { width: 100% } to { width: 0 } }
+.big { font-family: var(--f-data); font-weight: 500; font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums }
+.big small { font-size: 16px; color: var(--muted); margin-left: 2px }
+.row { display: flex; align-items: center; gap: 16px }
+.stack { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 }
+.meta { font-family: var(--f-data); font-size: 12px; color: var(--muted) }
+.ring .val, .gauge .val { stroke: var(--state); filter: drop-shadow(0 0 5px var(--state)); transition: stroke .6s, stroke-dasharray .8s ease }
+.track { stroke: rgba(111, 184, 255, .14) }
+.ring text, .gauge text { font-family: var(--f-data); font-size: 15px; fill: var(--ink) }
+.eq { display: flex; align-items: flex-end; gap: 3px; height: 34px }
+.eq span { width: 4px; background: var(--state); animation: eq 1s ease-in-out infinite; transform-origin: bottom }
+@keyframes eq { 0%, 100% { transform: scaleY(.25) } 50% { transform: scaleY(1) } }
+.song { font-family: var(--f-display); font-size: 20px; letter-spacing: .06em; margin: 0 }
+.bar { height: 3px; background: rgba(111, 184, 255, .14) }
+.bar i { display: block; height: 100%; background: var(--state); transition: width .6s ease }
+.when { font-family: var(--f-display); font-size: 12px; letter-spacing: .24em; color: var(--state) }
+.what { font-size: 18px; margin: 0 }
+
+/* Medidores */
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+.gauge { display: flex; flex-direction: column; align-items: center; gap: 6px }
+.gauge svg { width: 100%; max-width: 72px; height: auto; overflow: visible }
+.gauge span { font-family: var(--f-data); font-size: 11px; color: var(--muted); letter-spacing: .12em }
+.latency { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px }
+.latency b { font-family: var(--f-data); font-weight: 500; font-size: 22px; font-variant-numeric: tabular-nums }
+.latency small { font-family: var(--f-data); font-size: 11px; color: var(--muted) }
+.latency svg { flex: 1; height: 40px; min-width: 0 }
+
+/* Programas e ações */
+.mods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+.mods span { font-size: 12px; padding: 6px 8px; border: 1px solid var(--line); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px }
+.acts li { display: flex; align-items: center; gap: 10px; font-size: 13px }
+.acts li time { margin-left: auto; font-family: var(--f-data); font-size: 11px; color: var(--muted) }
+.acts li.vazio { color: var(--muted) }
+
+/* Legenda: só aparece enquanto alguém fala */
+.bottom { position: fixed; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(760px, 90vw) }
+.subtitle { text-align: center; display: flex; flex-direction: column; gap: 4px; opacity: 0; transition: opacity .6s ease }
+.subtitle.visivel { opacity: 1 }
+.who { font-family: var(--f-data); font-size: 11px; letter-spacing: .24em; color: var(--state); transition: color .6s }
+.line { font-size: 20px; font-weight: 300; text-wrap: balance; text-shadow: 0 1px 12px rgba(3, 5, 11, .9) }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .card, .core, .cards, .veu { transition: none; animation: none }
+  .eq span { animation: none }
+}

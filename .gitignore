@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+
+# Segredos: a chave da API nunca vai para o GitHub
+.env
+.env.*
+!.env.example
+
+# Modelo de palavra de ativação (baixado com `npm run modelo`)
+resources/models/*
+!resources/models/.gitkeep

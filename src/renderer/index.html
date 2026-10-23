@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>F.R.I.D.A.Y</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' blob: data: friday-assets: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700&family=Sora:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./src/estilo.css" />
+</head>
+<body class="compacto">
+  <div class="veu" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><polygon points="15,2 27,9 27,21 15,28 3,21 3,9" fill="none" stroke="#6FB8FF" stroke-width="1.4"/><polygon points="15,9 21,12.5 21,17.5 15,21 9,17.5 9,12.5" fill="#6FB8FF" opacity=".55"/></svg>
+      <h1 class="wordmark">F.R.I.D.A.Y</h1>
+    </div>
+    <div class="status">
+      <span><span class="dot" id="dot"></span><span id="statusTxt">ONLINE · GEMINI LIVE</span></span>
+      <span>ESTADO <span class="state-tag" id="stateTag">EM REPOUSO</span></span>
+      <span id="relogio">--:--</span>
+    </div>
+  </header>
+
+  <aside class="col esquerda">
+    <div class="panel left" id="pSys" aria-label="Sistema">
+      <div class="scan"></div>
+      <h2 class="label">SISTEMA</h2>
+      <div class="gauges" id="gauges"></div>
+      <div>
+        <h2 class="label" style="margin-bottom:10px">LATÊNCIA DA RESPOSTA</h2>
+        <div class="latency">
+          <div><b id="latVal">—</b> <small>ms</small></div>
+          <svg viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline id="latLine" fill="none" stroke="#6FB8FF" stroke-width="1.5" points=""/></svg>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="core" id="core" aria-label="Núcleo da FRIDAY">
+    <div class="ro tl" aria-hidden="true"><span>Φ</span><b id="ro1">0.0000</b></div>
+    <div class="ro tr" aria-hidden="true"><span>Δt</span><b id="ro2">00:00.00</b></div>
+    <div class="ro bl" aria-hidden="true"><span>λ</span><b id="ro3">0.000</b></div>
+    <div class="core-label" id="coreLabel">EM REPOUSO</div>
+    <div class="confirm" id="confirm" role="status" hidden>
+      <h2>CONFIRMAR AÇÃO</h2>
+      <p id="confirmTxt"></p>
+      <small>Diga "confirmar" ou "cancelar"</small>
+    </div>
+  </section>
+
+  <aside class="col direita">
+    <div class="panel right" id="pMods" aria-label="Módulos e ações">
+      <div class="scan"></div>
+      <h2 class="label">PROGRAMAS PERMITIDOS</h2>
+      <div class="mods" id="mods"></div>
+      <h2 class="label">ÚLTIMAS AÇÕES</h2>
+      <ul class="acts" id="acts"><li class="vazio">Nada ainda.</li></ul>
+    </div>
+  </aside>
+
+  <div class="cards" id="cards" aria-live="polite"></div>
+
+  <footer class="bottom">
+    <div class="subtitle" id="legenda" aria-live="polite">
+      <div class="who" id="who"></div>
+      <div class="line" id="line"></div>
+    </div>
+  </footer>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
