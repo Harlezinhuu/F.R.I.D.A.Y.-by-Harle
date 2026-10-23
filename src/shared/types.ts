@@ -6,6 +6,10 @@ export interface FridayConfig {
   voz: string
   nome: string
   silencioSegundos: number
+  /** De onde vem a voz da FRIDAY: a própria voz do Gemini ou o Fish Audio */
+  vozProvedor: 'gemini' | 'fish'
+  /** Camada de efeito de "voz de IA" por cima da voz */
+  efeitoVoz: boolean
   /** URL do modelo de palavra de ativação, ou null se ainda não foi baixado */
   modeloAtivacaoUrl: string | null
 }

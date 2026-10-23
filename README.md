@@ -88,6 +88,18 @@ Diga **"Friday"** e faça o pedido. Alguns exemplos:
 
 **Atalho de emergência:** `Ctrl + Alt + Espaço` silencia a FRIDAY na hora, de qualquer lugar. Aperte de novo para ela voltar a ouvir. O ícone na bandeja do Windows tem a opção **Sair**.
 
+### Escolhendo a voz
+
+Por padrão, a FRIDAY fala com a voz nativa do Gemini, que é a mais rápida. Para usar uma voz do [Fish Audio](https://fish.audio), coloque no `.env`:
+
+```env
+FRIDAY_VOZ_PROVEDOR=fish
+FISH_API_KEY=sua_chave
+FISH_VOZ_ID=id_da_voz
+```
+
+Nesse modo, o texto da resposta é cortado em frases e cada frase vira áudio assim que fica pronta, então ela começa a falar antes de terminar de pensar a resposta inteira. Em qualquer voz, `FRIDAY_EFEITO_VOZ=1` aplica uma camada de "voz de IA": presença, brilho digital, compressão de rádio e uma sala curta.
+
 ### Adicionando programas
 
 Pelo ícone na bandeja, escolha **Editar programas permitidos**. Cada programa tem um nome, apelidos (como você fala) e o alvo que o Windows abre:

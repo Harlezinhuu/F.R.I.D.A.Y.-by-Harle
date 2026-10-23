@@ -43,24 +43,73 @@ export class Microfone {
   }
 }
 
+/**
+ * Saída da voz da FRIDAY. Com o efeito ligado, a voz passa por uma cadeia que dá o "timbre de IA":
+ * presença e brilho digitais, compressão de rádio, um leve dobramento (chorus) e uma sala curta.
+ */
 export class Alto {
   private ctx = new AudioContext({ sampleRate: 24000 })
+  private entrada = this.ctx.createGain()
   private analisador = this.ctx.createAnalyser()
   private fontes = new Set<AudioBufferSourceNode>()
   private fim = 0
   private dados = new Float32Array(1024)
 
-  constructor() {
+  constructor(efeito: boolean) {
     this.analisador.fftSize = 1024
     this.analisador.connect(this.ctx.destination)
+    if (efeito) this.montarEfeito()
+    else this.entrada.connect(this.analisador)
   }
 
-  /** Recebe um pedaço de áudio PCM 16 bits a 24 kHz em base64 e toca na sequência. */
-  enfileirar(b64: string): void {
+  private montarEfeito(): void {
+    const c = this.ctx
+    const grave = c.createBiquadFilter()
+    grave.type = 'highpass'; grave.frequency.value = 140
+    const presenca = c.createBiquadFilter()
+    presenca.type = 'peaking'; presenca.frequency.value = 3200; presenca.Q.value = 0.9; presenca.gain.value = 3
+    const brilho = c.createBiquadFilter()
+    brilho.type = 'highshelf'; brilho.frequency.value = 8000; brilho.gain.value = 2.5
+    const comp = c.createDynamicsCompressor()
+    comp.threshold.value = -22; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.12
+    this.entrada.connect(grave).connect(presenca).connect(brilho).connect(comp)
+
+    const seco = c.createGain()
+    seco.gain.value = 0.9
+    comp.connect(seco).connect(this.analisador)
+
+    // Dobramento sutil: uma cópia levemente atrasada e oscilando, o "brilho digital"
+    const atraso = c.createDelay(0.05)
+    atraso.delayTime.value = 0.012
+    const lfo = c.createOscillator(), profundidade = c.createGain()
+    lfo.frequency.value = 0.25; profundidade.gain.value = 0.0015
+    lfo.connect(profundidade).connect(atraso.delayTime)
+    lfo.start()
+    const coro = c.createGain()
+    coro.gain.value = 0.18
+    comp.connect(atraso).connect(coro).connect(this.analisador)
+
+    // Sala curta gerada na hora: dá corpo de holograma sem virar eco
+    const dur = 0.45, n = Math.floor(c.sampleRate * dur)
+    const ir = c.createBuffer(2, n, c.sampleRate)
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch)
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3)
+    }
+    const sala = c.createConvolver()
+    sala.buffer = ir
+    const molhado = c.createGain()
+    molhado.gain.value = 0.1
+    comp.connect(sala).connect(molhado).connect(this.analisador)
+  }
+
+  /** Recebe um pedaço de áudio PCM 16 bits mono em base64 e toca na sequência. */
+  enfileirar(b64: string, taxa = 24000): void {
     if (this.ctx.state === 'suspended') this.ctx.resume()
     const bin = atob(b64)
     const n = bin.length >> 1
-    const buffer = this.ctx.createBuffer(1, n, 24000)
+    if (!n) return
+    const buffer = this.ctx.createBuffer(1, n, taxa)
     const canal = buffer.getChannelData(0)
     for (let i = 0; i < n; i++) {
       let s = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8)
@@ -69,7 +118,7 @@ export class Alto {
     }
     const fonte = this.ctx.createBufferSource()
     fonte.buffer = buffer
-    fonte.connect(this.analisador)
+    fonte.connect(this.entrada)
     const inicio = Math.max(this.ctx.currentTime + 0.02, this.fim)
     fonte.start(inicio)
     this.fim = inicio + buffer.duration

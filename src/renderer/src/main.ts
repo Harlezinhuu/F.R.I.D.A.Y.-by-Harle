@@ -8,6 +8,7 @@ import { sons } from './hud/sons'
 import { Microfone, Alto, pcm16Base64 } from './voz/audio'
 import { SessaoLive, type ChamadaFerramenta } from './voz/live'
 import { PalavraAtivacao } from './voz/ativacao'
+import { FalaFish } from './voz/fish'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
 const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativação também vai para a IA
@@ -18,7 +19,10 @@ async function iniciar(): Promise<void> {
   const hud = new Hud()
   const cfg = await window.friday.config()
   const mic = new Microfone()
-  const alto = new Alto()
+  const alto = new Alto(cfg.efeitoVoz)
+  // Com o Fish Audio, a voz do Gemini é descartada e o texto da resposta vira fala pelo Fish
+  const fala = cfg.vozProvedor === 'fish' ? new FalaFish() : null
+  const falandoAgora = () => alto.tocando || (fala?.ocupado ?? false)
   const ativacao = new PalavraAtivacao()
 
   let conversando = false
@@ -50,14 +54,8 @@ async function iniciar(): Promise<void> {
 
   const live = new SessaoLive(cfg, {
     aoAudio(b64) {
-      if (primeiroAudioDoTurno) {
-        primeiroAudioDoTurno = false
-        turnoUsuarioFechado = true
-        if (fimFalaUsuario) { hud.latencia(performance.now() - fimFalaUsuario); fimFalaUsuario = 0 }
-      }
-      alto.enfileirar(b64)
-      hud.setEstado('falando')
-      atividade()
+      if (fala) { turnoUsuarioFechado = true; return }
+      tocarVoz(b64, 24000)
     },
     aoTextoUsuario(t) {
       if (turnoUsuarioFechado) { textoUsuario = ''; turnoUsuarioFechado = false }
@@ -66,17 +64,20 @@ async function iniciar(): Promise<void> {
       atividade()
     },
     aoTextoFriday(t) {
+      fala?.adicionar(t)
       textoFriday += t
       hud.legenda('FRIDAY', textoFriday.trim())
     },
     aoInterrompido() {
       // Você falou por cima: ela para na hora
+      fala?.cancelar()
       alto.limpar()
       textoFriday = ''
       primeiroAudioDoTurno = true
       if (!alertaPendente) hud.setEstado('ouvindo')
     },
     aoFimDoTurno() {
+      fala?.finalizar()
       primeiroAudioDoTurno = true
       textoFriday = ''
       if (alertaPendente && ++turnosDesdeAlerta >= 2) limparAlerta()
@@ -89,6 +90,25 @@ async function iniciar(): Promise<void> {
       void reconectar(false)
     }
   })
+
+  function tocarVoz(b64: string, taxa: number): void {
+    if (primeiroAudioDoTurno) {
+      primeiroAudioDoTurno = false
+      turnoUsuarioFechado = true
+      if (fimFalaUsuario) { hud.latencia(performance.now() - fimFalaUsuario); fimFalaUsuario = 0 }
+    }
+    alto.enfileirar(b64, taxa)
+    hud.setEstado('falando')
+    atividade()
+  }
+
+  if (fala) {
+    fala.aoAudio = tocarVoz
+    fala.aoErro = (msg) => {
+      sons.erro()
+      hud.cartao({ tipo: 'aviso', titulo: 'VOZ DO FISH AUDIO', texto: msg }, 10000)
+    }
+  }
 
   // ---------- Conversa ----------
 
@@ -137,6 +157,7 @@ async function iniciar(): Promise<void> {
 
   function encerrarConversa(despedida: boolean): void {
     if (!conversando) return
+    fala?.cancelar()
     conversando = false
     conectando = false
     filaConexao = []
@@ -292,10 +313,10 @@ async function iniciar(): Promise<void> {
     hud.nucleo.setNivel(alto.tocando ? alto.nivel() : nivelMic)
     if (!conversando || conectando) return
 
-    if (hud.estadoAtual === 'falando' && !alto.tocando) hud.setEstado(alertaPendente ? 'alerta' : 'ouvindo')
+    if (hud.estadoAtual === 'falando' && !falandoAgora()) hud.setEstado(alertaPendente ? 'alerta' : 'ouvindo')
     if (hud.estadoAtual === 'pensando' && fimFalaUsuario && agora - fimFalaUsuario > 8000) { fimFalaUsuario = 0; hud.setEstado('ouvindo') }
-    if (encerrarAoTerminar && !alto.tocando && agora - ultimaAtividade > 1500) { encerrarConversa(true); return }
-    if (!alto.tocando && !alertaPendente && agora - ultimaAtividade > cfg.silencioSegundos * 1000) encerrarConversa(false)
+    if (encerrarAoTerminar && !falandoAgora() && agora - ultimaAtividade > 1500) { encerrarConversa(true); return }
+    if (!falandoAgora() && !alertaPendente && agora - ultimaAtividade > cfg.silencioSegundos * 1000) encerrarConversa(false)
   }, 100)
 
   // ---------- Eventos do sistema ----------
@@ -303,6 +324,7 @@ async function iniciar(): Promise<void> {
   window.friday.aoSilenciar((v) => {
     silenciada = v
     if (v) {
+      fala?.cancelar()
       alto.limpar()
       encerrarConversa(false)
       hud.cartoes.esconder()

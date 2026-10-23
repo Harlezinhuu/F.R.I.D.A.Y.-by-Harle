@@ -5,7 +5,8 @@ import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, 
 import { existsSync } from 'node:fs'
 import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { carregarConfig, caminhosEnv, resourcesDir } from './config'
+import { carregarConfig, carregarFish, caminhosEnv, resourcesDir } from './config'
+import * as fish from './fish'
 import { executarFerramenta } from './tools'
 import { iniciarLembretes } from './reminders'
 import { arquivoApps, carregarApps } from './apps'
@@ -109,6 +110,19 @@ function registrarIpc(): void {
   })
   ipcMain.handle('ferramenta', (_e, nome: string, args: Record<string, unknown>) => executarFerramenta(nome, args))
   ipcMain.on('silencio-local', (_e, valor: boolean) => { silenciada = valor; atualizarBandeja() })
+
+  // Voz pelo Fish Audio: o áudio volta em pedaços para o HUD tocar enquanto ainda está sendo gerado
+  ipcMain.handle('fish-falar', async (e, id: number, texto: string) => {
+    const cfg = carregarFish()
+    if (!cfg.apiKey) return { ok: false, erro: 'Falta a FISH_API_KEY no .env.' }
+    try {
+      await fish.falar(cfg, id, texto, (b64) => { if (!e.sender.isDestroyed()) e.sender.send('fish-audio', id, b64, fish.FISH_SAMPLE_RATE) })
+      return { ok: true }
+    } catch (erro) {
+      return { ok: false, erro: (erro as Error).message }
+    }
+  })
+  ipcMain.on('fish-cancelar', () => fish.cancelarTudo())
 }
 
 app.whenReady().then(() => {
