@@ -5,7 +5,7 @@ import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, 
 import { existsSync } from 'node:fs'
 import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { carregarConfig, carregarFish, caminhosEnv, resourcesDir } from './config'
+import { carregarConfig, carregarFish, diagnosticoChave, resourcesDir } from './config'
 import * as fish from './fish'
 import { executarFerramenta } from './tools'
 import { iniciarLembretes } from './reminders'
@@ -21,6 +21,8 @@ let tray: Tray | null = null
 let silenciada = false
 
 if (!app.requestSingleInstanceLock()) app.quit()
+// Nome certo nas notificações do Windows (em vez de "electron.app.Electron")
+app.setAppUserModelId('dev.harle.friday')
 
 function ajustarAoMonitor(): void {
   if (!win) return
@@ -104,7 +106,7 @@ function registrarIpc(): void {
   ipcMain.handle('config', () => {
     const c = carregarConfig()
     if (!c.apiKey) {
-      new Notification({ title: 'F.R.I.D.A.Y', body: `Falta a GEMINI_API_KEY. Crie o arquivo .env em: ${caminhosEnv()[0]}` }).show()
+      new Notification({ title: 'F.R.I.D.A.Y · falta a chave do Gemini', body: diagnosticoChave() }).show()
     }
     return c
   })
