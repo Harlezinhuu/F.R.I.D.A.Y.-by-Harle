@@ -52,6 +52,10 @@ flowchart LR
 
 Requisitos: Windows 10 ou 11, [Node.js](https://nodejs.org) 20 ou mais novo e um microfone.
 
+**Jeito mais fácil:** baixe o [`instalar.bat`](instalar.bat) e dê dois cliques. Ele instala o que faltar, baixa o projeto, pede a sua chave do Gemini e já abre a FRIDAY.
+
+**Passo a passo manual:**
+
 ```bash
 git clone https://github.com/Harlezinhuu/F.R.I.D.A.Y.-by-Harle.git
 cd F.R.I.D.A.Y.-by-Harle
