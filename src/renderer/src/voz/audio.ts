@@ -17,6 +17,7 @@ export class Microfone {
   private stream: MediaStream | null = null
   aoBloco: (amostras: Float32Array, rms: number) => void = () => {}
   aoPerder: () => void = () => {}
+  descricao = ''
 
   async iniciar(): Promise<void> {
     this.parar()
@@ -33,6 +34,8 @@ export class Microfone {
     mudo.gain.value = 0
     fonte.connect(no).connect(mudo).connect(this.ctx.destination)
     for (const t of this.stream.getAudioTracks()) t.onended = () => this.aoPerder()
+    const faixa = this.stream.getAudioTracks()[0]
+    this.descricao = `"${faixa?.label ?? '?'}" · contexto ${this.ctx.sampleRate} Hz · aparelho ${faixa?.getSettings().sampleRate ?? '?'} Hz`
   }
 
   parar(): void {

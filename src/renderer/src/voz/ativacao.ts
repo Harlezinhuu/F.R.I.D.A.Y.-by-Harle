@@ -11,6 +11,7 @@ export class PalavraAtivacao {
   private ultimoDisparo = 0
   pronto = false
   aoDetectar: () => void = () => {}
+  aoOuvir: (texto: string) => void = () => {}
 
   async carregar(url: string): Promise<void> {
     const modelo = await createModel(url)
@@ -24,7 +25,7 @@ export class PalavraAtivacao {
       this.aoDetectar()
     }
     this.reconhecedor.on('partialresult', (m: { result: { partial?: string } }) => checar(m.result.partial))
-    this.reconhecedor.on('result', (m: { result: { text?: string } }) => checar(m.result.text))
+    this.reconhecedor.on('result', (m: { result: { text?: string } }) => { if (m.result.text) this.aoOuvir(m.result.text); checar(m.result.text) })
     this.pronto = true
   }
 

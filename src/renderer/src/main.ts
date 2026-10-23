@@ -15,9 +15,23 @@ const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativaç
 const BLOCOS_GATILHO_SEM_MODELO = 8 // sem modelo de ativação: fala contínua de ~320 ms abre a conversa
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// Tudo que aparece no console também vai para o friday.log
+for (const nivel of ['log', 'warn', 'error'] as const) {
+  const original = console[nivel].bind(console)
+  console[nivel] = (...args: unknown[]) => {
+    original(...args)
+    try {
+      window.friday.log(nivel, args.map((a) => (a instanceof Error ? `${a.name}: ${a.message}` : typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+    } catch { /* ignora */ }
+  }
+}
+window.addEventListener('error', (e) => console.error('[erro]', e.message, `${e.filename}:${e.lineno}`))
+window.addEventListener('unhandledrejection', (e) => console.error('[promessa]', e.reason instanceof Error ? e.reason.message : String(e.reason)))
+
 async function iniciar(): Promise<void> {
   const hud = new Hud()
   const cfg = await window.friday.config()
+  console.log(`[friday] config: chave=${cfg.apiKey ? 'sim' : 'NÃO'} modelo=${cfg.modelo} voz=${cfg.vozProvedor} ativacao=${cfg.modeloAtivacaoUrl ? 'sim' : 'NÃO'}`)
   const mic = new Microfone()
   const alto = new Alto(cfg.efeitoVoz)
   // Com o Fish Audio, a voz do Gemini é descartada e o texto da resposta vira fala pelo Fish
@@ -137,7 +151,9 @@ async function iniciar(): Promise<void> {
     preRoll = []
 
     try {
+      console.log('[friday] conectando ao Gemini...')
       await live.conectar()
+      console.log('[friday] conectado ao Gemini')
     } catch (e) {
       console.error('[friday] não conectou', e)
       conectando = false
@@ -295,6 +311,7 @@ async function iniciar(): Promise<void> {
   async function ligarMicrofone(): Promise<void> {
     try {
       await mic.iniciar()
+      console.log(`[friday] microfone ligado: ${mic.descricao}`)
       const voltou = hud.estadoAtual === 'semMic'
       micOk = true
       if (voltou) { sons.reconectou(); hud.setEstado(silenciada ? 'silenciada' : 'repouso') }
@@ -305,6 +322,14 @@ async function iniciar(): Promise<void> {
     }
   }
   navigator.mediaDevices.addEventListener('devicechange', () => { if (!micOk) void ligarMicrofone() })
+
+  // Diagnóstico: pico do microfone a cada 3 s
+  let picoMic = 0
+  setInterval(() => { picoMic = Math.max(picoMic, nivelMic) }, 100)
+  setInterval(() => {
+    console.log(`[friday] mic pico=${picoMic.toFixed(3)} estado=${hud.estadoAtual} conversando=${conversando} ativacao=${ativacao.pronto ? 'pronta' : modoSemAtivacao ? 'sem modelo' : 'carregando'}`)
+    picoMic = 0
+  }, 3000)
 
   // ---------- Ciclo do HUD ----------
 
@@ -356,7 +381,8 @@ async function iniciar(): Promise<void> {
 
   await ligarMicrofone()
 
-  ativacao.aoDetectar = () => void iniciarConversa()
+  ativacao.aoDetectar = () => { console.log('[friday] ouvi "Friday"'); void iniciarConversa() }
+  ativacao.aoOuvir = (t) => console.log(`[friday] ativação ouviu: "${t}"`)
   const semModelo = () => {
     modoSemAtivacao = true
     hud.cartao({
@@ -366,7 +392,13 @@ async function iniciar(): Promise<void> {
     }, 15000)
   }
   if (cfg.modeloAtivacaoUrl) {
-    ativacao.carregar(cfg.modeloAtivacaoUrl).catch((e) => { console.error('[friday] palavra de ativação', e); semModelo() })
+    const inicioModelo = performance.now()
+    console.log('[friday] carregando palavra de ativação...')
+    // Se o modelo não carregar em 30 s, segue sem ele em vez de ficar surda
+    const desistir = setTimeout(() => { if (!ativacao.pronto) { console.error('[friday] palavra de ativação não carregou em 30 s'); semModelo() } }, 30000)
+    ativacao.carregar(cfg.modeloAtivacaoUrl)
+      .then(() => { clearTimeout(desistir); console.log(`[friday] palavra de ativação pronta em ${Math.round(performance.now() - inicioModelo)} ms`) })
+      .catch((e) => { clearTimeout(desistir); console.error('[friday] palavra de ativação', e); semModelo() })
   } else {
     semModelo()
   }

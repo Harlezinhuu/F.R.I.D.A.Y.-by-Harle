@@ -3,6 +3,7 @@ out/
 dist/
 release/
 *.log
+friday.log
 
 # Segredos: a chave da API nunca vai para o GitHub
 .env

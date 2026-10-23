@@ -255,7 +255,7 @@ export class Nucleo {
       case 'alerta': return 0.2 + (Math.sin(t * 5) > 0 ? 0.12 : 0)
       case 'offline': return Math.random() < 0.08 ? 0.3 : 0.02
       case 'silenciada': case 'semMic': return 0
-      default: return 0.05 + Math.sin(t * 0.8) * 0.03
+      default: return Math.min(0.4, 0.05 + Math.sin(t * 0.8) * 0.03 + n * 2)
     }
   }
 

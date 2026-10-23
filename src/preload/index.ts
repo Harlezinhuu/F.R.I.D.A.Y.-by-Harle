@@ -3,6 +3,7 @@ import type { FridayApi } from './api'
 
 const api: FridayApi = {
   config: () => ipcRenderer.invoke('config'),
+  log: (nivel, texto) => ipcRenderer.send('log', nivel, texto),
   ferramenta: (nome, args) => ipcRenderer.invoke('ferramenta', nome, args),
   avisarSilencio: (valor) => ipcRenderer.send('silencio-local', valor),
   aoSilenciar: (cb) => { ipcRenderer.on('silenciar', (_e, v: boolean) => cb(v)) },

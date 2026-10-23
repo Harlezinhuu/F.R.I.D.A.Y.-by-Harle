@@ -2,7 +2,7 @@
 // atalho de emergência e a ponte entre a IA e o Windows.
 
 import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, nativeImage, net, protocol, screen, session, shell } from 'electron'
-import { existsSync } from 'node:fs'
+import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
 import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { carregarConfig, carregarFish, diagnosticoChave, resourcesDir } from './config'
@@ -102,7 +102,18 @@ function registrarProtocolo(): void {
   })
 }
 
+/** Registro de diagnóstico: friday.log na pasta do projeto (ou na pasta de dados, no app instalado). */
+const arquivoLog = (): string => join(app.isPackaged ? app.getPath('userData') : app.getAppPath(), 'friday.log')
+function log(nivel: string, texto: string): void {
+  // Chaves nunca vão para o log, nem dentro de mensagens de erro
+  const limpo = texto
+    .replace(/(key|token|authorization)=([^&\s"']+)/gi, '$1=***')
+    .replace(/AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,}|sk-[0-9A-Za-z_-]{20,}|Bearer\s+\S+/g, '***')
+  try { appendFileSync(arquivoLog(), `${new Date().toISOString()} [${nivel}] ${limpo}\n`) } catch { /* sem disco, sem log */ }
+}
+
 function registrarIpc(): void {
+  ipcMain.on('log', (_e, nivel: string, texto: string) => log(nivel, String(texto).slice(0, 2000)))
   ipcMain.handle('config', () => {
     const c = carregarConfig()
     if (!c.apiKey) {
@@ -128,6 +139,8 @@ function registrarIpc(): void {
 }
 
 app.whenReady().then(() => {
+  try { writeFileSync(arquivoLog(), '') } catch { /* ignora */ }
+  log('main', `FRIDAY iniciando · Electron ${process.versions.electron} · ${process.platform}`)
   session.defaultSession.setPermissionRequestHandler((_wc, permissao, responder) => responder(permissao === 'media'))
   session.defaultSession.setPermissionCheckHandler((_wc, permissao) => permissao === 'media')
 
