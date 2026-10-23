@@ -388,7 +388,9 @@ async function iniciar(): Promise<void> {
     hud.cartao({
       tipo: 'aviso',
       titulo: 'SEM PALAVRA DE ATIVAÇÃO',
-      texto: 'Rode "npm run modelo" para ela só acordar com "Friday". Por enquanto, ela acorda quando ouve alguém falar.'
+      texto: cfg.modeloAtivacaoUrl
+        ? 'O reconhecedor do "Friday" não carregou. Por enquanto, ela acorda quando ouve alguém falar.'
+        : 'Rode "npm run modelo" para ela só acordar com "Friday". Por enquanto, ela acorda quando ouve alguém falar.'
     }, 15000)
   }
   if (cfg.modeloAtivacaoUrl) {
