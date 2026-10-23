@@ -141,6 +141,12 @@ scripts/       download do modelo de ativação
 - [ ] Controle por gestos com a câmera
 - [ ] Palavra de ativação treinada com sotaque brasileiro
 
+## Licença e autoria
+
+© 2026 Ahmad Mourad (**Harle**). **Todos os direitos reservados.**
+
+Este repositório é público só para visualização e portfólio. Não é permitido copiar, modificar, redistribuir ou apresentar este código como seu sem autorização por escrito. Veja o arquivo [LICENSE](LICENSE). Para pedir permissão, fale comigo pelo LinkedIn.
+
 ---
 
 <div align="center">Feito por <b>Harle</b> · <a href="https://www.linkedin.com/in/ahmad-mourad-bb0960300/">LinkedIn</a></div>

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { cortarFrases, cortarPrimeiro } from '../src/renderer/src/voz/frases.ts'

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Clima pelo Open-Meteo (grátis, sem chave). A cidade vem do pedido, do FRIDAY_CIDADE no .env
 // ou, sem nada disso, da localização aproximada pelo IP.
 

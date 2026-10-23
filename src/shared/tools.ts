@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Ferramentas que a FRIDAY pode usar. A IA só age no PC por aqui:
 // nada de comandos livres, só ações conhecidas e seguras.
 

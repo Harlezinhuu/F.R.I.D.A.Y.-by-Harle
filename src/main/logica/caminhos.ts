@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Tradução de "downloads/fotos/praia.png" para um caminho real, sempre dentro das pastas pessoais.
 // A FRIDAY nunca mexe fora delas: nada de Windows, Arquivos de Programas ou outras contas.
 

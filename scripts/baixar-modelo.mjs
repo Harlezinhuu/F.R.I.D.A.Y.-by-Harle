@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Baixa o modelo de reconhecimento da palavra "Friday" (Vosk, ~40 MB) e prepara para o HUD.
 // Uso: npm run modelo
 //

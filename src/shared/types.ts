@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Tipos compartilhados entre o processo principal (main) e o HUD (renderer).
 
 export interface FridayConfig {

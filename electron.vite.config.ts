@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({

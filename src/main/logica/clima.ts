@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Tradução dos códigos de tempo do Open-Meteo (padrão WMO) para português.
 
 const CODIGOS: Record<number, string> = {

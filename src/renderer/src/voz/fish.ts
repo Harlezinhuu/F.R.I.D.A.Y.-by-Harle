@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Fala pelo Fish Audio: o texto que o Gemini vai gerando é cortado em pedaços,
 // e cada pedaço vira áudio assim que fica pronto.
 //

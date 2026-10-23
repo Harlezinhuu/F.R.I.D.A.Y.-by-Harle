@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Captura do microfone em blocos de 40 ms (640 amostras a 16 kHz), com o nível (RMS) de cada bloco.
 class PcmCapture extends AudioWorkletProcessor {
   constructor() {

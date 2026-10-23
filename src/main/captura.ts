@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Captura de tela sem o próprio HUD aparecer no print.
 
 import { app, desktopCapturer, screen, type BrowserWindow } from 'electron'

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Conexão de voz em tempo real com o Gemini Live: áudio entra, áudio sai, e a IA chama ferramentas.
 
 import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from '@google/genai'

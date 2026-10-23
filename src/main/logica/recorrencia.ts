@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Cálculo da próxima vez que um lembrete repetido toca. Sem dependências, para ter testes.
 // Usa o horário local do PC, então "todo dia às 8h" continua às 8h mesmo com horário de verão.
 

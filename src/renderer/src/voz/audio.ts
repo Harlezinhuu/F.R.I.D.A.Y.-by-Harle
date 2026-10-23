@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Entrada (microfone a 16 kHz) e saída (voz da FRIDAY a 24 kHz) de áudio.
 
 export function pcm16Base64(f: Float32Array): string {

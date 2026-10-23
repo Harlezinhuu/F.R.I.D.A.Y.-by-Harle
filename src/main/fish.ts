@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Voz pelo Fish Audio: recebe uma frase e devolve o áudio em pedaços, conforme vai sendo gerado.
 // Roda no processo principal para a chave do Fish Audio nunca chegar ao HUD.
 

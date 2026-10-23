@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { proximaOcorrencia, primeiraOcorrencia } from '../src/main/logica/recorrencia.ts'

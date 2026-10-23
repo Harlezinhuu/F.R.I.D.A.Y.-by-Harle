@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Sons de interface, sintetizados na hora (sem arquivos de áudio).
 // Servem para você saber o que a FRIDAY está fazendo mesmo sem olhar para a tela.
 

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Arquivos nas pastas pessoais: listar, abrir, mover, renomear, criar pasta, mandar para a lixeira e desfazer.
 // Nada é sobrescrito, nada sai das pastas pessoais, e apagar sempre vai para a Lixeira.
 

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Cartões contextuais: aparecem ao lado do núcleo com só o que importa para o pedido e somem sozinhos.
 
 import type { Card } from '../../../shared/types'

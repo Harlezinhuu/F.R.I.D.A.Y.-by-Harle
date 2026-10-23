@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Lembretes e timers salvos em disco: continuam valendo se o PC reiniciar.
 // Os que venceram com o PC desligado são avisados como atrasados ao ligar.
 

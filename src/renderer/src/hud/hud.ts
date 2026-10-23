@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Controle da interface: estados, modo compacto/expandido, legenda, painéis e cartões.
 
 import { Nucleo, ESTADOS, type Estado } from './nucleo'

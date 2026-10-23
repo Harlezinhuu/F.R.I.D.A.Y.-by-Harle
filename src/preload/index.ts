@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import { contextBridge, ipcRenderer } from 'electron'
 import type { FridayApi } from './api'
 

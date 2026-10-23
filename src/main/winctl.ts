@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Controle do Windows (volume e teclas de mídia) por um processo PowerShell que fica aberto.
 // O C# é compilado uma vez só, então cada comando responde em milissegundos.
 

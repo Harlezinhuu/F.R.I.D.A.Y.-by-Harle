@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Leitura de uso do sistema: CPU e RAM pelo Node, placa de vídeo pelo nvidia-smi (placas NVIDIA).
 
 import { cpus, totalmem, freemem } from 'node:os'

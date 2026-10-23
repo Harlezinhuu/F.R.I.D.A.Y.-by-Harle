@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Palavra de ativação "Friday", reconhecida 100% no seu PC (Vosk), sem mandar áudio para a internet.
 // Só depois de ouvir "Friday" a conversa com o Gemini começa.
 

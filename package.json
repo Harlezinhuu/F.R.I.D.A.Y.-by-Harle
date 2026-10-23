@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "F.R.I.D.A.Y — assistente pessoal para Windows controlada 100% por voz, com HUD holográfico em 3D.",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "author": "Harle (Ahmad Mourad)",
   "main": "./out/main/index.js",
   "scripts": {

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Processo principal: janela do HUD sobreposta à área de trabalho, ícone na bandeja,
 // atalho de emergência e a ponte entre a IA e o Windows.
 

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Cérebro do HUD: liga microfone, palavra de ativação, Gemini Live, ferramentas e interface.
 //
 // Fluxo: repouso no canto da tela → ouve "Friday" no seu PC → abre a conversa com o Gemini

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Validação de rotinas ("modo trabalho": abre o Chrome, abre o Spotify, volume em 30).
 // Cada passo precisa ser uma ferramenta conhecida e segura; um passo ruim recusa a rotina inteira.
 

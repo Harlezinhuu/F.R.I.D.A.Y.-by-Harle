@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Núcleo 3D da FRIDAY: holograma de partículas em fita de Möbius, projetado de uma base.
 // A fita reage ao nível real do áudio (sua voz quando ela ouve, a voz dela quando fala).
 

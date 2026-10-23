@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Lista de programas que a FRIDAY pode abrir e fechar.
 // Fica num arquivo editável (apps.json na pasta de dados), então você adiciona os seus.
 // A IA só escolhe um NOME desta lista; o comando de abrir vem do arquivo, nunca da IA.

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Corta o texto que vai chegando em frases completas, para a voz começar antes da resposta acabar.
 
 const FIM_DE_FRASE = /([.!?…]+["')\]]?\s+|\n+)/

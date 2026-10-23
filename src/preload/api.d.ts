@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import type { FridayConfig, Lembrete, ToolResult } from '../shared/types'
 
 /** O que o HUD consegue pedir ao processo principal. */

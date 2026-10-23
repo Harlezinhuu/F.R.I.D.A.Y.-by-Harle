@@ -35,6 +35,9 @@ body.compacto .top { transform: translateY(-12px) }
 .top { position: fixed; top: 24px; left: 32px; right: 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px }
 .brand { display: flex; align-items: center; gap: 14px }
 .wordmark { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .42em; margin: 0; text-shadow: 0 0 12px rgba(111, 184, 255, .55), 0 0 28px rgba(111, 184, 255, .25) }
+.assinatura { font-family: var(--f-data); font-size: 11px; letter-spacing: .24em; color: var(--muted); text-transform: uppercase }
+.credito { position: absolute; right: 2%; bottom: 2%; font-family: var(--f-data); font-size: 9px; letter-spacing: .2em; color: var(--muted); opacity: .45; white-space: nowrap; pointer-events: none }
+body.expandido .credito { opacity: .6; font-size: 10px }
 .status { display: flex; align-items: center; gap: 20px; font-family: var(--f-data); font-size: 12px; color: var(--muted); letter-spacing: .08em }
 .dot { width: 8px; height: 8px; background: var(--ok); display: inline-block; margin-right: 8px; box-shadow: 0 0 10px var(--ok); transition: background .4s, box-shadow .4s }
 .dot.blink { animation: blink 1s steps(1) infinite }

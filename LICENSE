@@ -1,0 +1,24 @@
+F.R.I.D.A.Y — Copyright (c) 2026 Ahmad Mourad ("Harle"). Todos os direitos reservados.
+
+Este repositório é público apenas para fins de visualização e portfólio.
+
+Sem a autorização prévia e por escrito do autor, NÃO é permitido:
+  - copiar, reproduzir ou redistribuir este código, no todo ou em parte;
+  - modificar, criar obras derivadas ou incorporar este código em outros projetos;
+  - publicar, vender, sublicenciar ou apresentar este projeto (ou partes dele) como trabalho próprio;
+  - remover ou alterar os avisos de autoria e os créditos ("by Harle").
+
+É permitido apenas ver o código no GitHub e usar a função de fork da própria plataforma,
+nos limites dos Termos de Serviço do GitHub, sem nenhum direito de uso além disso.
+
+Para pedir autorização: https://www.linkedin.com/in/ahmad-mourad-bb0960300/
+
+---
+
+Copyright (c) 2026 Ahmad Mourad ("Harle"). All rights reserved.
+This repository is public for viewing and portfolio purposes only. No permission is granted to copy,
+modify, distribute, sublicense, sell or present this code (in whole or in part) as your own, or to
+remove the author credits, without prior written permission from the author.
+
+Bibliotecas de terceiros usadas pelo projeto (Electron, Three.js, Google GenAI SDK, Vosk e outras)
+continuam sob as licenças delas; este aviso vale somente para o código deste repositório.

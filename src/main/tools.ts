@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Execução das ferramentas que a IA pede. Cada uma devolve uma mensagem curta para a IA
 // e, quando faz sentido, um cartão para o HUD mostrar.
 

@@ -1,3 +1,4 @@
+// F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Rotinas salvas em disco (rotinas.json na pasta de dados).
 
 import { app } from 'electron'
