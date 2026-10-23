@@ -25,6 +25,8 @@ export class SessaoLive {
   private ai: GoogleGenAI
   private sessao: Session | null = null
   private geracao = 0
+  /** Ajustes de rapidez (fim de fala mais cedo, pouco raciocínio). Desligam sozinhos se o modelo recusar. */
+  private usarAjustesRapidos = true
   aberta = false
 
   constructor(private cfg: FridayConfig, private ev: EventosLive) {
@@ -43,6 +45,15 @@ export class SessaoLive {
       outputAudioTranscription: {},
       contextWindowCompression: { slidingWindow: {} }
     }
+    if (this.usarAjustesRapidos) {
+      // Fim da fala detectado mais cedo: responde mais rápido quando você para de falar
+      config.realtimeInputConfig = {
+        automaticActivityDetection: { endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH', silenceDurationMs: this.cfg.silencioFimFalaMs }
+      }
+      // Pensar antes de responder atrasa a voz; nos modelos 2.5 o raciocínio é desligado (os 3.x já vêm no mínimo)
+      if (/gemini-2\.5/.test(this.cfg.modelo)) config.thinkingConfig = { thinkingBudget: 0 }
+    }
+    const abertaEm = performance.now()
     const sessao = await this.ai.live.connect({
       model: this.cfg.modelo,
       config,
@@ -52,6 +63,11 @@ export class SessaoLive {
         onclose: (e: CloseEvent) => {
           // Fechamentos de conexões antigas (já substituídas) são ignorados
           if (minha !== this.geracao) return
+          // Recusou a configuração logo de cara: tenta de novo sem ela
+          if (this.usarAjustesRapidos && performance.now() - abertaEm < 5000 && /think|config|invalid|unknown|1007/i.test(`${e.reason} ${e.code}`)) {
+            console.warn('[live] modelo recusou os ajustes de rapidez; seguindo sem eles:', e.reason || e.code)
+            this.usarAjustesRapidos = false
+          }
           const inesperado = true
           this.aberta = false
           this.sessao = null

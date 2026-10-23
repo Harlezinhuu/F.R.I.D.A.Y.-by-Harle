@@ -59,6 +59,8 @@ async function iniciar(): Promise<void> {
   let textoUsuario = ''
   let textoFriday = ''
   let turnoUsuarioFechado = false
+  // Medição da demora de cada etapa da resposta
+  let marcaFimFala = 0, marcaTexto = 0, marcaPedidoVoz = 0
 
   let alertaPendente = false
   let turnosDesdeAlerta = 0
@@ -137,6 +139,7 @@ async function iniciar(): Promise<void> {
       atividade()
     },
     aoTextoFriday(t) {
+      if (!textoFriday && !marcaTexto) marcaTexto = performance.now()
       fala?.adicionar(t)
       textoFriday += t
       hud.legenda('FRIDAY', textoFriday.trim())
@@ -147,6 +150,7 @@ async function iniciar(): Promise<void> {
       alto.limpar()
       textoFriday = ''
       primeiroAudioDoTurno = true
+      marcaTexto = marcaPedidoVoz = 0
       if (!alertaPendente) hud.setEstado('ouvindo')
     },
     aoFimDoTurno() {
@@ -168,7 +172,13 @@ async function iniciar(): Promise<void> {
     if (primeiroAudioDoTurno) {
       primeiroAudioDoTurno = false
       turnoUsuarioFechado = true
-      if (fimFalaUsuario) { hud.latencia(performance.now() - fimFalaUsuario); fimFalaUsuario = 0 }
+      const agora = performance.now()
+      if (fimFalaUsuario) { hud.latencia(agora - fimFalaUsuario); marcaFimFala = fimFalaUsuario; fimFalaUsuario = 0 }
+      if (marcaFimFala) {
+        const ms = (t: number) => (t ? `${Math.round(t - marcaFimFala)} ms` : '—')
+        console.log(`[tempo] depois que você parou de falar: texto em ${ms(marcaTexto)}, pedido à voz em ${ms(marcaPedidoVoz)}, primeiro som em ${ms(agora)} (voz ${cfg.vozProvedor})`)
+      }
+      marcaFimFala = marcaTexto = marcaPedidoVoz = 0
     }
     alto.enfileirar(b64, taxa)
     hud.setEstado('falando')
@@ -176,6 +186,7 @@ async function iniciar(): Promise<void> {
   }
 
   if (fala) {
+    fala.aoPrimeiroPedido = () => { if (!marcaPedidoVoz) marcaPedidoVoz = performance.now() }
     fala.aoAudio = tocarVoz
     fala.aoErro = (msg) => {
       sons.erro()

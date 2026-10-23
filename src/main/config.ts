@@ -96,6 +96,7 @@ export function carregarConfig(): FridayConfig {
     voz: env.FRIDAY_VOZ || 'Kore',
     nome: env.FRIDAY_NOME ?? '',
     silencioSegundos: Math.max(5, Number(env.FRIDAY_SILENCIO_SEGUNDOS) || 20),
+    silencioFimFalaMs: Math.min(2000, Math.max(200, Number(env.FRIDAY_FIM_DA_FALA_MS) || 500)),
     vozProvedor: (env.FRIDAY_VOZ_PROVEDOR || '').toLowerCase() === 'fish' && env.FISH_API_KEY ? 'fish' : 'gemini',
     efeitoVoz: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_EFEITO_VOZ || '1').toLowerCase()),
     cidade: env.FRIDAY_CIDADE ?? '',

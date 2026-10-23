@@ -1,73 +1,111 @@
-// Fala pelo Fish Audio: o texto que o Gemini vai gerando é cortado em frases,
-// e cada frase vira áudio assim que fica completa. A primeira frase começa a tocar
-// enquanto o resto da resposta ainda está chegando.
+// Fala pelo Fish Audio: o texto que o Gemini vai gerando é cortado em pedaços,
+// e cada pedaço vira áudio assim que fica pronto.
+//
+// Para começar a falar rápido:
+// - o primeiro pedaço sai na primeira vírgula, sem esperar a frase inteira;
+// - até 2 pedaços são gerados ao mesmo tempo, e o áudio sai sempre na ordem certa.
 
-import { cortarFrases } from './frases'
+import { cortarFrases, cortarPrimeiro } from './frases'
+
+const SIMULTANEOS = 2
+
+interface Pedaco {
+  id: number
+  texto: string
+  pedaços: { b64: string; taxa: number }[]
+  pedido: boolean
+  terminou: boolean
+  primeiro: boolean
+}
 
 export class FalaFish {
   private buffer = ''
-  private fila: string[] = []
-  private processando = false
+  private primeiroDoTurno = true
+  private fila: Pedaco[] = []
   private geracao = 0
   private seq = 0
-  private idsValidos = new Set<number>()
 
   aoAudio: (b64: string, taxa: number) => void = () => {}
   aoErro: (msg: string) => void = () => {}
+  /** Para medir a demora: chamado quando o primeiro pedaço do turno é enviado ao Fish. */
+  aoPrimeiroPedido: () => void = () => {}
 
   constructor() {
     window.friday.aoFishAudio((id, b64, taxa) => {
-      if (this.idsValidos.has(id)) this.aoAudio(b64, taxa)
+      const p = this.fila.find((x) => x.id === id)
+      if (!p) return
+      if (p === this.fila[0]) this.aoAudio(b64, taxa)
+      else p.pedaços.push({ b64, taxa })
     })
   }
 
-  /** Há frases sendo geradas ou esperando na fila. */
+  /** Há pedaços sendo gerados, esperando ou texto ainda incompleto. */
   get ocupado(): boolean {
-    return this.processando || this.fila.length > 0 || this.buffer.trim().length > 0
+    return this.fila.length > 0 || this.buffer.trim().length > 0
   }
 
   /** Pedaço novo do texto da resposta. */
   adicionar(texto: string): void {
-    const { frases, resto } = cortarFrases(this.buffer + texto)
+    this.buffer += texto
+    if (this.primeiroDoTurno) {
+      const { pedaco, resto } = cortarPrimeiro(this.buffer)
+      if (!pedaco) return
+      this.primeiroDoTurno = false
+      this.buffer = resto
+      this.enfileirar(pedaco, true)
+    }
+    const { frases, resto } = cortarFrases(this.buffer)
     this.buffer = resto
-    this.fila.push(...frases)
-    void this.processar()
+    for (const f of frases) this.enfileirar(f)
   }
 
-  /** A resposta terminou: fala o que sobrou. */
+  /** A resposta terminou: fala o que sobrou e prepara o próximo turno. */
   finalizar(): void {
     const resto = this.buffer.trim()
     this.buffer = ''
-    if (resto) this.fila.push(resto)
-    void this.processar()
+    const eraPrimeiro = this.primeiroDoTurno
+    this.primeiroDoTurno = true
+    if (resto) this.enfileirar(resto, eraPrimeiro)
   }
 
   /** Você interrompeu: descarta tudo. */
   cancelar(): void {
     this.geracao++
     this.buffer = ''
+    this.primeiroDoTurno = true
     this.fila = []
-    this.idsValidos.clear()
     window.friday.fishCancelar()
   }
 
-  private async processar(): Promise<void> {
-    if (this.processando) return
-    this.processando = true
+  private enfileirar(texto: string, primeiro = false): void {
+    this.fila.push({ id: ++this.seq, texto, pedaços: [], pedido: false, terminou: false, primeiro })
+    this.pedirProximos()
+  }
+
+  private pedirProximos(): void {
     const minha = this.geracao
-    try {
-      while (this.fila.length && minha === this.geracao) {
-        const frase = this.fila.shift()!
-        const id = ++this.seq
-        this.idsValidos.add(id)
-        const r = await window.friday.fishFalar(id, frase)
-        this.idsValidos.delete(id)
-        if (!r.ok && minha === this.geracao) { this.aoErro(r.erro ?? 'Erro no Fish Audio.'); this.cancelar() }
-      }
-    } finally {
-      this.processando = false
-      // Se algo chegou na fila enquanto terminava, continua
-      if (this.fila.length && minha === this.geracao) void this.processar()
+    const emAndamento = this.fila.filter((p) => p.pedido && !p.terminou).length
+    const livres = this.fila.filter((p) => !p.pedido).slice(0, Math.max(0, SIMULTANEOS - emAndamento))
+    for (const p of livres) {
+      p.pedido = true
+      if (p.primeiro) this.aoPrimeiroPedido()
+      window.friday.fishFalar(p.id, p.texto).then((r) => {
+        if (minha !== this.geracao) return
+        p.terminou = true
+        if (!r.ok) { this.aoErro(r.erro ?? 'Erro no Fish Audio.'); this.cancelar(); return }
+        this.avancar()
+        this.pedirProximos()
+      })
+    }
+  }
+
+  /** Quando o pedaço da frente termina, solta o áudio já recebido dos seguintes, em ordem. */
+  private avancar(): void {
+    while (this.fila[0]?.terminou) {
+      this.fila.shift()
+      const prox = this.fila[0]
+      if (!prox) break
+      for (const a of prox.pedaços.splice(0)) this.aoAudio(a.b64, a.taxa)
     }
   }
 }

@@ -27,3 +27,26 @@ export function cortarFrases(texto: string): { frases: string[]; resto: string }
   }
   return { frases, resto }
 }
+
+const CORTE_RAPIDO = /[,;:—–]\s+/
+
+/**
+ * Primeiro pedaço da resposta: sai na primeira vírgula (ou após ~60 caracteres numa quebra de palavra),
+ * para a voz começar o quanto antes. As frases seguintes saem inteiras, que soam mais naturais.
+ */
+export function cortarPrimeiro(texto: string): { pedaco: string | null; resto: string } {
+  const { frases, resto } = cortarFrases(texto)
+  const primeiraCompleta = frases[0]
+  const virgula = texto.match(CORTE_RAPIDO)
+  if (virgula && virgula.index !== undefined && virgula.index >= 18 && (!primeiraCompleta || virgula.index < primeiraCompleta.length)) {
+    const corte = virgula.index + virgula[0].length
+    return { pedaco: texto.slice(0, corte).trim(), resto: texto.slice(corte) }
+  }
+  if (primeiraCompleta) return { pedaco: primeiraCompleta, resto: [...frases.slice(1), resto].join(' ').trimStart() }
+  if (texto.length >= 70) {
+    const espaco = texto.lastIndexOf(' ', 60)
+    if (espaco > 25) return { pedaco: texto.slice(0, espaco).trim(), resto: texto.slice(espaco + 1) }
+  }
+  return { pedaco: null, resto: texto }
+}
+
