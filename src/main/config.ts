@@ -11,7 +11,8 @@ export function resourcesDir(): string {
 
 export const MODELO_ATIVACAO_ARQUIVO = 'vosk-model-small-en-us-0.15.tar.gz'
 
-const CHAVE_GOOGLE = /^AIza[0-9A-Za-z_-]{30,}$/
+// Chaves do Google AI Studio: formato antigo (AIza...) e novo (AQ....)
+const CHAVE_GOOGLE = /^(AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_.-]{30,})$/
 
 /** Lê um .env simples (CHAVE=valor), sem dependências e tolerante a formatos do Bloco de Notas. */
 function lerEnv(caminho: string): Record<string, string> {
@@ -34,10 +35,16 @@ function lerEnv(caminho: string): Record<string, string> {
     // Uma linha vazia repetida nunca apaga um valor já preenchido
     if (valor || !(nome in saida)) saida[nome] = valor
   }
-  // Chave colada sozinha em qualquer linha
+  // Chave do Gemini colada sozinha ou na linha de outra configuração
   if (!saida.GEMINI_API_KEY) {
     const solta = linhas.map((l) => l.trim()).find((l) => CHAVE_GOOGLE.test(l))
+    const trocada = Object.entries(saida).find(([k, v]) => k !== 'GEMINI_API_KEY' && CHAVE_GOOGLE.test(v))
     if (solta) saida.GEMINI_API_KEY = solta
+    else if (trocada) {
+      saida.GEMINI_API_KEY = trocada[1]
+      saida[trocada[0]] = ''
+      console.warn(`[friday] a chave do Gemini estava na linha ${trocada[0]} do .env; usando mesmo assim`)
+    }
   }
   return saida
 }
