@@ -16,6 +16,9 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box }
+/* Elementos com o atributo hidden somem de verdade, mesmo com display definido abaixo */
+[hidden] { display: none !important }
+::-webkit-scrollbar { display: none }
 html, body { height: 100%; margin: 0; overflow: hidden }
 body { background: transparent; color: var(--ink); font-family: var(--f-body); font-size: 15px; user-select: none; cursor: default }
 
