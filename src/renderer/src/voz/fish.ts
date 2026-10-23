@@ -2,7 +2,7 @@
 // e cada frase vira áudio assim que fica completa. A primeira frase começa a tocar
 // enquanto o resto da resposta ainda está chegando.
 
-const FIM_DE_FRASE = /([.!?…]+["')\]]?\s+|\n+)/
+import { cortarFrases } from './frases'
 
 export class FalaFish {
   private buffer = ''
@@ -28,17 +28,9 @@ export class FalaFish {
 
   /** Pedaço novo do texto da resposta. */
   adicionar(texto: string): void {
-    this.buffer += texto
-    for (;;) {
-      const m = this.buffer.match(FIM_DE_FRASE)
-      if (!m || m.index === undefined) break
-      const corte = m.index + m[0].length
-      const frase = this.buffer.slice(0, corte).trim()
-      this.buffer = this.buffer.slice(corte)
-      // Frases muito curtas ("Ok.") esperam a próxima para soar mais natural
-      if (frase.length < 12 && this.buffer.length < 200) { this.buffer = `${frase} ${this.buffer}`; break }
-      if (frase) this.fila.push(frase)
-    }
+    const { frases, resto } = cortarFrases(this.buffer + texto)
+    this.buffer = resto
+    this.fila.push(...frases)
     void this.processar()
   }
 

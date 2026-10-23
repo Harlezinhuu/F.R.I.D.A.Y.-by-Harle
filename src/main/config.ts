@@ -98,6 +98,8 @@ export function carregarConfig(): FridayConfig {
     silencioSegundos: Math.max(5, Number(env.FRIDAY_SILENCIO_SEGUNDOS) || 20),
     vozProvedor: (env.FRIDAY_VOZ_PROVEDOR || '').toLowerCase() === 'fish' && env.FISH_API_KEY ? 'fish' : 'gemini',
     efeitoVoz: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_EFEITO_VOZ || '1').toLowerCase()),
+    cidade: env.FRIDAY_CIDADE ?? '',
+    saudacao: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_SAUDACAO || '1').toLowerCase()),
     modeloAtivacaoUrl: existsSync(modeloPath) ? `friday-assets://models/${MODELO_ATIVACAO_ARQUIVO}` : null
   }
 }

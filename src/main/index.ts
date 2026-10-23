@@ -7,7 +7,7 @@ import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { carregarConfig, carregarFish, diagnosticoChave, resourcesDir } from './config'
 import * as fish from './fish'
-import { executarFerramenta } from './tools'
+import { executarFerramenta, configurarFerramentas } from './tools'
 import { iniciarLembretes } from './reminders'
 import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
@@ -154,9 +154,10 @@ app.whenReady().then(() => {
     new Notification({ title: 'F.R.I.D.A.Y', body: 'O atalho Ctrl+Alt+Espaço já está em uso por outro programa.' }).show()
   }
 
-  iniciarLembretes((l) => {
-    new Notification({ title: 'Lembrete da F.R.I.D.A.Y', body: l.texto }).show()
-    win?.webContents.send('lembrete', l)
+  configurarFerramentas({ janela: () => win })
+  iniciarLembretes((l, atrasado) => {
+    new Notification({ title: atrasado ? 'Lembrete atrasado da F.R.I.D.A.Y' : 'Lembrete da F.R.I.D.A.Y', body: l.texto }).show()
+    win?.webContents.send('lembrete', l, atrasado)
   })
 
   screen.on('display-metrics-changed', ajustarAoMonitor)

@@ -1,18 +1,23 @@
 // Ferramentas que a FRIDAY pode usar. A IA só age no PC por aqui:
 // nada de comandos livres, só ações conhecidas e seguras.
 
+type Simples = { type: 'STRING' | 'NUMBER' | 'BOOLEAN'; description: string; enum?: string[] }
+type Lista = { type: 'ARRAY'; description: string; items: { type: 'OBJECT'; properties: Record<string, Simples>; required?: string[] } }
+
 export interface ToolDeclaration {
   name: string
   description: string
   parameters?: {
     type: 'OBJECT'
-    properties: Record<string, { type: 'STRING' | 'NUMBER' | 'BOOLEAN'; description: string; enum?: string[] }>
+    properties: Record<string, Simples | Lista>
     required?: string[]
   }
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'encerrar_conversa'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina'] as const
+
+const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
 export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   {
@@ -86,20 +91,140 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'criar_lembrete',
-    description: 'Cria um lembrete que avisa no horário marcado.',
+    description: 'Cria um lembrete que avisa no horário marcado, uma vez ou repetindo ("todo dia às 8", "nos dias úteis").',
     parameters: {
       type: 'OBJECT',
       properties: {
         texto: { type: 'STRING', description: 'Do que lembrar.' },
-        quando_iso: { type: 'STRING', description: 'Data e hora no formato ISO 8601 com fuso, ex.: 2026-10-24T09:00:00-03:00' }
+        quando_iso: { type: 'STRING', description: 'Data e hora (a primeira vez) no formato ISO 8601 com fuso, ex.: 2026-10-24T09:00:00-03:00' },
+        repetir: { type: 'STRING', description: 'Repetição.', enum: ['nunca', 'diario', 'dias_uteis', 'semanal', 'mensal'] }
       },
       required: ['texto', 'quando_iso']
     }
   },
   {
-    name: 'listar_lembretes',
-    description: 'Lista os lembretes pendentes.'
+    name: 'criar_timer',
+    description: 'Liga um timer ("timer de 10 minutos", "me avisa em 30 segundos").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        minutos: { type: 'NUMBER', description: 'Minutos.' },
+        segundos: { type: 'NUMBER', description: 'Segundos (somados aos minutos).' },
+        texto: { type: 'STRING', description: 'Para que é o timer (opcional, ex.: "macarrão").' }
+      }
+    }
   },
+  {
+    name: 'listar_lembretes',
+    description: 'Lista os lembretes e timers pendentes.'
+  },
+  {
+    name: 'cancelar_lembrete',
+    description: 'Cancela um lembrete pelo texto ("cancela o do dentista") ou os timers ligados (timer=true).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        texto: { type: 'STRING', description: 'Trecho do texto do lembrete.' },
+        timer: { type: 'BOOLEAN', description: 'true para cancelar timers.' }
+      }
+    }
+  },
+  {
+    name: 'criar_rotina',
+    description:
+      'Cria ou atualiza uma rotina com nome ("modo trabalho": abre o Chrome, abre o Spotify, diz bom trabalho). Passos permitidos: abrir_app, fechar_app, volume, midia, pesquisar_web, abrir_site, status_sistema, clima, capturar_tela, modo_foco, mostrar_painel, dizer {texto}, esperar {segundos até 60}. Se tiver fechar_app, peça confirmação e chame de novo com confirmado=true.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        nome: { type: 'STRING', description: 'Nome curto da rotina, como o usuário vai falar.' },
+        passos: {
+          type: 'ARRAY',
+          description: 'Passos na ordem.',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              ferramenta: { type: 'STRING', description: 'Nome da ferramenta do passo.' },
+              argumentos_json: { type: 'STRING', description: 'Argumentos do passo em JSON, ex.: {"nome":"Spotify"}' }
+            },
+            required: ['ferramenta']
+          }
+        },
+        confirmado: { type: 'BOOLEAN', description: 'true somente depois que o usuário confirmou.' }
+      },
+      required: ['nome', 'passos']
+    }
+  },
+  {
+    name: 'executar_rotina',
+    description: 'Executa uma rotina salva. Use quando o usuário disser o nome de uma rotina ("modo trabalho").',
+    parameters: { type: 'OBJECT', properties: { nome: { type: 'STRING', description: 'Nome da rotina.' } }, required: ['nome'] }
+  },
+  { name: 'listar_rotinas', description: 'Lista as rotinas salvas.' },
+  {
+    name: 'apagar_rotina',
+    description: 'Apaga uma rotina salva.',
+    parameters: { type: 'OBJECT', properties: { nome: { type: 'STRING', description: 'Nome da rotina.' } }, required: ['nome'] }
+  },
+  { name: 'capturar_tela', description: 'Tira um print da tela e salva em Imagens/FRIDAY.' },
+  {
+    name: 'listar_arquivos',
+    description: 'Lista o que tem numa pasta pessoal, os mais recentes primeiro. Use antes de mover ou apagar para saber o nome exato.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        pasta: { type: 'STRING', description: CAMINHO },
+        filtro: { type: 'STRING', description: 'Trecho do nome para filtrar (opcional), ex.: ".pdf" ou "contrato".' }
+      },
+      required: ['pasta']
+    }
+  },
+  {
+    name: 'abrir_arquivo',
+    description: 'Abre um arquivo ou pasta com o programa padrão do Windows.',
+    parameters: { type: 'OBJECT', properties: { caminho: { type: 'STRING', description: CAMINHO } }, required: ['caminho'] }
+  },
+  {
+    name: 'mover_arquivo',
+    description: 'Move ou renomeia um arquivo ou pasta. Se o destino for uma pasta, vai para dentro dela. Nunca sobrescreve. Dá para desfazer.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        origem: { type: 'STRING', description: CAMINHO },
+        destino: { type: 'STRING', description: CAMINHO }
+      },
+      required: ['origem', 'destino']
+    }
+  },
+  {
+    name: 'criar_pasta',
+    description: 'Cria uma pasta.',
+    parameters: { type: 'OBJECT', properties: { caminho: { type: 'STRING', description: CAMINHO } }, required: ['caminho'] }
+  },
+  {
+    name: 'apagar_arquivo',
+    description: 'Manda um arquivo ou pasta para a Lixeira. Ação perigosa: chame sem confirmado, pergunte e só chame com confirmado=true se o usuário confirmar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        caminho: { type: 'STRING', description: CAMINHO },
+        confirmado: { type: 'BOOLEAN', description: 'true somente depois que o usuário confirmou.' }
+      },
+      required: ['caminho']
+    }
+  },
+  { name: 'desfazer', description: 'Desfaz o último mover, renomear ou criar pasta.' },
+  {
+    name: 'clima',
+    description: 'Clima agora e do dia.',
+    parameters: { type: 'OBJECT', properties: { cidade: { type: 'STRING', description: 'Cidade (opcional; sem ela, usa a cidade do usuário).' } } }
+  },
+  {
+    name: 'modo_foco',
+    description: 'Liga o modo foco: tela calma, timer no núcleo e avisos guardados até o fim.',
+    parameters: { type: 'OBJECT', properties: { minutos: { type: 'NUMBER', description: 'Duração em minutos (padrão 25).' } } }
+  },
+  { name: 'encerrar_foco', description: 'Encerra o modo foco antes da hora.' },
+  { name: 'diagnostico', description: 'Confere como a FRIDAY está: cérebro, voz, microfone, palavra de ativação, internet, controle do Windows ("como você está?", "status", "diagnóstico").' },
   {
     name: 'mostrar_painel',
     description: 'Abre ou fecha os painéis completos do HUD.',
@@ -128,6 +253,9 @@ export function systemPrompt(nome: string, agora: Date): string {
     'Se uma ferramenta pedir confirmação, pergunte em uma frase e só repita a chamada com confirmado=true se a pessoa confirmar com clareza.',
     'Se não entendeu o pedido, peça para repetir. Se não existe ferramenta para o pedido, diga isso com honestidade.',
     'Quando a pessoa se despedir ("pode descansar", "tchau", "é só isso"), responda brevemente e chame encerrar_conversa.',
+    'Se a pessoa disser só o nome de uma rotina ("modo trabalho"), chame executar_rotina com esse nome.',
+    'Para arquivos, use listar_arquivos antes de mover, abrir ou apagar, para usar o nome exato. Você só alcança as pastas pessoais.',
+    'Quando o resultado de uma ferramenta trouxer um campo "dizer", fale esse texto.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`
   ].join('\n')
 }

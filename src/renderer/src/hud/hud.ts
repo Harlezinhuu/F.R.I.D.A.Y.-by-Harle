@@ -32,6 +32,37 @@ export class Hud {
 
   get estadoAtual(): Estado { return this.estado }
 
+  // ---------- Modo foco ----------
+  private focoFim = 0
+  private focoTimer = 0
+
+  get emFoco(): boolean { return this.focoFim > 0 }
+
+  /** Mostra o timer no núcleo; chama `aoFim` quando o tempo acaba. */
+  iniciarFoco(minutos: number, aoFim: () => void): void {
+    this.encerrarFoco()
+    this.focoFim = Date.now() + minutos * 60_000
+    $('foco').hidden = false
+    const tick = () => {
+      const resta = Math.max(0, this.focoFim - Date.now())
+      const m = Math.floor(resta / 60_000), s = Math.floor((resta % 60_000) / 1000)
+      $('focoTempo').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      if (resta <= 0) { this.encerrarFoco(); aoFim() }
+    }
+    tick()
+    this.focoTimer = window.setInterval(tick, 1000)
+  }
+
+  encerrarFoco(): void {
+    clearInterval(this.focoTimer)
+    this.focoFim = 0
+    $('foco').hidden = true
+  }
+
+  minutosRestantesFoco(): number {
+    return this.focoFim ? Math.ceil((this.focoFim - Date.now()) / 60_000) : 0
+  }
+
   setEstado(e: Estado): void {
     if (e === this.estado) return
     this.estado = e
@@ -129,6 +160,11 @@ export class Hud {
       li.append(t)
       return li
     }))
+  }
+
+  /** Média das últimas latências de resposta, em ms (0 se ainda não houve resposta). */
+  latenciaMedia(): number {
+    return this.latencias.length ? Math.round(this.latencias.reduce((a, b) => a + b, 0) / this.latencias.length) : 0
   }
 
   latencia(ms: number): void {

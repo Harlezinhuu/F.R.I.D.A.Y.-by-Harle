@@ -20,6 +20,9 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Controla o PC:** abre e fecha programas, mexe no volume, controla músicas e vídeos, pesquisa na web e abre sites.
 - **Lembretes** que ficam salvos e avisam na hora certa, mesmo depois de reiniciar o PC.
 - **Status do sistema:** uso de CPU, RAM e placa de vídeo (NVIDIA).
+- **Rotinas por voz, timers, lembretes repetidos, clima, modo foco e autodiagnóstico.**
+- **Arquivos nas pastas pessoais:** listar, abrir, mover, renomear, criar pasta, mandar para a Lixeira e desfazer. Nunca sai das pastas pessoais, nunca sobrescreve e nunca abre programas ou scripts.
+- **Saudação ao abrir** com o clima e os lembretes do dia, no máximo uma vez a cada 4 horas.
 - **Cartões contextuais:** cada resposta mostra só o que importa (um medidor, um lembrete, o volume) e some sozinha.
 - **Confirmação por voz** antes de ações perigosas, como fechar um programa.
 - **Sons de interface** para você saber o que ela está fazendo mesmo sem olhar para a tela.
@@ -69,6 +72,7 @@ Abra o `.env` e coloque sua chave do Gemini (grátis em [aistudio.google.com/api
 ```bash
 npm run dev           # roda em modo de desenvolvimento
 npm run dist          # gera o instalador para Windows
+npm test              # testes automáticos da lógica (lembretes, caminhos, rotinas, fala)
 ```
 
 ## Usando
@@ -85,6 +89,15 @@ Diga **"Friday"** e faça o pedido. Alguns exemplos:
 | "Mostra o sistema completo" | Abre os painéis laterais |
 | "Fecha o Discord" | Pede confirmação antes de fechar |
 | "Pode descansar" | Encerra a conversa e volta para o canto |
+| "Todo dia às 8 me lembra de tomar água" | Lembrete repetido (todo dia, dias úteis, semanal ou mensal) |
+| "Timer de 10 minutos para o macarrão" | Liga um timer e avisa falando |
+| "Cria a rotina modo trabalho: abre o Chrome, abre o Spotify e diz bom trabalho" | Salva a rotina; depois é só dizer "modo trabalho" |
+| "Tira um print" | Salva em Imagens/FRIDAY, sem o HUD aparecer |
+| "O que tem nos meus downloads?" | Lista os arquivos mais recentes |
+| "Move o contrato.pdf para documentos/contratos" | Move (nunca sobrescreve) e dá para desfazer |
+| "Como está o tempo?" | Clima agora e do dia |
+| "Modo foco de 50 minutos" | Timer no núcleo e lembretes guardados até o fim |
+| "Como você está?" | Autodiagnóstico: microfone, ativação, cérebro, voz, internet e rapidez |
 
 **Atalho de emergência:** `Ctrl + Alt + Espaço` silencia a FRIDAY na hora, de qualquer lugar. Aperte de novo para ela voltar a ouvir. O ícone na bandeja do Windows tem a opção **Sair**.
 

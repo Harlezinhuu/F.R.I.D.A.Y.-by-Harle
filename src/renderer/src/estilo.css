@@ -97,6 +97,26 @@ body.expandido .cards { right: 4vw; bottom: calc(50% - 90px) }
 .when { font-family: var(--f-display); font-size: 12px; letter-spacing: .24em; color: var(--state) }
 .what { font-size: 18px; margin: 0 }
 
+.tempo { width: 40px; height: 40px; color: var(--state); flex-shrink: 0 }
+.times { display: flex; justify-content: space-between; font-family: var(--f-data); font-size: 11px; color: var(--muted) }
+.lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px }
+.lista li { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.lista .tipo { color: var(--state); width: 10px; flex-shrink: 0 }
+.lista.diag li { white-space: normal; flex-wrap: wrap; row-gap: 2px }
+.lista.diag b { font-weight: 500 }
+.lista.diag .meta { flex-basis: 100%; padding-left: 18px; font-size: 11px }
+.st { width: 8px; height: 8px; flex-shrink: 0; align-self: center }
+.st.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok) }
+.st.falha { background: var(--alert); box-shadow: 0 0 8px var(--alert) }
+.mini { width: 100%; height: auto; border: 1px solid var(--line); display: block }
+
+/* Modo foco: timer no núcleo */
+.foco { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none }
+.foco b { font-family: var(--f-data); font-weight: 500; font-size: 30px; letter-spacing: .04em; color: var(--ink); text-shadow: 0 0 16px var(--state), 0 1px 10px rgba(3, 5, 11, .9); font-variant-numeric: tabular-nums }
+.foco span { font-family: var(--f-display); font-size: 10px; letter-spacing: .4em; color: var(--state) }
+body.expandido .foco b { font-size: 64px }
+body.expandido .foco span { font-size: 13px }
+
 /* Medidores */
 .gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
 .gauge { display: flex; flex-direction: column; align-items: center; gap: 6px }

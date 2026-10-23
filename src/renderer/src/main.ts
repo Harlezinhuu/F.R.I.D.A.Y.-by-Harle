@@ -9,6 +9,7 @@ import { Microfone, Alto, pcm16Base64 } from './voz/audio'
 import { SessaoLive, type ChamadaFerramenta } from './voz/live'
 import { PalavraAtivacao } from './voz/ativacao'
 import { FalaFish } from './voz/fish'
+import type { ItemDiagnostico, Lembrete } from '../../shared/types'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
 const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativação também vai para a IA
@@ -65,6 +66,64 @@ async function iniciar(): Promise<void> {
   let tentativasReconexao = 0
 
   const atividade = () => { ultimaAtividade = performance.now() }
+  const estadoDeRepouso = () => (silenciada ? 'silenciada' : micOk ? 'repouso' : 'semMic') as 'silenciada' | 'repouso' | 'semMic'
+
+  // ---------- Avisos falados (fora da conversa: lembretes, saudação, fim do foco) ----------
+  let avisoFalando = false
+
+  async function vozDoWindows(): Promise<SpeechSynthesisVoice | null> {
+    let vozes = speechSynthesis.getVoices()
+    if (!vozes.length) {
+      await new Promise((r) => { speechSynthesis.addEventListener('voiceschanged', r, { once: true }); setTimeout(r, 1500) })
+      vozes = speechSynthesis.getVoices()
+    }
+    return vozes.find((v) => v.lang === 'pt-BR') ?? vozes.find((v) => v.lang.toLowerCase().startsWith('pt')) ?? null
+  }
+
+  async function avisar(texto: string): Promise<void> {
+    if (silenciada || conversando || hud.emFoco || !texto.trim()) return
+    if (fala) { fala.adicionar(`${texto} `); fala.finalizar(); return }
+    try {
+      const u = new SpeechSynthesisUtterance(texto)
+      u.lang = 'pt-BR'
+      u.rate = 1.05
+      const v = await vozDoWindows()
+      if (v) u.voice = v
+      u.onstart = () => { avisoFalando = true; hud.setEstado('falando') }
+      u.onend = u.onerror = () => { avisoFalando = false; if (!conversando && hud.estadoAtual === 'falando') hud.setEstado(estadoDeRepouso()) }
+      // A fila do próprio Windows mantém a ordem: um lembrete não corta a saudação
+      speechSynthesis.speak(u)
+    } catch (e) {
+      console.warn('[friday] aviso falado', e)
+    }
+  }
+
+  // ---------- Lembretes e modo foco ----------
+  const avisosGuardados: { l: Lembrete; atrasado: boolean }[] = []
+
+  function mostrarLembrete(l: Lembrete, atrasado: boolean): void {
+    sons.alerta()
+    hud.cartao({ tipo: 'lembrete', texto: l.texto, quandoIso: l.quandoIso, disparou: true, atrasado, repetir: l.repetir }, 30000)
+    void avisar(l.timer ? `Tempo. ${l.texto}.` : atrasado ? `Lembrete atrasado: ${l.texto}.` : `Lembrete: ${l.texto}.`)
+  }
+
+  function soltarAvisos(): void {
+    const lista = avisosGuardados.splice(0)
+    lista.forEach((a, i) => setTimeout(() => mostrarLembrete(a.l, a.atrasado), 4500 + i * 6000))
+  }
+
+  function iniciarFoco(minutos: number): number {
+    const m = Math.round(Math.min(240, Math.max(1, Number.isFinite(minutos) && minutos > 0 ? minutos : 25)))
+    hud.iniciarFoco(m, () => {
+      sons.feito()
+      const n = avisosGuardados.length
+      const texto = n ? `Foco encerrado. Guardei ${n} ${n > 1 ? 'avisos' : 'aviso'} para você.` : 'Foco encerrado. Bom trabalho.'
+      hud.cartao({ tipo: 'aviso', titulo: 'FOCO ENCERRADO', texto }, 8000)
+      void avisar(texto)
+      soltarAvisos()
+    })
+    return m
+  }
 
   const live = new SessaoLive(cfg, {
     aoAudio(b64) {
@@ -135,6 +194,10 @@ async function iniciar(): Promise<void> {
     }
     if (!navigator.onLine) { sons.offline(); hud.setEstado('offline'); return }
 
+    // Um aviso falado em andamento para quando você chama
+    try { speechSynthesis.cancel() } catch { /* sem voz do Windows */ }
+    fala?.cancelar()
+    alto.limpar()
     conversando = true
     conectando = true
     encerrarAoTerminar = false
@@ -242,6 +305,22 @@ async function iniciar(): Promise<void> {
       } else if (nome === 'encerrar_conversa') {
         encerrarAoTerminar = true
         resposta = { ok: true, resultado: 'A conversa será encerrada depois da sua despedida.' }
+      } else if (nome === 'modo_foco') {
+        const m = iniciarFoco(Number(args.minutos))
+        hud.cartao({ tipo: 'foco', minutos: m })
+        sons.feito()
+        hud.registrarAcao(`Foco de ${m} min`)
+        encerrarAoTerminar = true
+        resposta = { ok: true, resultado: `Modo foco de ${m} minutos ligado. Os lembretes ficam guardados até o fim. Despeça-se em uma frase curta.` }
+      } else if (nome === 'encerrar_foco') {
+        const estava = hud.emFoco
+        hud.encerrarFoco()
+        soltarAvisos()
+        resposta = { ok: true, resultado: estava ? 'Modo foco encerrado.' : 'O modo foco não estava ligado.' }
+      } else if (nome === 'diagnostico') {
+        resposta = await diagnostico()
+      } else if (nome === 'executar_rotina') {
+        resposta = await executarRotina(String(args.nome ?? ''))
       } else {
         const r = await window.friday.ferramenta(nome, args)
         if (r.precisaConfirmacao) {
@@ -261,6 +340,51 @@ async function iniciar(): Promise<void> {
     }
     live.responderFerramentas(respostas)
     atividade()
+  }
+
+  async function diagnostico(): Promise<Record<string, unknown>> {
+    const r = await window.friday.ferramenta('diagnostico_sistema', {})
+    const lat = hud.latenciaMedia()
+    const itens: ItemDiagnostico[] = [
+      { nome: 'Microfone', ok: micOk, detalhe: micOk ? mic.descricao.split('·')[0].replace(/"/g, '').trim() : 'desconectado' },
+      { nome: 'Palavra de ativação', ok: ativacao.pronto, detalhe: ativacao.pronto ? 'ouvindo "Friday" no seu PC' : 'modo reserva: acorda com qualquer fala' },
+      ...((r.dados as ItemDiagnostico[] | undefined) ?? []),
+      { nome: 'Rapidez', ok: lat === 0 || lat < 2500, detalhe: lat ? `resposta média em ${(lat / 1000).toFixed(1).replace('.', ',')} s` : 'ainda sem medida nesta sessão' }
+    ]
+    hud.cartao({ tipo: 'diagnostico', itens }, 15000)
+    const problemas = itens.filter((i) => !i.ok)
+    problemas.length ? sons.alerta() : sons.feito()
+    return {
+      ok: true,
+      resultado: problemas.length
+        ? `${itens.length - problemas.length} de ${itens.length} itens em ordem. Problemas: ${problemas.map((p) => `${p.nome} (${p.detalhe})`).join('; ')}. Explique o que fazer em poucas palavras.`
+        : `Tudo em ordem nos ${itens.length} itens${lat ? `, respondendo em média em ${(lat / 1000).toFixed(1)} segundos` : ''}.`
+    }
+  }
+
+  async function executarRotina(nome: string): Promise<Record<string, unknown>> {
+    const r = await window.friday.ferramenta('obter_rotina', { nome })
+    if (!r.ok) { sons.erro(); return { ok: false, resultado: r.mensagem } }
+    const rotina = r.dados as { nome: string; passos: { ferramenta: string; argumentos: Record<string, unknown> }[] }
+    const falas: string[] = [], feitos: string[] = [], erros: string[] = []
+    for (const p of rotina.passos) {
+      atividade()
+      if (p.ferramenta === 'dizer') { falas.push(String(p.argumentos.texto ?? '')); continue }
+      if (p.ferramenta === 'esperar') { await esperar(Math.min(60, Number(p.argumentos.segundos) || 1) * 1000); continue }
+      if (p.ferramenta === 'modo_foco') { feitos.push(`foco de ${iniciarFoco(Number(p.argumentos.minutos))} min`); continue }
+      if (p.ferramenta === 'mostrar_painel') { hud.painel(String(p.argumentos.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar'); continue }
+      // fechar_app já foi confirmado quando a rotina foi criada
+      const res = await window.friday.ferramenta(p.ferramenta, p.ferramenta === 'fechar_app' ? { ...p.argumentos, confirmado: true } : p.argumentos)
+      if (res.ok) { feitos.push(res.mensagem); hud.registrarAcao(res.mensagem) } else erros.push(res.mensagem)
+    }
+    hud.cartao({ tipo: 'rotina', nome: rotina.nome, passos: [...feitos, ...erros.map((e) => `falhou: ${e}`)].join(' · ') || 'feito' })
+    erros.length ? sons.erro() : sons.feito()
+    atividade()
+    return {
+      ok: erros.length === 0,
+      resultado: `Rotina "${rotina.nome}": ${feitos.length} ${feitos.length === 1 ? 'passo feito' : 'passos feitos'}${erros.length ? `; ${erros.length} falharam: ${erros.join('; ')}` : ''}.`,
+      ...(falas.length ? { dizer: falas.join(' ') } : {})
+    }
   }
 
   // ---------- Microfone ----------
@@ -336,6 +460,8 @@ async function iniciar(): Promise<void> {
   setInterval(() => {
     const agora = performance.now()
     hud.nucleo.setNivel(alto.tocando ? alto.nivel() : nivelMic)
+    // Aviso falado fora da conversa terminou: volta ao repouso
+    if (!conversando && hud.estadoAtual === 'falando' && !falandoAgora() && !avisoFalando) hud.setEstado(estadoDeRepouso())
     if (!conversando || conectando) return
 
     if (hud.estadoAtual === 'falando' && !falandoAgora()) hud.setEstado(alertaPendente ? 'alerta' : 'ouvindo')
@@ -361,9 +487,10 @@ async function iniciar(): Promise<void> {
     }
   })
 
-  window.friday.aoLembrete((l) => {
-    sons.alerta()
-    hud.cartao({ tipo: 'lembrete', texto: l.texto, quandoIso: l.quandoIso, disparou: true }, 30000)
+  window.friday.aoLembrete((l, atrasado) => {
+    // No modo foco, só os timers tocam na hora; o resto espera o fim
+    if (hud.emFoco && !l.timer) { avisosGuardados.push({ l, atrasado }); return }
+    mostrarLembrete(l, atrasado)
   })
 
   window.addEventListener('offline', () => {
@@ -393,6 +520,29 @@ async function iniciar(): Promise<void> {
         : 'Rode "npm run modelo" para ela só acordar com "Friday". Por enquanto, ela acorda quando ouve alguém falar.'
     }, 15000)
   }
+  // Saudação ao abrir: no máximo uma a cada 4 horas
+  async function saudar(): Promise<void> {
+    if (!cfg.saudacao || silenciada) return
+    let ultima = 0
+    try { ultima = Number(localStorage.getItem('friday.saudacao') || 0) } catch { /* sem armazenamento */ }
+    if (Date.now() - ultima < 4 * 3600_000) return
+    try { localStorage.setItem('friday.saudacao', String(Date.now())) } catch { /* ignora */ }
+    const r = await window.friday.ferramenta('saudacao_dados', {})
+    const d = r.dados as { clima: { cidade: string; temperatura: number; sensacao: number; descricao: string; icone: string; minima: number; maxima: number; chuva: number } | null; lembretes: { texto: string; hora: string }[] } | undefined
+    const h = new Date().getHours()
+    const ola = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+    const partes = [`${ola}${cfg.nome ? `, ${cfg.nome}` : ''}.`]
+    if (d?.clima) partes.push(`Em ${d.clima.cidade.split(',')[0]}, ${d.clima.temperatura} graus e ${d.clima.descricao}${d.clima.chuva >= 50 ? `, com ${d.clima.chuva}% de chance de chuva` : ''}.`)
+    const lem = d?.lembretes ?? []
+    if (lem.length === 1) partes.push(`Hoje ainda tem: ${lem[0].texto}, às ${lem[0].hora}.`)
+    else if (lem.length > 1) partes.push(`Hoje ainda tem ${lem.length} lembretes. O próximo é às ${lem[0].hora}: ${lem[0].texto}.`)
+    const texto = partes.join(' ')
+    if (d?.clima) hud.cartao({ tipo: 'clima', ...d.clima }, 12000)
+    else hud.cartao({ tipo: 'aviso', titulo: ola.toUpperCase(), texto }, 10000)
+    await avisar(texto)
+  }
+  setTimeout(() => { void saudar().catch((e) => console.warn('[friday] saudação', e)) }, 2500)
+
   if (cfg.modeloAtivacaoUrl) {
     const inicioModelo = performance.now()
     console.log('[friday] carregando palavra de ativação...')

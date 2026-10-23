@@ -10,6 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
+    "test": "node --experimental-strip-types --no-warnings --test \"tests/*.test.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "modelo": "node scripts/baixar-modelo.mjs",
     "dist": "electron-vite build && electron-builder --win"
