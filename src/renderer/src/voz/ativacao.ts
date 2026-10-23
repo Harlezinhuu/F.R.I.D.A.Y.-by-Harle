@@ -14,7 +14,15 @@ export class PalavraAtivacao {
   aoOuvir: (texto: string) => void = () => {}
 
   async carregar(url: string): Promise<void> {
-    const modelo = await createModel(url)
+    // O modelo é baixado aqui na página e entregue ao reconhecedor como blob:
+    // o worker interno do Vosk não consegue abrir endereços friday-assets:// sozinho
+    const resp = await fetch(url)
+    if (!resp.ok) throw new Error(`Não consegui ler o modelo (${resp.status}).`)
+    const blob = await resp.blob()
+    console.log(`[friday] modelo de ativação lido: ${(blob.size / 1024 / 1024).toFixed(1)} MB`)
+    const blobUrl = `${URL.createObjectURL(blob)}#vosk-model-small-en-us-0.15.tar.gz`
+    const modelo = await createModel(blobUrl)
+    modelo.on?.('error', (m: { error?: string }) => console.error('[friday] erro no modelo de ativação:', m?.error ?? m))
     // Gramática restrita: o reconhecedor só tenta achar "friday", o resto vira [unk]
     this.reconhecedor = new modelo.KaldiRecognizer(16000, JSON.stringify(['friday', '[unk]']))
     const checar = (texto: string | undefined) => {
