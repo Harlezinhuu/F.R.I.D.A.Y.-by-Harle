@@ -33,6 +33,52 @@ export class Hud {
 
   get estadoAtual(): Estado { return this.estado }
 
+  // ---------- Cena holográfica ----------
+  private cenaSeguir = 0
+  private cenaDigitar = 0
+
+  /** Projeção holográfica com o HUD aberto; sem imagem ou no canto, vira um cartão comum. */
+  cena(c: Card): void {
+    if (c.tipo !== 'cena') return this.cartao(c)
+    if (!c.imagem || !document.body.classList.contains('expandido')) return this.cartao(c, 12000)
+    this.cartoes.esconder()
+    const leg = $('cenaLegenda')
+    leg.hidden = false
+    leg.classList.remove('visivel', 'digitado')
+    $('cenaTitulo').textContent = ''
+    $('cenaDescricao').textContent = c.descricao
+    clearInterval(this.cenaSeguir)
+    clearInterval(this.cenaDigitar)
+    this.nucleo.mostrarCena(c.imagem, 12000, () => this.fecharLegenda())
+    // A legenda acompanha o canto da imagem na tela
+    this.cenaSeguir = window.setInterval(() => {
+      const a = this.nucleo.ancoraCena()
+      if (!a) return
+      leg.style.transform = ''
+      leg.style.left = `${Math.round(a.x)}px`
+      leg.style.top = `${Math.round(a.y + 14)}px`
+      if (a.visivel && !leg.classList.contains('visivel')) {
+        leg.classList.add('visivel')
+        // Título digitado letra por letra
+        let i = 0
+        this.cenaDigitar = window.setInterval(() => {
+          $('cenaTitulo').textContent = c.titulo.slice(0, ++i)
+          if (i >= c.titulo.length) { clearInterval(this.cenaDigitar); leg.classList.add('digitado') }
+        }, 38)
+      } else if (!a.visivel && leg.classList.contains('visivel')) {
+        leg.classList.remove('visivel')
+      }
+    }, 50)
+  }
+
+  private fecharLegenda(): void {
+    clearInterval(this.cenaSeguir)
+    clearInterval(this.cenaDigitar)
+    const leg = $('cenaLegenda')
+    leg.classList.remove('visivel', 'digitado')
+    leg.hidden = true
+  }
+
   // ---------- Modo foco ----------
   private focoFim = 0
   private focoTimer = 0
@@ -89,6 +135,7 @@ export class Hud {
   compactar(): void {
     document.body.classList.replace('expandido', 'compacto')
     this.nucleo.setCompacto(true)
+    this.nucleo.esconderCena(true)
     this.painel('fechar')
     this.confirmacao(null)
     this.esconderLegenda()

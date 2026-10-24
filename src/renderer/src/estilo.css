@@ -116,6 +116,16 @@ body.expandido .cards { right: 4vw; bottom: calc(50% - 90px) }
 .cena-img { width: 100%; max-height: 220px; object-fit: cover; display: block; border: 1px solid var(--line); filter: saturate(.85) contrast(1.05); box-shadow: 0 0 24px rgba(111, 184, 255, .15) }
 .mini { width: 100%; height: auto; border: 1px solid var(--line); display: block }
 
+/* Cena holográfica: legenda que acompanha a projeção */
+.cena-legenda { position: absolute; left: 0; top: 0; width: min(340px, 40%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; opacity: 0; transform: translateY(6px); transition: opacity .5s ease, transform .5s var(--ease) }
+.cena-legenda.visivel { opacity: 1; transform: none }
+.cena-fonte { font-family: var(--f-data); font-size: 10px; letter-spacing: .3em; color: var(--state) }
+.cena-legenda h2 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(22px, 2.4vw, 34px); letter-spacing: .08em; line-height: 1.1; text-transform: uppercase; text-shadow: 0 0 18px var(--state), 0 1px 10px rgba(3, 5, 11, .9); text-wrap: balance }
+.cena-legenda h2::after { content: ""; display: inline-block; width: .5em; height: 2px; margin-left: 4px; background: var(--state); vertical-align: middle; animation: blink 1s steps(1) infinite }
+.cena-legenda.digitado h2::after { display: none }
+.cena-legenda p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); opacity: .85; text-shadow: 0 1px 10px rgba(3, 5, 11, .95); transition: opacity .6s ease .2s }
+.cena-legenda:not(.digitado) p { opacity: 0 }
+
 /* Modo foco: timer no núcleo */
 .foco { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none }
 .foco b { font-family: var(--f-data); font-weight: 500; font-size: 30px; letter-spacing: .04em; color: var(--ink); text-shadow: 0 0 16px var(--state), 0 1px 10px rgba(3, 5, 11, .9); font-variant-numeric: tabular-nums }

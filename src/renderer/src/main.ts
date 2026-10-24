@@ -340,7 +340,7 @@ async function iniciar(): Promise<void> {
         // Responde na hora para a fala não esperar; a foto aparece quando chegar
         const termo = String(args.termo ?? '').trim()
         if (cfg.cenas && termo) {
-          void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cartao(r.card, 12000) })
+          void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cena(r.card) })
         }
         resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
       } else {
