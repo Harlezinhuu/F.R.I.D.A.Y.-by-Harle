@@ -1,5 +1,5 @@
 // F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
-import type { FridayConfig, Lembrete, ToolResult } from '../shared/types'
+import type { FridayConfig, Lembrete, TarefaResumo, ToolResult } from '../shared/types'
 
 /** O que o HUD consegue pedir ao processo principal. */
 export interface FridayApi {
@@ -10,6 +10,7 @@ export interface FridayApi {
   avisarSilencio(valor: boolean): void
   aoSilenciar(cb: (silenciada: boolean) => void): void
   aoLembrete(cb: (l: Lembrete, atrasado: boolean) => void): void
+  aoTarefa(cb: (t: TarefaResumo) => void): void
   /** Fala uma frase pelo Fish Audio; resolve quando todo o áudio foi recebido */
   fishFalar(id: number, texto: string): Promise<{ ok: boolean; erro?: string }>
   fishCancelar(): void

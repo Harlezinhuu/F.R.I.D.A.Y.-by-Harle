@@ -34,12 +34,12 @@ export class SessaoLive {
     this.ai = new GoogleGenAI({ apiKey: cfg.apiKey })
   }
 
-  async conectar(): Promise<void> {
+  async conectar(memoria = ''): Promise<void> {
     const minha = ++this.geracao
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config: any = {
       responseModalities: [Modality.AUDIO],
-      systemInstruction: systemPrompt(this.cfg.nome, new Date()),
+      systemInstruction: systemPrompt(this.cfg.nome, new Date(), memoria),
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.cfg.voz } } },
       tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
       inputAudioTranscription: {},

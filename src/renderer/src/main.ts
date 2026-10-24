@@ -63,6 +63,7 @@ async function iniciar(): Promise<void> {
   // Medição da demora de cada etapa da resposta
   let marcaFimFala = 0, marcaTexto = 0, marcaPedidoVoz = 0
 
+  let memoriaDaConversa = ''
   let alertaPendente = false
   let turnosDesdeAlerta = 0
   let encerrarAoTerminar = false
@@ -226,8 +227,10 @@ async function iniciar(): Promise<void> {
     preRoll = []
 
     try {
+      // O que ela sabe sobre você entra no começo de cada conversa
+      memoriaDaConversa = (await window.friday.ferramenta('memoria_para_prompt', {}).catch(() => ({ mensagem: '' }))).mensagem
       console.log('[friday] conectando ao Gemini...')
-      await live.conectar()
+      await live.conectar(memoriaDaConversa)
       console.log('[friday] conectado ao Gemini')
     } catch (e) {
       console.error('[friday] não conectou', e)
@@ -276,7 +279,7 @@ async function iniciar(): Promise<void> {
     conectando = true
     await esperar(planejado ? 0 : 800 * tentativasReconexao)
     try {
-      await live.conectar()
+      await live.conectar(memoriaDaConversa)
       conectando = false
       tentativasReconexao = 0
       for (const b of filaConexao) live.enviarAudio(b)
@@ -333,6 +336,13 @@ async function iniciar(): Promise<void> {
         resposta = await diagnostico()
       } else if (nome === 'executar_rotina') {
         resposta = await executarRotina(String(args.nome ?? ''))
+      } else if (nome === 'mostrar_cena') {
+        // Responde na hora para a fala não esperar; a foto aparece quando chegar
+        const termo = String(args.termo ?? '').trim()
+        if (cfg.cenas && termo) {
+          void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cartao(r.card, 12000) })
+        }
+        resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
       } else {
         const r = await window.friday.ferramenta(nome, args)
         if (r.precisaConfirmacao) {
@@ -345,7 +355,9 @@ async function iniciar(): Promise<void> {
           limparAlerta()
         }
         if (r.card) hud.cartao(r.card)
-        if (r.ok) { sons.feito(); hud.registrarAcao(r.mensagem) } else if (!r.precisaConfirmacao) sons.erro()
+        // Guardar na memória acontece em silêncio, sem som de "feito"
+        const silenciosa = nome === 'memorizar'
+        if (r.ok) { if (!silenciosa) { sons.feito(); hud.registrarAcao(r.mensagem) } } else if (!r.precisaConfirmacao && !silenciosa) sons.erro()
         resposta = { ok: r.ok, resultado: r.mensagem, ...(r.precisaConfirmacao ? { precisa_confirmacao: true } : {}) }
       }
       respostas.push({ id: c.id, name: nome, response: resposta })
@@ -503,6 +515,18 @@ async function iniciar(): Promise<void> {
     // No modo foco, só os timers tocam na hora; o resto espera o fim
     if (hud.emFoco && !l.timer) { avisosGuardados.push({ l, atrasado }); return }
     mostrarLembrete(l, atrasado)
+  })
+
+  // Tarefa de programação terminou em segundo plano
+  window.friday.aoTarefa((t) => {
+    if (!t.terminadaEm || !['pronta', 'sem mudanças', 'falhou'].includes(t.estado)) return
+    t.estado === 'pronta' ? sons.feito() : sons.alerta()
+    const primeira = (t.resumo.split(/(?<=[.!?])\s/)[0] ?? '').replace(/[`*#_]/g, '').slice(0, 220)
+    hud.cartao({ tipo: 'tarefa', id: t.id, projeto: t.projeto, pedido: t.pedido, estado: t.estado, detalhe: t.branch ? `branch ${t.branch} · ${t.arquivos.length} arquivos` : primeira }, 20000)
+    const fala = t.estado === 'pronta'
+      ? `A tarefa ${t.id} do projeto ${t.projeto} está pronta. ${primeira}`
+      : t.estado === 'sem mudanças' ? `A tarefa ${t.id} terminou sem mudar nenhum arquivo.` : `A tarefa ${t.id} falhou. ${primeira}`
+    void avisar(fala)
   })
 
   window.addEventListener('offline', () => {

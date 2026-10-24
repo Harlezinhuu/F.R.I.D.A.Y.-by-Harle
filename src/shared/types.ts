@@ -15,6 +15,8 @@ export interface FridayConfig {
   efeitoVoz: boolean
   /** Cidade para o clima; vazio = localização aproximada pelo IP */
   cidade: string
+  /** Fotos e resumos da Wikipédia enquanto ela fala */
+  cenas: boolean
   /** Saudação ao abrir (no máximo uma a cada 4 horas) */
   saudacao: boolean
   /** URL do modelo de palavra de ativação, ou null se ainda não foi baixado */
@@ -36,6 +38,9 @@ export type Card =
   | { tipo: 'rotina'; nome: string; passos: string }
   | { tipo: 'foco'; minutos: number }
   | { tipo: 'diagnostico'; itens: ItemDiagnostico[] }
+  | { tipo: 'memoria'; titulo: string; itens: string[] }
+  | { tipo: 'cena'; titulo: string; descricao: string; imagem: string | null }
+  | { tipo: 'tarefa'; id: number; projeto: string; pedido: string; estado: string; detalhe: string }
 
 export interface ToolResult {
   ok: boolean
@@ -54,6 +59,18 @@ export interface Lembrete {
   /** 'nunca' | 'diario' | 'dias_uteis' | 'semanal' | 'mensal' */
   repetir?: string
   timer?: boolean
+}
+
+export interface TarefaResumo {
+  id: number
+  projeto: string
+  pedido: string
+  estado: string
+  branch: string
+  arquivos: string[]
+  resumo: string
+  andamento: string
+  terminadaEm?: string
 }
 
 export interface ItemDiagnostico {

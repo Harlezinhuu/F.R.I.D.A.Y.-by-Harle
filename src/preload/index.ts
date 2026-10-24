@@ -9,6 +9,7 @@ const api: FridayApi = {
   avisarSilencio: (valor) => ipcRenderer.send('silencio-local', valor),
   aoSilenciar: (cb) => { ipcRenderer.on('silenciar', (_e, v: boolean) => cb(v)) },
   aoLembrete: (cb) => { ipcRenderer.on('lembrete', (_e, l, atrasado: boolean) => cb(l, atrasado)) },
+  aoTarefa: (cb) => { ipcRenderer.on('tarefa', (_e, t) => cb(t)) },
   fishFalar: (id, texto) => ipcRenderer.invoke('fish-falar', id, texto),
   fishCancelar: () => ipcRenderer.send('fish-cancelar'),
   aoFishAudio: (cb) => { ipcRenderer.on('fish-audio', (_e, id: number, b64: string, taxa: number) => cb(id, b64, taxa)) }

@@ -111,6 +111,9 @@ body.expandido .cards { right: 4vw; bottom: calc(50% - 90px) }
 .st { width: 8px; height: 8px; flex-shrink: 0; align-self: center }
 .st.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok) }
 .st.falha { background: var(--alert); box-shadow: 0 0 8px var(--alert) }
+.lista.quebra li { white-space: normal }
+.quebra-texto { white-space: normal; overflow-wrap: anywhere; line-height: 1.45; margin: 0 }
+.cena-img { width: 100%; max-height: 220px; object-fit: cover; display: block; border: 1px solid var(--line); filter: saturate(.85) contrast(1.05); box-shadow: 0 0 24px rgba(111, 184, 255, .15) }
 .mini { width: 100%; height: auto; border: 1px solid var(--line); display: block }
 
 /* Modo foco: timer no núcleo */

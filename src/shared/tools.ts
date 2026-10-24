@@ -16,7 +16,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -225,6 +225,63 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { minutos: { type: 'NUMBER', description: 'Duração em minutos (padrão 25).' } } }
   },
   { name: 'encerrar_foco', description: 'Encerra o modo foco antes da hora.' },
+  {
+    name: 'memorizar',
+    description:
+      'Guarda algo duradouro que o usuário contou sobre si: gostos, pessoas da vida dele, projetos, rotina e como quer ser atendido (inclusive correções, como "não me chama de senhor"). Chame sem anunciar, junto com a resposta normal. Nunca guarde senhas, PINs, chaves, documentos, números de cartão ou conta, nem coisas passageiras (o que vai fazer hoje).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fato: { type: 'STRING', description: 'Uma frase curta em terceira pessoa, ex.: "Gosta de café sem açúcar".' },
+        categoria: { type: 'STRING', description: 'Tipo do fato.', enum: ['gosto', 'pessoa', 'projeto', 'preferencia', 'rotina', 'outro'] }
+      },
+      required: ['fato', 'categoria']
+    }
+  },
+  {
+    name: 'o_que_sabe',
+    description: 'Mostra o que você sabe sobre o usuário ("o que você sabe sobre mim?", "o que você aprendeu?").',
+    parameters: { type: 'OBJECT', properties: { assunto: { type: 'STRING', description: 'Filtro opcional, ex.: "projetos" ou "café".' } } }
+  },
+  {
+    name: 'esquecer',
+    description: 'Esquece algo da memória ("esquece isso", "esquece o que eu disse sobre café"). Para apagar tudo, tudo=true e confirmação.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        trecho: { type: 'STRING', description: 'Assunto ou palavras do que esquecer. Para "esquece isso", use o fato que acabou de ser guardado.' },
+        tudo: { type: 'BOOLEAN', description: 'true para apagar toda a memória.' },
+        confirmado: { type: 'BOOLEAN', description: 'true somente depois que o usuário confirmou apagar tudo.' }
+      }
+    }
+  },
+  {
+    name: 'aprendizado',
+    description: 'Liga ou desliga o aprendizado ("para de aprender", "volta a aprender").',
+    parameters: { type: 'OBJECT', properties: { ativo: { type: 'BOOLEAN', description: 'true liga, false desliga.' } }, required: ['ativo'] }
+  },
+  {
+    name: 'mostrar_cena',
+    description:
+      'Mostra na tela uma foto e um resumo da Wikipédia sobre algo concreto de que você está falando: pessoa, lugar, obra, animal, objeto, evento. Chame sem anunciar, no começo da resposta, no máximo uma vez por resposta. Não use para ações no PC nem para assuntos abstratos.',
+    parameters: { type: 'OBJECT', properties: { termo: { type: 'STRING', description: 'Nome como estaria no título da Wikipédia, ex.: "Torre Eiffel".' } }, required: ['termo'] }
+  },
+  { name: 'listar_projetos', description: 'Lista os projetos de programação configurados para tarefas.' },
+  {
+    name: 'tarefa_programacao',
+    description:
+      'Entrega uma tarefa de programação ao Claude Code, que trabalha em segundo plano numa cópia isolada do projeto e deixa o resultado numa branch para revisão. Use quando o usuário pedir para programar algo num projeto ("tarefa no projeto site: criar a página de contato").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        projeto: { type: 'STRING', description: 'Nome do projeto.' },
+        pedido: { type: 'STRING', description: 'A tarefa completa e detalhada, com tudo o que o usuário falou.' }
+      },
+      required: ['projeto', 'pedido']
+    }
+  },
+  { name: 'status_tarefas', description: 'Diz como estão as tarefas de programação ("como está a tarefa?").' },
+  { name: 'cancelar_tarefa', description: 'Cancela a tarefa de programação em andamento (ou a próxima da fila).' },
   { name: 'diagnostico', description: 'Confere como a FRIDAY está: cérebro, voz, microfone, palavra de ativação, internet, controle do Windows ("como você está?", "status", "diagnóstico").' },
   {
     name: 'mostrar_painel',
@@ -241,7 +298,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   }
 ]
 
-export function systemPrompt(nome: string, agora: Date): string {
+export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
   const quem = nome ? `o ${nome}` : 'o usuário'
   const data = agora.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
   return [
@@ -257,6 +314,9 @@ export function systemPrompt(nome: string, agora: Date): string {
     'Se a pessoa disser só o nome de uma rotina ("modo trabalho"), chame executar_rotina com esse nome.',
     'Para arquivos, use listar_arquivos antes de mover, abrir ou apagar, para usar o nome exato. Você só alcança as pastas pessoais.',
     'Quando o resultado de uma ferramenta trouxer um campo "dizer", fale esse texto.',
-    `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`
+    'Quando o usuário contar algo duradouro sobre si, chame memorizar em silêncio, sem anunciar que guardou.',
+    'Quando falar de algo concreto e conhecido (pessoa, lugar, obra, objeto), chame mostrar_cena com o nome, sem anunciar.',
+    `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
+    ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])
   ].join('\n')
 }

@@ -15,6 +15,9 @@ import * as arquivos from './arquivos'
 import { capturarTela } from './captura'
 import { buscarClima } from './clima'
 import { carregarConfig, carregarFish } from './config'
+import { memorizar, listarFatos, esquecer, esquecerTudo, definirAprendizado, memoriaAtiva, memoriaParaPrompt } from './memoria'
+import { buscarCena } from './cenas'
+import { pedirTarefa, statusTarefas, cancelarTarefaAtual, lerProjetos } from './tarefas'
 
 let janela: () => BrowserWindow | null = () => null
 /** O processo principal informa a janela do HUD (para esconder durante o print). */
@@ -233,6 +236,99 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     return { ok: true, mensagem: msg, card: { tipo: 'aviso', titulo: 'DESFEITO', texto: msg } }
   },
 
+  // ---------- Memória ----------
+
+  async memorizar(a) {
+    const r = memorizar(a.fato, a.categoria)
+    if (!r.ok) return falha(r.motivo)
+    return r.novo
+      ? { ok: true, mensagem: 'Guardado.', card: { tipo: 'aviso', titulo: 'APRENDI', texto: r.fato.texto } }
+      : { ok: true, mensagem: 'Eu já sabia disso.' }
+  },
+
+  async o_que_sabe(a) {
+    const fatos = listarFatos()
+    const filtro = str(a.assunto).toLowerCase()
+    const lista = filtro ? fatos.filter((f) => f.texto.toLowerCase().includes(filtro) || f.categoria === filtro) : fatos
+    if (!lista.length) return { ok: true, mensagem: fatos.length ? `Não sei nada sobre "${filtro}".` : `Ainda não aprendi nada${memoriaAtiva() ? '' : ' (o aprendizado está desligado)'}.` }
+    const recentes = [...lista].sort((x, y) => y.criadoEm.localeCompare(x.criadoEm))
+    return {
+      ok: true,
+      mensagem: `Sei ${lista.length} ${lista.length === 1 ? 'coisa' : 'coisas'}: ${recentes.slice(0, 20).map((f) => f.texto).join('; ')}.`,
+      card: { tipo: 'memoria', titulo: `O QUE SEI SOBRE VOCÊ · ${lista.length}`, itens: recentes.slice(0, 8).map((f) => f.texto) }
+    }
+  },
+
+  async esquecer(a) {
+    if (a.tudo === true) {
+      if (a.confirmado !== true) {
+        return { ok: false, precisaConfirmacao: true, mensagem: `Precisa de confirmação: apagar as ${listarFatos().length} coisas que sei sobre o usuário. Pergunte antes.`, dados: { pergunta: 'Esquecer tudo o que eu sei sobre você? Não tem volta.' } }
+      }
+      const n = esquecerTudo()
+      return { ok: true, mensagem: `Esqueci tudo (${n} itens).`, card: { tipo: 'aviso', titulo: 'MEMÓRIA APAGADA', texto: `${n} itens` } }
+    }
+    const foram = esquecer(str(a.trecho))
+    if (!foram.length) return falha(`Não achei nada sobre "${str(a.trecho)}" na memória.`)
+    return { ok: true, mensagem: `Esqueci: ${foram.map((f) => f.texto).join('; ')}.`, card: { tipo: 'memoria', titulo: 'ESQUECI', itens: foram.map((f) => f.texto) } }
+  },
+
+  async aprendizado(a) {
+    const ativo = a.ativo === true
+    definirAprendizado(ativo)
+    return { ok: true, mensagem: ativo ? 'Aprendizado ligado.' : 'Aprendizado desligado. O que já sei continua guardado.', card: { tipo: 'aviso', titulo: 'APRENDIZADO', texto: ativo ? 'ligado' : 'desligado' } }
+  },
+
+  /** Uso interno: o que sei, para o começo de cada conversa. */
+  async memoria_para_prompt() {
+    return { ok: true, mensagem: memoriaParaPrompt() }
+  },
+
+  // ---------- Cenas ----------
+
+  /** Uso interno do HUD: foto e resumo da Wikipédia. */
+  async buscar_cena(a) {
+    const c = await buscarCena(str(a.termo))
+    if (!c) return falha('Sem cena.')
+    return { ok: true, mensagem: c.titulo, card: { tipo: 'cena', ...c } }
+  },
+
+  // ---------- Tarefas de programação ----------
+
+  async listar_projetos() {
+    const { projetos, avisos } = lerProjetos()
+    if (!projetos.length) return { ok: true, mensagem: `Nenhum projeto configurado. ${avisos.join(' ')} Adicione pelo ícone da bandeja: Editar projetos de programação.` }
+    return { ok: true, mensagem: `Projetos: ${projetos.map((p) => `${p.nome}${p.comandos.length ? ` (pode rodar ${p.comandos.join(', ')})` : ''}`).join('; ')}.` }
+  },
+
+  async tarefa_programacao(a) {
+    const r = await pedirTarefa(str(a.projeto), str(a.pedido))
+    if (!r.ok) return falha(r.motivo)
+    const t = r.tarefa
+    return {
+      ok: true,
+      mensagem: r.posicao > 1 ? `Tarefa ${t.id} na fila (posição ${r.posicao}). Aviso quando terminar.` : `Tarefa ${t.id} começou no projeto ${t.projeto}. Aviso quando terminar.`,
+      card: { tipo: 'tarefa', id: t.id, projeto: t.projeto, pedido: t.pedido, estado: t.estado, detalhe: 'O resultado fica numa branch para você revisar.' }
+    }
+  },
+
+  async status_tarefas() {
+    const lista = statusTarefas()
+    if (!lista.length) return { ok: true, mensagem: 'Nenhuma tarefa de programação ainda.' }
+    const t = lista[0]
+    const linha = (x: typeof t) => `Tarefa ${x.id} (${x.projeto}): ${x.estado}${x.andamento ? `, ${x.andamento}` : ''}${x.branch ? `, branch ${x.branch}` : ''}`
+    return {
+      ok: true,
+      mensagem: lista.map(linha).join('; ') + (t.resumo ? `. Resumo da última: ${t.resumo.slice(0, 600)}` : ''),
+      card: { tipo: 'tarefa', id: t.id, projeto: t.projeto, pedido: t.pedido, estado: t.estado, detalhe: t.andamento || t.branch || t.resumo.slice(0, 140) }
+    }
+  },
+
+  async cancelar_tarefa() {
+    const t = cancelarTarefaAtual()
+    if (!t) return falha('Não tem tarefa rodando nem na fila.')
+    return { ok: true, mensagem: `Cancelando a tarefa ${t.id}.`, card: { tipo: 'tarefa', id: t.id, projeto: t.projeto, pedido: t.pedido, estado: 'cancelada', detalhe: 'Nada foi guardado.' } }
+  },
+
   // ---------- Clima, saudação e diagnóstico ----------
 
   async clima(a) {
@@ -276,6 +372,9 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     })
     itens.push({ nome: 'Internet', ok: internet, detalhe: internet ? 'servidores do Google alcançáveis' : 'sem resposta do Google' })
     itens.push({ nome: 'Lembretes', ok: true, detalhe: `${listarLembretes().length} pendentes · ${lerRotinas().length} rotinas` })
+    itens.push({ nome: 'Memória', ok: true, detalhe: `${listarFatos().length} itens · aprendizado ${memoriaAtiva() ? 'ligado' : 'desligado'}` })
+    const proj = lerProjetos()
+    itens.push({ nome: 'Tarefas de programação', ok: proj.avisos.length === 0, detalhe: proj.projetos.length ? `${proj.projetos.length} projetos${proj.avisos.length ? ` · ${proj.avisos[0]}` : ''}` : 'nenhum projeto configurado' })
     return { ok: true, mensagem: '', dados: itens }
   }
 }

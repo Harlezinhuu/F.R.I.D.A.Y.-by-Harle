@@ -101,6 +101,7 @@ export function carregarConfig(): FridayConfig {
     vozProvedor: (env.FRIDAY_VOZ_PROVEDOR || '').toLowerCase() === 'fish' && env.FISH_API_KEY ? 'fish' : 'gemini',
     efeitoVoz: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_EFEITO_VOZ || '1').toLowerCase()),
     cidade: env.FRIDAY_CIDADE ?? '',
+    cenas: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_CENAS || '1').toLowerCase()),
     saudacao: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_SAUDACAO || '1').toLowerCase()),
     modeloAtivacaoUrl: existsSync(modeloPath) ? `friday-assets://models/${MODELO_ATIVACAO_ARQUIVO}` : null
   }

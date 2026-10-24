@@ -10,6 +10,7 @@ import { carregarConfig, carregarFish, diagnosticoChave, resourcesDir } from './
 import * as fish from './fish'
 import { executarFerramenta, configurarFerramentas } from './tools'
 import { iniciarLembretes } from './reminders'
+import { iniciarTarefas, caminhoProjetos, type Tarefa } from './tarefas'
 import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 
@@ -78,6 +79,7 @@ function atualizarBandeja(): void {
       { type: 'separator' },
       { label: silenciada ? 'Voltar a ouvir (Ctrl+Alt+Espaço)' : 'Silenciar (Ctrl+Alt+Espaço)', click: alternarSilencio },
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
+      { label: 'Editar projetos de programação', click: () => shell.openPath(caminhoProjetos()) },
       { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
       { type: 'separator' },
       { label: 'Sair', click: () => app.quit() }
@@ -156,6 +158,13 @@ app.whenReady().then(() => {
   }
 
   configurarFerramentas({ janela: () => win })
+  iniciarTarefas((t: Tarefa) => {
+    win?.webContents.send('tarefa', t)
+    if (t.terminadaEm && ['pronta', 'sem mudanças', 'falhou'].includes(t.estado)) {
+      const titulo = t.estado === 'pronta' ? `Tarefa ${t.id} pronta` : t.estado === 'falhou' ? `Tarefa ${t.id} falhou` : `Tarefa ${t.id} terminou sem mudanças`
+      new Notification({ title: `F.R.I.D.A.Y · ${titulo}`, body: t.branch ? `${t.projeto}: branch ${t.branch}` : t.resumo.slice(0, 180) }).show()
+    }
+  })
   iniciarLembretes((l, atrasado) => {
     new Notification({ title: atrasado ? 'Lembrete atrasado da F.R.I.D.A.Y' : 'Lembrete da F.R.I.D.A.Y', body: l.texto }).show()
     win?.webContents.send('lembrete', l, atrasado)

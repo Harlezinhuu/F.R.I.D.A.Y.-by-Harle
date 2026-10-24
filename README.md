@@ -22,6 +22,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Status do sistema:** uso de CPU, RAM e placa de vídeo (NVIDIA).
 - **Rotinas por voz, timers, lembretes repetidos, clima, modo foco e autodiagnóstico.**
 - **Arquivos nas pastas pessoais:** listar, abrir, mover, renomear, criar pasta, mandar para a Lixeira e desfazer. Nunca sai das pastas pessoais, nunca sobrescreve e nunca abre programas ou scripts.
+- **Memória que aprende** com as conversas, **cenas** da Wikipédia na tela e **tarefas de programação** com o Claude Code em segundo plano.
 - **Saudação ao abrir** com o clima e os lembretes do dia, no máximo uma vez a cada 4 horas.
 - **Cartões contextuais:** cada resposta mostra só o que importa (um medidor, um lembrete, o volume) e some sozinha.
 - **Confirmação por voz** antes de ações perigosas, como fechar um programa.
@@ -72,7 +73,7 @@ Abra o `.env` e coloque sua chave do Gemini (grátis em [aistudio.google.com/api
 ```bash
 npm run dev           # roda em modo de desenvolvimento
 npm run dist          # gera o instalador para Windows
-npm test              # testes automáticos da lógica (lembretes, caminhos, rotinas, fala)
+npm test              # testes automáticos da lógica (lembretes, caminhos, rotinas, fala, memória, tarefas)
 ```
 
 ## Usando
@@ -98,6 +99,11 @@ Diga **"Friday"** e faça o pedido. Alguns exemplos:
 | "Como está o tempo?" | Clima agora e do dia |
 | "Modo foco de 50 minutos" | Timer no núcleo e lembretes guardados até o fim |
 | "Como você está?" | Autodiagnóstico: microfone, ativação, cérebro, voz, internet e rapidez |
+| "Eu gosto de café sem açúcar" | Ela aprende em silêncio e lembra nas próximas conversas |
+| "O que você sabe sobre mim?" / "Esquece isso" / "Para de aprender" | Mostra, apaga ou pausa a memória |
+| "Me fala da Torre Eiffel" | Responde e mostra foto e resumo da Wikipédia na tela |
+| "Tarefa no projeto site: criar a página de contato" | O Claude Code programa em segundo plano e ela avisa quando terminar |
+| "Como está a tarefa?" | Diz o andamento e a branch do resultado |
 
 **Atalho de emergência:** `Ctrl + Alt + Espaço` silencia a FRIDAY na hora, de qualquer lugar. Aperte de novo para ela voltar a ouvir. O ícone na bandeja do Windows tem a opção **Sair**.
 
@@ -112,6 +118,22 @@ FISH_VOZ_ID=id_da_voz
 ```
 
 Nesse modo, o texto da resposta é cortado em frases e cada frase vira áudio assim que fica pronta, então ela começa a falar antes de terminar de pensar a resposta inteira. Em qualquer voz, `FRIDAY_EFEITO_VOZ=1` aplica uma camada de "voz de IA": presença, brilho digital, compressão de rádio e uma sala curta.
+
+### Tarefas de programação
+
+A FRIDAY entrega a tarefa ao [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code), que precisa estar instalado e com login feito no PC. Cada tarefa roda numa cópia isolada do projeto (`git worktree`) e o resultado fica numa branch `friday/tarefa-N-...` para você revisar: sem push e sem merge. O Claude Code só lê e edita arquivos; comandos de terminal, só os que você liberar.
+
+Os projetos ficam em **Editar projetos de programação**, no ícone da bandeja:
+
+```json
+[
+  { "nome": "Site", "pasta": "C:\\Users\\Harle\\Projetos\\site", "comandos": ["npm test", "npm run build"] }
+]
+```
+
+### Memória
+
+O que ela aprende fica só no seu PC (`memoria.json`, na pasta de configuração). Senhas, PINs, chaves, documentos e números de cartão ou conta são recusados antes de gravar.
 
 ### Adicionando programas
 

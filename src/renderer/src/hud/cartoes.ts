@@ -87,6 +87,15 @@ function conteudo(c: Card): string {
     case 'diagnostico':
       return `<h2 class="label">DIAGNÓSTICO <span class="ex">${c.itens.filter((i) => i.ok).length}/${c.itens.length}</span></h2>
         <ul class="lista diag">${c.itens.map((i) => `<li><span class="st ${i.ok ? 'ok' : 'falha'}" aria-label="${i.ok ? 'ok' : 'com problema'}"></span><b>${esc(i.nome)}</b><span class="meta">${esc(i.detalhe)}</span></li>`).join('')}</ul>`
+    case 'memoria':
+      return `<h2 class="label">${esc(c.titulo)}</h2><ul class="lista quebra">${c.itens.map((i) => `<li><span class="tipo">·</span>${esc(i)}</li>`).join('')}</ul>`
+    case 'cena':
+      return `${c.imagem && c.imagem.startsWith('data:image/') ? `<img class="cena-img" src="${c.imagem}" alt="${esc(c.titulo)}">` : ''}
+        <h2 class="label">CENA</h2><p class="song">${esc(c.titulo)}</p>${c.descricao ? `<p class="meta quebra-texto">${esc(c.descricao)}</p>` : ''}`
+    case 'tarefa':
+      return `<h2 class="label">TAREFA ${c.id} <span class="ex">${esc(c.estado)}</span></h2>
+        <p class="song">${esc(c.projeto)}</p><p class="what quebra-texto">${esc(c.pedido.length > 120 ? `${c.pedido.slice(0, 117)}…` : c.pedido)}</p>
+        ${c.detalhe ? `<span class="meta quebra-texto">${esc(c.detalhe)}</span>` : ''}`
   }
 }
 
