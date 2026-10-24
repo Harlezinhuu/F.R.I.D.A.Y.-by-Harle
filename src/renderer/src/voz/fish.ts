@@ -7,7 +7,7 @@
 // - os pedaços seguintes só tocam quando chegaram inteiros, então a fala não congela no meio;
 // - até 3 pedaços são gerados ao mesmo tempo, e o áudio sai sempre na ordem certa.
 
-import { cortarFrases, cortarPrimeiro } from './frases'
+import { cortarFrases, cortarPrimeiro, numerosParaFala } from './frases'
 
 const SIMULTANEOS = 3
 /** Reserva de áudio antes de o primeiro pedaço começar a tocar */
@@ -89,6 +89,8 @@ export class FalaFish {
   }
 
   private enfileirar(texto: string, primeiro = false): void {
+    // Números por extenso em português: o Fish não usa regras de outro idioma para lê-los
+    texto = numerosParaFala(texto)
     this.fila.push({ id: ++this.seq, texto, pedaços: [], pedido: false, terminou: false, primeiro, ms: 0, tocando: false, pedidoEm: 0, primeiroAudioEm: 0 })
     this.pedirProximos()
   }

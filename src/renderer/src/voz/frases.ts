@@ -51,3 +51,51 @@ export function cortarPrimeiro(texto: string): { pedaco: string | null; resto: s
   return { pedaco: null, resto: texto }
 }
 
+
+// ---------- Números por extenso, em português ----------
+// O Fish lê melhor "dezenove graus" do que "19 graus": converter os números por conta própria
+// evita que ele use regras de pronúncia de outro idioma.
+
+const UNIDADES = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove']
+const DEZENAS = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa']
+const CENTENAS = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos']
+
+function ate999(n: number): string {
+  if (n < 20) return UNIDADES[n]
+  if (n < 100) return DEZENAS[Math.floor(n / 10)] + (n % 10 ? ` e ${UNIDADES[n % 10]}` : '')
+  if (n === 100) return 'cem'
+  return CENTENAS[Math.floor(n / 100)] + (n % 100 ? ` e ${ate999(n % 100)}` : '')
+}
+
+/** Inteiro por extenso (até 999.999.999). */
+export function porExtenso(n: number): string {
+  if (!Number.isInteger(n) || n < 0 || n > 999_999_999) return String(n)
+  if (n < 1000) return ate999(n)
+  const milhoes = Math.floor(n / 1_000_000), milhares = Math.floor((n % 1_000_000) / 1000), resto = n % 1000
+  const partes: string[] = []
+  if (milhoes) partes.push(milhoes === 1 ? 'um milhão' : `${ate999(milhoes)} milhões`)
+  if (milhares) partes.push(milhares === 1 ? 'mil' : `${ate999(milhares)} mil`)
+  if (resto) partes.push(ate999(resto))
+  // "e" antes da última parte quando ela é menor que 100 ou uma centena redonda: "mil e cem", "dois mil e cinco"
+  const ultimo = resto || (milhoes ? milhares : 0)
+  if (partes.length > 1 && ultimo && (ultimo < 100 || ultimo % 100 === 0)) return `${partes.slice(0, -1).join(' ')} e ${partes.at(-1)}`
+  return partes.join(' ')
+}
+
+const lerInteiro = (s: string): number => Number(s.replace(/\./g, ''))
+
+/** Troca números do texto por palavras: horas, porcentagens, graus, decimais e inteiros. */
+export function numerosParaFala(texto: string): string {
+  return texto
+    // Horas: 9:30 → nove e trinta; 9:00 → nove horas
+    .replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g, (_, h: string, m: string) =>
+      Number(m) === 0 ? `${porExtenso(Number(h))} ${Number(h) === 1 ? 'hora' : 'horas'}` : `${porExtenso(Number(h))} e ${porExtenso(Number(m))}`)
+    // Decimais com vírgula: 19,5 → dezenove vírgula cinco
+    .replace(/\b(\d{1,3}(?:\.\d{3})*|\d+),(\d{1,2})\b/g, (_, i: string, d: string) =>
+      `${porExtenso(lerInteiro(i))} vírgula ${d.startsWith('0') ? `zero ${porExtenso(Number(d))}` : porExtenso(Number(d))}`)
+    // Inteiros, inclusive com ponto de milhar: 1.500 → mil e quinhentos
+    .replace(/\b\d{1,3}(?:\.\d{3})+\b|\b\d+\b/g, (n) => porExtenso(lerInteiro(n)))
+    .replace(/\s*%/g, ' por cento')
+    .replace(/\s*°\s*C\b/g, ' graus')
+    .replace(/\s*[°º]/g, ' graus')
+}

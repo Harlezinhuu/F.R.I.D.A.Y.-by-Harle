@@ -42,3 +42,29 @@ test('sem pontuação, corta depois de uns 60 caracteres', () => {
 test('texto curto espera', () => {
   assert.equal(cortarPrimeiro('Abrindo o').pedaco, null)
 })
+
+import { porExtenso, numerosParaFala } from '../src/renderer/src/voz/frases.ts'
+
+test('números por extenso', () => {
+  assert.equal(porExtenso(0), 'zero')
+  assert.equal(porExtenso(19), 'dezenove')
+  assert.equal(porExtenso(21), 'vinte e um')
+  assert.equal(porExtenso(100), 'cem')
+  assert.equal(porExtenso(101), 'cento e um')
+  assert.equal(porExtenso(330), 'trezentos e trinta')
+  assert.equal(porExtenso(1000), 'mil')
+  assert.equal(porExtenso(1100), 'mil e cem')
+  assert.equal(porExtenso(1889), 'mil oitocentos e oitenta e nove')
+  assert.equal(porExtenso(2005), 'dois mil e cinco')
+  assert.equal(porExtenso(2026), 'dois mil e vinte e seis')
+  assert.equal(porExtenso(1500000), 'um milhão e quinhentos mil')
+  assert.equal(porExtenso(1250000), 'um milhão duzentos e cinquenta mil')
+})
+
+test('troca números no texto', () => {
+  assert.equal(numerosParaFala('São Paulo: 19 graus, 100% de chance de chuva.'), 'São Paulo: dezenove graus, cem por cento de chance de chuva.')
+  assert.equal(numerosParaFala('Lembrete às 9:30 e às 15:00.'), 'Lembrete às nove e trinta e às quinze horas.')
+  assert.equal(numerosParaFala('Está 19,5°C.'), 'Está dezenove vírgula cinco graus.')
+  assert.equal(numerosParaFala('Inaugurada em 1889, com 330 metros.'), 'Inaugurada em mil oitocentos e oitenta e nove, com trezentos e trinta metros.')
+  assert.equal(numerosParaFala('Custa 1.500 reais.'), 'Custa mil e quinhentos reais.')
+})

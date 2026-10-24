@@ -35,7 +35,8 @@ export async function falar(cfg: FishConfig, id: number, texto: string, aoPedaco
         format: 'pcm',
         sample_rate: FISH_SAMPLE_RATE,
         latency: 'low',
-        normalize: true,
+        // Os números já chegam por extenso em português; a normalização do Fish pode usar regras de outro idioma
+        normalize: false,
         prosody: { speed: cfg.velocidade }
       })
     })
