@@ -298,16 +298,16 @@ export class Nucleo {
     this.sonarU.uWave.value += dt * (2.5 + this.amp * 6) * mov
     this.mats.brilhoCentro.opacity = (0.18 + this.amp * 0.35) * u.uDim.value
     this.mats.brilhoBase.opacity = (0.55 + this.amp * 0.4) * u.uDim.value
-    this.animarCena(agora, mov)
+    this.animarCena(agora)
     this.renderer.render(this.scene, this.camera)
   }
 
   /** Valores para as leituras matemáticas nos cantos do HUD. */
-  // ---------- Cena holográfica ----------
+  // ---------- Cena holográfica em partículas ----------
   private cena: {
-    grupo: THREE.Group
+    pontos: THREE.Points
     mat: THREE.ShaderMaterial
-    feixes: THREE.LineSegments
+    centro: THREE.Vector3
     largura: number
     altura: number
     inicio: number
@@ -315,83 +315,106 @@ export class Nucleo {
     aoSair: () => void
   } | null = null
   private deslocamento = 0
+  private static readonly GIRO = -0.42
 
   /**
-   * Projeta uma imagem como holograma ao lado da fita: feixes saem da base, a imagem se constrói
-   * de baixo para cima, flutua tingida na cor do estado e se desfaz em blocos ao sair.
+   * A foto vira partículas: cada uma pega o brilho de um pixel, sai da fita de Möbius,
+   * voa em espiral até o seu lugar e monta a imagem em relevo. Na saída, volta para a fita.
    */
   mostrarCena(dataUrl: string, duracaoMs: number, aoSair: () => void = () => {}): void {
     this.esconderCena(true)
-    new THREE.TextureLoader().load(dataUrl, (tex: THREE.Texture) => {
-      const img = tex.image as { width: number; height: number }
-      const aspecto = Math.min(1.9, Math.max(0.6, img.width / Math.max(1, img.height)))
-      const altura = aspecto >= 1 ? 1.45 / aspecto * 1.25 : 1.55
-      const largura = altura * aspecto
-      tex.colorSpace = THREE.SRGBColorSpace
-      tex.minFilter = THREE.LinearFilter
-
+    const img = new Image()
+    img.onload = () => {
+      const largura = 2.1
+      const amostraL = 170
+      const amostraA = Math.max(40, Math.min(200, Math.round(amostraL * img.height / Math.max(1, img.width))))
+      const tela = document.createElement('canvas')
+      tela.width = amostraL
+      tela.height = amostraA
+      const g = tela.getContext('2d', { willReadFrequently: true })
+      if (!g) return
+      g.drawImage(img, 0, 0, amostraL, amostraA)
+      const px = g.getImageData(0, 0, amostraL, amostraA).data
+      const altura = largura * amostraA / amostraL
+      const centro = new THREE.Vector3(1.55 + largura / 2, 0.35, 0.35)
+      const cs = Math.cos(Nucleo.GIRO), sn = Math.sin(Nucleo.GIRO)
+      const alvo: number[] = [], origem: number[] = [], lum: number[] = [], semente: number[] = []
+      for (let y = 0; y < amostraA; y++) {
+        for (let x = 0; x < amostraL; x++) {
+          const i = (y * amostraL + x) * 4
+          const l = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255
+          if (l < 0.07 && Math.random() > 0.15) continue
+          const lx = (x / amostraL - 0.5 + (Math.random() - 0.5) / amostraL) * largura
+          const ly = (0.5 - y / amostraA + (Math.random() - 0.5) / amostraA) * altura
+          const lz = (l - 0.35) * 0.38
+          alvo.push(centro.x + lx * cs + lz * sn, centro.y + ly, centro.z - lx * sn + lz * cs)
+          // Ponto de partida: um lugar aleatório da fita
+          const u = Math.random() * Math.PI * 2, v = Math.random() * 2 - 1, w = 0.42 * v, cu = Math.cos(u * 0.5)
+          origem.push((1.35 + w * cu) * Math.cos(u), w * Math.sin(u * 0.5) + 0.15, (1.35 + w * cu) * Math.sin(u))
+          lum.push(l)
+          semente.push(Math.random())
+        }
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(alvo), 3))
+      geo.setAttribute('aOrigem', new THREE.BufferAttribute(new Float32Array(origem), 3))
+      geo.setAttribute('aLum', new THREE.BufferAttribute(new Float32Array(lum), 1))
+      geo.setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(semente), 1))
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 6)
       const mat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-        uniforms: { uTex: { value: tex }, uTime: this.uni.uTime, uColA: this.uni.uColA, uReveal: { value: 0 }, uSaida: { value: 0 }, uDim: this.uni.uDim },
-        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-        fragmentShader: /* glsl */ `
-          uniform sampler2D uTex; uniform float uTime, uReveal, uSaida, uDim; uniform vec3 uColA; varying vec2 vUv;
-          float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: this.uni.uTime, uColA: this.uni.uColA, uColB: this.uni.uColB, uDim: this.uni.uDim, uPixel: this.uni.uPixel,
+          uProg: { value: 0 }, uSaida: { value: 0 }, uVarre: { value: 0 }
+        },
+        vertexShader: /* glsl */ `
+          attribute vec3 aOrigem; attribute float aLum, aSeed;
+          uniform float uTime, uProg, uSaida, uPixel, uVarre; varying float vLum, vA, vBrilho;
+          float suave(float x){ return x*x*(3.0 - 2.0*x); }
+          vec3 voo(vec3 de, vec3 para, float t, float s){
+            vec3 meio = mix(de, para, .5) + vec3(sin(s*40.0)*.6, .9 + s*.8, cos(s*37.0)*.6);
+            return mix(mix(de, meio, t), mix(meio, para, t), t);
+          }
           void main(){
-            vec2 uv = vUv;
-            // Glitch horizontal enquanto a imagem entra
-            float faixa = floor(uv.y * 34.0) + floor(uTime * 18.0);
-            uv.x += (h(vec2(faixa, 1.0)) - 0.5) * 0.06 * (1.0 - uReveal) * step(0.82, h(vec2(faixa, 7.0)));
-            vec3 c = texture2D(uTex, uv).rgb;
-            float lum = dot(c, vec3(0.299, 0.587, 0.114));
-            // Duotone holográfico com um pouco da cor original
-            vec3 holo = mix(uColA * 0.12, mix(uColA, vec3(1.0), 0.45), smoothstep(0.05, 0.95, lum));
-            vec3 cor = mix(holo, c * 0.85 + uColA * 0.15, 0.28);
-            float scan = 0.82 + 0.18 * sin(vUv.y * 520.0 - uTime * 9.0);
-            float tremor = 0.93 + 0.07 * sin(uTime * 41.0) * sin(uTime * 17.0);
-            // Construção de baixo para cima com linha brilhante
-            float frente = uReveal * 1.08;
-            float visivel = step(vUv.y, frente);
-            float linha = smoothstep(0.025, 0.0, abs(vUv.y - frente)) * (1.0 - step(1.0, uReveal));
-            // Moldura e cantos
-            float bx = min(vUv.x, 1.0 - vUv.x), by = min(vUv.y, 1.0 - vUv.y);
-            float moldura = smoothstep(0.008, 0.0, min(bx, by)) * 0.6;
-            float canto = step(min(bx, by), 0.012) * step(max(bx, by), 0.09) * 1.4;
-            // Saída: desintegra em blocos
-            float bloco = h(floor(vUv * vec2(48.0, 48.0)));
-            float fica = step(uSaida * 1.05, bloco);
-            float vinheta = smoothstep(0.0, 0.08, bx) * smoothstep(0.0, 0.08, by);
-            float a = (0.9 * visivel * vinheta * tremor + linha + (moldura + canto) * uReveal) * fica * uDim;
-            gl_FragColor = vec4(cor * scan * visivel + uColA * (linha * 2.0 + moldura + canto), a);
+            float ida = suave(clamp(uProg*1.6 - aSeed*.6, 0.0, 1.0));
+            float volta = suave(clamp(uSaida*1.6 - (1.0 - aSeed)*.6, 0.0, 1.0));
+            vec3 p = voo(aOrigem, position, ida, aSeed);
+            p.z += sin(position.x*5.0 + uTime*2.2) * .03 * ida;
+            p.y += sin(position.x*3.0 - uTime*1.6 + aSeed*6.0) * .006 * ida;
+            p = mix(p, voo(aOrigem, position, 1.0 - volta, aSeed), step(.0001, uSaida));
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            gl_Position = projectionMatrix * mv;
+            float voando = 1.0 - smoothstep(.85, 1.0, ida) + volta;
+            gl_PointSize = uPixel * (5.0 + aLum*9.0 + voando*6.0) / -mv.z;
+            vLum = aLum;
+            vA = (.25 + aLum*.95) * (1.0 - smoothstep(.85, 1.0, volta));
+            float dx = (position.x - uVarre)*2.5;
+            vBrilho = exp(-dx*dx) * ida * (1.0 - volta) + voando*.6;
+          }`,
+        fragmentShader: /* glsl */ `
+          uniform vec3 uColA, uColB; uniform float uDim; varying float vLum, vA, vBrilho;
+          void main(){
+            float r = length(gl_PointCoord - .5); if (r > .5) discard;
+            vec3 cor = mix(uColA, uColB, clamp(vLum*1.15 + vBrilho*.5, 0.0, 1.0));
+            gl_FragColor = vec4(cor, smoothstep(.5, .0, r) * (vA + vBrilho*.6) * uDim);
           }`
       })
-      const plano = new THREE.Mesh(new THREE.PlaneGeometry(largura, altura), mat)
-      const grupo = new THREE.Group()
-      grupo.add(plano)
-      grupo.position.set(1.55 + largura / 2, 0.35, 0.35)
-      grupo.rotation.set(0, -0.42, 0)
-      this.tilt.add(grupo)
-
-      // Feixes da base projetora até os cantos da imagem
-      const feixes = new THREE.LineSegments(
-        new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3)),
-        new THREE.LineBasicMaterial({ color: this.uni.uColA.value, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
-      )
-      this.tilt.add(feixes)
+      const pontos = new THREE.Points(geo, mat)
+      this.tilt.add(pontos)
       const agora = performance.now()
-      this.cena = { grupo, mat, feixes, largura, altura, inicio: agora, saidaEm: agora + duracaoMs, aoSair }
-    })
+      this.cena = { pontos, mat, centro, largura, altura, inicio: agora, saidaEm: agora + duracaoMs, aoSair }
+    }
+    img.src = dataUrl
   }
 
-  /** Some com a cena (com o efeito de desintegrar, ou na hora). */
+  /** Some com a cena (as partículas voltam para a fita, ou na hora). */
   esconderCena(naHora = false): void {
     if (!this.cena) return
     if (naHora) {
       const c = this.cena
-      this.tilt.remove(c.grupo, c.feixes)
-      ;(c.mat.uniforms.uTex.value as THREE.Texture).dispose()
+      this.tilt.remove(c.pontos)
+      c.pontos.geometry.dispose()
       c.mat.dispose()
-      c.feixes.geometry.dispose()
       this.cena = null
       c.aoSair()
       return
@@ -399,37 +422,29 @@ export class Nucleo {
     this.cena.saidaEm = Math.min(this.cena.saidaEm, performance.now())
   }
 
-  /** Posição (em px, dentro do núcleo) do canto inferior esquerdo da cena, para a legenda. */
+  /** Posição (em px, dentro do núcleo) do canto inferior esquerdo da imagem, para a legenda. */
   ancoraCena(): { x: number; y: number; visivel: boolean } | null {
-    if (!this.cena) return null
-    const v = new THREE.Vector3(-this.cena.largura / 2, -this.cena.altura / 2, 0).applyMatrix4(this.cena.grupo.matrixWorld).project(this.camera)
-    return { x: (v.x * 0.5 + 0.5) * this.el.clientWidth, y: (-v.y * 0.5 + 0.5) * this.el.clientHeight, visivel: this.cena.mat.uniforms.uReveal.value > 0.6 && this.cena.mat.uniforms.uSaida.value < 0.3 }
+    const c = this.cena
+    if (!c) return null
+    const canto = new THREE.Vector3(
+      c.centro.x - Math.cos(Nucleo.GIRO) * c.largura / 2,
+      c.centro.y - c.altura / 2,
+      c.centro.z + Math.sin(Nucleo.GIRO) * c.largura / 2
+    ).applyMatrix4(this.tilt.matrixWorld).project(this.camera)
+    const u = c.mat.uniforms
+    return { x: (canto.x * 0.5 + 0.5) * this.el.clientWidth, y: (-canto.y * 0.5 + 0.5) * this.el.clientHeight, visivel: u.uProg.value > 0.75 && u.uSaida.value < 0.15 }
   }
 
-  private animarCena(agora: number, mov: number): void {
-    const alvoDesloc = this.cena ? -0.75 : 0
-    this.deslocamento += (alvoDesloc - this.deslocamento) * 0.06
+  private animarCena(agora: number): void {
+    this.deslocamento += ((this.cena ? -0.75 : 0) - this.deslocamento) * 0.05
     this.tilt.position.x = this.deslocamento
     const c = this.cena
     if (!c) return
     const u = c.mat.uniforms
-    u.uReveal.value = Math.min(1, (agora - c.inicio) / (this.reduzido ? 200 : 1100))
-    u.uSaida.value = agora > c.saidaEm ? Math.min(1, (agora - c.saidaEm) / 800) : 0
-    c.grupo.position.y = 0.35 + Math.sin(this.t * 0.8) * 0.05 * mov
-    c.grupo.rotation.y = -0.42 + Math.sin(this.t * 0.35) * 0.04 * mov
-    c.grupo.updateMatrix()
-    // Feixes: da base (0, -1.4, 0) aos quatro cantos
-    const pos = c.feixes.geometry.getAttribute('position') as THREE.BufferAttribute
-    const w = c.largura / 2, hh = c.altura / 2
-    ;[[-w, -hh], [w, -hh], [w, hh], [-w, hh]].forEach(([x, y], i) => {
-      const v = new THREE.Vector3(x, y, 0).applyMatrix4(c.grupo.matrix)
-      pos.setXYZ(i * 2, 0, -1.4, 0)
-      pos.setXYZ(i * 2 + 1, v.x, v.y, v.z)
-    })
-    pos.needsUpdate = true
-    const fm = c.feixes.material as THREE.LineBasicMaterial
-    fm.color.copy(this.uni.uColA.value)
-    fm.opacity = (0.08 + 0.32 * (1 - u.uReveal.value)) * (1 - u.uSaida.value)
+    u.uProg.value = Math.min(1, (agora - c.inicio) / (this.reduzido ? 300 : 2200))
+    u.uSaida.value = agora > c.saidaEm ? Math.min(1, (agora - c.saidaEm) / (this.reduzido ? 300 : 1800)) : 0
+    const vao = c.largura * Math.cos(Nucleo.GIRO) + 0.8
+    u.uVarre.value = c.centro.x + ((((agora - c.inicio) / 3800) % 1) - 0.5) * vao
     if (u.uSaida.value >= 1) this.esconderCena(true)
   }
 
