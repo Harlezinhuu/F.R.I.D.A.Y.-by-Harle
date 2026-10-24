@@ -2,13 +2,16 @@
 // Fala pelo Fish Audio: o texto que o Gemini vai gerando é cortado em pedaços,
 // e cada pedaço vira áudio assim que fica pronto.
 //
-// Para começar a falar rápido:
-// - o primeiro pedaço sai na primeira vírgula, sem esperar a frase inteira;
-// - até 2 pedaços são gerados ao mesmo tempo, e o áudio sai sempre na ordem certa.
+// Para começar a falar rápido sem engasgar:
+// - o primeiro pedaço sai na primeira vírgula e começa a tocar com uma pequena reserva de áudio;
+// - os pedaços seguintes só tocam quando chegaram inteiros, então a fala não congela no meio;
+// - até 3 pedaços são gerados ao mesmo tempo, e o áudio sai sempre na ordem certa.
 
 import { cortarFrases, cortarPrimeiro } from './frases'
 
-const SIMULTANEOS = 2
+const SIMULTANEOS = 3
+/** Reserva de áudio antes de o primeiro pedaço começar a tocar */
+const RESERVA_MS = 450
 
 interface Pedaco {
   id: number
@@ -17,6 +20,11 @@ interface Pedaco {
   pedido: boolean
   terminou: boolean
   primeiro: boolean
+  /** Milissegundos de áudio já recebidos */
+  ms: number
+  tocando: boolean
+  pedidoEm: number
+  primeiroAudioEm: number
 }
 
 export class FalaFish {
@@ -35,8 +43,10 @@ export class FalaFish {
     window.friday.aoFishAudio((id, b64, taxa) => {
       const p = this.fila.find((x) => x.id === id)
       if (!p) return
-      if (p === this.fila[0]) this.aoAudio(b64, taxa)
-      else p.pedaços.push({ b64, taxa })
+      if (!p.primeiroAudioEm) p.primeiroAudioEm = performance.now()
+      p.pedaços.push({ b64, taxa })
+      p.ms += ((b64.length * 3) / 4 / 2 / taxa) * 1000
+      this.escoar()
     })
   }
 
@@ -79,7 +89,7 @@ export class FalaFish {
   }
 
   private enfileirar(texto: string, primeiro = false): void {
-    this.fila.push({ id: ++this.seq, texto, pedaços: [], pedido: false, terminou: false, primeiro })
+    this.fila.push({ id: ++this.seq, texto, pedaços: [], pedido: false, terminou: false, primeiro, ms: 0, tocando: false, pedidoEm: 0, primeiroAudioEm: 0 })
     this.pedirProximos()
   }
 
@@ -89,24 +99,34 @@ export class FalaFish {
     const livres = this.fila.filter((p) => !p.pedido).slice(0, Math.max(0, SIMULTANEOS - emAndamento))
     for (const p of livres) {
       p.pedido = true
+      p.pedidoEm = performance.now()
       if (p.primeiro) this.aoPrimeiroPedido()
       window.friday.fishFalar(p.id, p.texto).then((r) => {
         if (minha !== this.geracao) return
         p.terminou = true
+        const agora = performance.now()
+        console.log(`[fish] pedaço de ${p.texto.length} letras: primeiro áudio em ${p.primeiroAudioEm ? Math.round(p.primeiroAudioEm - p.pedidoEm) : '—'} ms, ${Math.round(p.ms)} ms de fala gerados em ${Math.round(agora - p.pedidoEm)} ms`)
         if (!r.ok) { this.aoErro(r.erro ?? 'Erro no Fish Audio.'); this.cancelar(); return }
-        this.avancar()
+        this.escoar()
         this.pedirProximos()
       })
     }
   }
 
-  /** Quando o pedaço da frente termina, solta o áudio já recebido dos seguintes, em ordem. */
-  private avancar(): void {
-    while (this.fila[0]?.terminou) {
+  /**
+   * Manda para o alto-falante o que pode tocar, sempre na ordem.
+   * O pedaço da frente começa quando chegou inteiro (ou, se for o primeiro da resposta,
+   * quando já tem uma pequena reserva); depois disso, o que chegar dele toca na hora.
+   */
+  private escoar(): void {
+    for (;;) {
+      const p = this.fila[0]
+      if (!p) return
+      if (!p.tocando && (p.terminou || (p.primeiro && p.ms >= RESERVA_MS))) p.tocando = true
+      if (!p.tocando) return
+      for (const a of p.pedaços.splice(0)) this.aoAudio(a.b64, a.taxa)
+      if (!p.terminou) return
       this.fila.shift()
-      const prox = this.fila[0]
-      if (!prox) break
-      for (const a of prox.pedaços.splice(0)) this.aoAudio(a.b64, a.taxa)
     }
   }
 }
