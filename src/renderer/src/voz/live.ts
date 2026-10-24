@@ -18,6 +18,8 @@ export interface EventosLive {
   aoInterrompido(): void
   aoFimDoTurno(): void
   aoFerramentas(chamadas: ChamadaFerramenta[]): void
+  /** Qualquer mensagem de conteúdo (voz, texto) chegou: serve para saber que o Gemini não travou */
+  aoAtividade(): void
   aoAvisoDeFim(): void
   aoFechar(inesperado: boolean, motivo: string): void
 }
@@ -90,7 +92,12 @@ export class SessaoLive {
       if (parte.inlineData?.data) this.ev.aoAudio(parte.inlineData.data)
     }
     if (sc?.turnComplete) this.ev.aoFimDoTurno()
-    if (m.toolCall?.functionCalls?.length) this.ev.aoFerramentas(m.toolCall.functionCalls as ChamadaFerramenta[])
+    if (sc) this.ev.aoAtividade()
+    if (m.toolCall?.functionCalls?.length) {
+      console.log(`[live] pediu ferramentas: ${m.toolCall.functionCalls.map((f: { name?: string }) => f.name).join(', ')}`)
+      this.ev.aoFerramentas(m.toolCall.functionCalls as ChamadaFerramenta[])
+    }
+    if (m.toolCallCancellation?.ids?.length) console.warn(`[live] o Gemini cancelou ferramentas: ${m.toolCallCancellation.ids.join(', ')}`)
     if (m.goAway) this.ev.aoAvisoDeFim()
   }
 
@@ -102,6 +109,15 @@ export class SessaoLive {
   responderFerramentas(respostas: { id?: string; name?: string; response: Record<string, unknown> }[]): void {
     if (!this.aberta || !this.sessao) return
     this.sessao.sendToolResponse({ functionResponses: respostas })
+  }
+
+  /**
+   * O modelo de voz às vezes fica mudo depois de receber o resultado de uma ferramenta.
+   * Um pedido curto em texto faz ele continuar.
+   */
+  cutucar(): void {
+    if (!this.aberta || !this.sessao) return
+    this.sessao.sendClientContent({ turns: [{ role: 'user', parts: [{ text: '(Diga em uma frase curta o resultado da ação.)' }] }], turnComplete: true })
   }
 
   fechar(): void {

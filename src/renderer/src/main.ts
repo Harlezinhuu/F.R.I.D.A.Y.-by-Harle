@@ -64,6 +64,7 @@ async function iniciar(): Promise<void> {
   let marcaFimFala = 0, marcaTexto = 0, marcaPedidoVoz = 0
 
   let memoriaDaConversa = ''
+  let vigiaFerramenta = 0
   let alertaPendente = false
   let turnosDesdeAlerta = 0
   let encerrarAoTerminar = false
@@ -162,6 +163,7 @@ async function iniciar(): Promise<void> {
       if (alertaPendente && ++turnosDesdeAlerta >= 2) limparAlerta()
     },
     aoFerramentas(chamadas) { void executarFerramentas(chamadas) },
+    aoAtividade() { clearTimeout(vigiaFerramenta); vigiaFerramenta = 0 },
     aoAvisoDeFim() { void reconectar(true) },
     aoFechar(inesperado, motivo) {
       if (!inesperado || !conversando || conectando) return
@@ -344,7 +346,12 @@ async function iniciar(): Promise<void> {
         }
         resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
       } else {
-        const r = await window.friday.ferramenta(nome, args)
+        const inicio = performance.now()
+        const r = await Promise.race([
+          window.friday.ferramenta(nome, args),
+          esperar(20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
+        ])
+        console.log(`[ferramenta] ${nome} ${r.ok ? 'ok' : r.precisaConfirmacao ? 'pediu confirmação' : 'falhou'} em ${Math.round(performance.now() - inicio)} ms: ${r.mensagem.slice(0, 160)}`)
         if (r.precisaConfirmacao) {
           alertaPendente = true
           turnosDesdeAlerta = 0
@@ -363,6 +370,20 @@ async function iniciar(): Promise<void> {
       respostas.push({ id: c.id, name: nome, response: resposta })
     }
     live.responderFerramentas(respostas)
+    // Se o Gemini ficar mudo depois da ação, dá um cutucão; se continuar mudo, avisa e volta a ouvir
+    clearTimeout(vigiaFerramenta)
+    vigiaFerramenta = window.setTimeout(() => {
+      if (!conversando) return
+      console.warn('[friday] o Gemini ficou mudo depois da ação; pedindo para continuar')
+      live.cutucar()
+      vigiaFerramenta = window.setTimeout(() => {
+        if (!conversando) return
+        console.warn('[friday] o Gemini continuou mudo depois da ação')
+        const feitas = respostas.filter((r) => r.response.ok).length
+        hud.legenda('SISTEMA', feitas ? 'Feito. Pode pedir a próxima.' : 'Não consegui concluir. Pode repetir?')
+        hud.setEstado('ouvindo')
+      }, 7000)
+    }, 7000)
     atividade()
   }
 
