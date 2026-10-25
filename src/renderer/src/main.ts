@@ -319,6 +319,11 @@ async function iniciar(): Promise<void> {
       if (nome === 'mostrar_painel') {
         hud.painel(String(args.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar')
         resposta = { ok: true, resultado: 'Pronto.' }
+      } else if (nome === 'minimizar') {
+        // Volta ao modo compacto de quando abre: o HUD encolhe na hora e ela volta ao repouso depois de responder
+        hud.compactar()
+        encerrarAoTerminar = true
+        resposta = { ok: true, resultado: 'HUD minimizado. Responda só "Ok." ou uma palavra curta.' }
       } else if (nome === 'encerrar_conversa') {
         encerrarAoTerminar = true
         resposta = { ok: true, resultado: 'A conversa será encerrada depois da sua despedida.' }

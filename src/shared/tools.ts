@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -310,6 +310,10 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       properties: { painel: { type: 'STRING', description: 'Qual painel.', enum: ['sistema', 'modulos', 'tudo', 'fechar'] } },
       required: ['painel']
     }
+  },
+  {
+    name: 'minimizar',
+    description: 'Minimiza a FRIDAY: volta ao modo compacto do canto da tela, como quando ela abre, e fica esperando o "Friday" ("minimiza", "fica pequena", "volta pro canto", "recolhe").'
   },
   {
     name: 'encerrar_conversa',

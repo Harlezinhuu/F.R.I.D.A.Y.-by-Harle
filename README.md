@@ -91,6 +91,7 @@ Diga **"Friday"** e faça o pedido. Alguns exemplos:
 | "Mostra o sistema completo" | Abre os painéis laterais |
 | "Fecha o Discord" | Pede confirmação antes de fechar |
 | "Pode descansar" | Encerra a conversa e volta para o canto |
+| "Minimiza" / "volta pro canto" | Encolhe a FRIDAY na hora, como quando ela abre |
 | "Todo dia às 8 me lembra de tomar água" | Lembrete repetido (todo dia, dias úteis, semanal ou mensal) |
 | "Timer de 10 minutos para o macarrão" | Liga um timer e avisa falando |
 | "Cria a rotina modo trabalho: abre o Chrome, abre o Spotify e diz bom trabalho" | Salva a rotina; depois é só dizer "modo trabalho" |
