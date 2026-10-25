@@ -550,6 +550,13 @@ async function iniciar(): Promise<void> {
     void avisar(fala)
   })
 
+  // Ação em segundo plano terminou (ex.: a Visão de Deus acabou de instalar)
+  window.friday.aoAviso((texto, ok) => {
+    ok ? sons.feito() : sons.alerta()
+    hud.cartao({ tipo: 'aviso', titulo: ok ? 'PRONTO' : 'ATENÇÃO', texto }, 12000)
+    void avisar(texto)
+  })
+
   window.addEventListener('offline', () => {
     if (silenciada) return
     sons.offline()

@@ -4,13 +4,14 @@
 
 type Simples = { type: 'STRING' | 'NUMBER' | 'BOOLEAN'; description: string; enum?: string[] }
 type Lista = { type: 'ARRAY'; description: string; items: { type: 'OBJECT'; properties: Record<string, Simples>; required?: string[] } }
+type ListaSimples = { type: 'ARRAY'; description: string; items: Simples }
 
 export interface ToolDeclaration {
   name: string
   description: string
   parameters?: {
     type: 'OBJECT'
-    properties: Record<string, Simples | Lista>
+    properties: Record<string, Simples | Lista | ListaSimples>
     required?: string[]
   }
 }
@@ -282,6 +283,24 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   { name: 'status_tarefas', description: 'Diz como estão as tarefas de programação ("como está a tarefa?").' },
   { name: 'cancelar_tarefa', description: 'Cancela a tarefa de programação em andamento (ou a próxima da fila).' },
+  {
+    name: 'visao_deus',
+    description:
+      'Abre a Visão de Deus: um globo 3D com dados públicos ao vivo (aviões, satélites, navios, terremotos, câmeras públicas, radar de chuva, raios). Use para "visão de Deus", "me mostra os aviões sobre São Paulo", "abre o globo em Tóquio". Se já estiver aberta, troca só o que foi pedido (lugar, camadas ou estilo).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        lugar: { type: 'STRING', description: 'Cidade, país, monumento ou endereço. Vazio = o planeta inteiro (ou mantém o lugar atual).' },
+        camadas: {
+          type: 'ARRAY',
+          description: 'Camadas para ligar. Vazio = mantém as atuais.',
+          items: { type: 'STRING', description: 'Camada.', enum: ['avioes', 'militares', 'satelites', 'navios', 'terremotos', 'cameras', 'foguetes', 'radar', 'raios', 'ciclones', 'vento', 'transito'] }
+        },
+        estilo: { type: 'STRING', description: 'Estilo visual.', enum: ['normal', 'noturno', 'termico', 'retro', 'anime', 'noir', 'neve'] }
+      }
+    }
+  },
+  { name: 'fechar_visao_deus', description: 'Fecha a Visão de Deus e desliga o servidor dela.' },
   { name: 'diagnostico', description: 'Confere como a FRIDAY está: cérebro, voz, microfone, palavra de ativação, internet, controle do Windows ("como você está?", "status", "diagnóstico").' },
   {
     name: 'mostrar_painel',
@@ -316,6 +335,8 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Quando o resultado de uma ferramenta trouxer um campo "dizer", fale esse texto.',
     'Quando o usuário contar algo duradouro sobre si, chame memorizar em silêncio, sem anunciar que guardou.',
     'Quando falar de algo concreto e conhecido (pessoa, lugar, obra, objeto), chame mostrar_cena com o nome, sem anunciar.',
+    'Com a Visão de Deus aberta, não chame mostrar_cena para lugares: o globo já mostra.',
+    'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])
   ].join('\n')

@@ -13,6 +13,7 @@ import { iniciarLembretes } from './reminders'
 import { iniciarTarefas, caminhoProjetos, type Tarefa } from './tarefas'
 import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
+import * as visao from './visao'
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'friday-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
@@ -157,7 +158,14 @@ app.whenReady().then(() => {
     new Notification({ title: 'F.R.I.D.A.Y', body: 'O atalho Ctrl+Alt+Espaço já está em uso por outro programa.' }).show()
   }
 
-  configurarFerramentas({ janela: () => win })
+  // Avisos que chegam depois que a ferramenta já respondeu (ex.: a Visão de Deus terminou de instalar)
+  const avisarEmSegundoPlano = (texto: string, ok: boolean): void => {
+    log('aviso', texto)
+    win?.webContents.send('aviso', texto, ok)
+    if (!ok) new Notification({ title: 'F.R.I.D.A.Y', body: texto }).show()
+  }
+  configurarFerramentas({ janela: () => win, avisar: avisarEmSegundoPlano })
+  visao.configurarVisao({ log: (t) => log('main', t), avisar: avisarEmSegundoPlano })
   iniciarTarefas((t: Tarefa) => {
     win?.webContents.send('tarefa', t)
     if (t.terminadaEm && ['pronta', 'sem mudanças', 'falhou'].includes(t.estado)) {
@@ -179,5 +187,6 @@ app.on('second-instance', () => win?.webContents.send('silenciar', silenciada))
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   winctl.encerrar()
+  visao.encerrar()
 })
 app.on('window-all-closed', () => app.quit())

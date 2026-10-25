@@ -13,3 +13,6 @@ friday.log
 # Modelo de palavra de ativação (baixado com `npm run modelo`)
 resources/models/*
 !resources/models/.gitkeep
+
+# Visão de Deus (God's Eye View), baixada na primeira vez que você pede
+extras/

@@ -18,11 +18,29 @@ import { carregarConfig, carregarFish } from './config'
 import { memorizar, listarFatos, esquecer, esquecerTudo, definirAprendizado, memoriaAtiva, memoriaParaPrompt } from './memoria'
 import { buscarCena } from './cenas'
 import { pedirTarefa, statusTarefas, cancelarTarefaAtual, lerProjetos } from './tarefas'
+import * as visao from './visao'
+import { CAMADAS, lerCamadas, lerEstilo, type Vista } from './logica/visao'
+
+/** Espera a promessa por até `ms`; se demorar mais, ela segue sozinha em segundo plano. */
+async function noMaximo<T>(p: Promise<T>, ms: number): Promise<{ pronto: true; valor: T } | { pronto: false }> {
+  let relogio: ReturnType<typeof setTimeout> | undefined
+  const espera = new Promise<{ pronto: false }>((r) => { relogio = setTimeout(() => r({ pronto: false }), ms) })
+  const pronto = p.then((valor) => ({ pronto: true as const, valor }))
+  // Se falhar depois do prazo, quem chamou cuida do erro; aqui ele não fica solto
+  pronto.catch(() => {})
+  try {
+    return await Promise.race([pronto, espera])
+  } finally {
+    clearTimeout(relogio)
+  }
+}
 
 let janela: () => BrowserWindow | null = () => null
-/** O processo principal informa a janela do HUD (para esconder durante o print). */
-export function configurarFerramentas(opcoes: { janela: () => BrowserWindow | null }): void {
+let avisoVisao: (texto: string, ok: boolean) => void = () => {}
+/** O processo principal informa a janela do HUD (para esconder durante o print) e como avisar em segundo plano. */
+export function configurarFerramentas(opcoes: { janela: () => BrowserWindow | null; avisar: (texto: string, ok: boolean) => void }): void {
   janela = opcoes.janela
+  avisoVisao = opcoes.avisar
 }
 
 const fmtData = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -292,6 +310,61 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     return { ok: true, mensagem: c.titulo, card: { tipo: 'cena', ...c } }
   },
 
+  // ---------- Visão de Deus (God's Eye View) ----------
+
+  async visao_deus(a) {
+    const { chaves, desconhecidas } = lerCamadas(a.camadas)
+    const estilo = lerEstilo(a.estilo)
+    const mudancas: Partial<Vista> = {}
+    if (chaves.length) mudancas.camadas = chaves
+    if (estilo) mudancas.estilo = estilo
+    let nomeLugar = ''
+    if (str(a.lugar)) {
+      const l = await visao.acharLugar(str(a.lugar))
+      Object.assign(mudancas, { lat: l.lat, lon: l.lon, alt: l.alt })
+      nomeLugar = l.nome
+    } else if (!visao.aberta()) {
+      Object.assign(mudancas, visao.vistaPlaneta())
+      nomeLugar = 'o planeta'
+    }
+    const camadasTxt = chaves.map((c) => CAMADAS[c].nome).join(', ')
+    const extra = desconhecidas.length ? ` Não tenho a camada ${desconhecidas.join(', ')}.` : ''
+    const card = { tipo: 'aviso' as const, titulo: 'VISÃO DE DEUS', texto: [nomeLugar, camadasTxt].filter(Boolean).join(' · ') || 'atualizando' }
+
+    // Primeira vez: instala em segundo plano e abre sozinha quando terminar
+    if (!visao.instalada()) {
+      const etapa = visao.emInstalacao()
+      if (etapa) return { ok: true, mensagem: `A Visão de Deus ainda está sendo instalada (${etapa}). Ela abre sozinha quando terminar.`, card }
+      const falta = await visao.requisitos()
+      if (falta) return falha(falta)
+      void visao.instalar().then((ok) => {
+        if (!ok) return
+        visao.abrir(mudancas).then(
+          () => avisoVisao('Visão de Deus instalada e aberta.', true),
+          (e) => avisoVisao(`A Visão de Deus instalou, mas não abriu: ${(e as Error).message}`, false)
+        )
+      })
+      return { ok: true, mensagem: 'Instalando a Visão de Deus pela primeira vez. Leva alguns minutos; ela abre sozinha quando terminar.', card: { ...card, texto: 'instalando pela primeira vez' } }
+    }
+
+    const abrindo = visao.abrir(mudancas)
+    const r = await noMaximo(abrindo, 8_000)
+    if (!r.pronto) {
+      // O servidor ainda está subindo: avisa se der errado depois
+      abrindo.catch((e) => avisoVisao(`A Visão de Deus não abriu: ${(e as Error).message}`, false))
+      return { ok: true, mensagem: `Abrindo a Visão de Deus${nomeLugar ? ` em ${nomeLugar}` : ''}. O globo leva alguns segundos para aparecer.${extra}`, card }
+    }
+    return {
+      ok: true,
+      mensagem: `Visão de Deus${nomeLugar ? ` em ${nomeLugar}` : ''}${camadasTxt ? ` com ${camadasTxt}` : ''}.${extra}`,
+      card
+    }
+  },
+
+  async fechar_visao_deus() {
+    return visao.fechar() ? { ok: true, mensagem: 'Visão de Deus fechada.' } : falha('A Visão de Deus não está aberta.')
+  },
+
   // ---------- Tarefas de programação ----------
 
   async listar_projetos() {
@@ -374,6 +447,8 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     itens.push({ nome: 'Lembretes', ok: true, detalhe: `${listarLembretes().length} pendentes · ${lerRotinas().length} rotinas` })
     itens.push({ nome: 'Memória', ok: true, detalhe: `${listarFatos().length} itens · aprendizado ${memoriaAtiva() ? 'ligado' : 'desligado'}` })
     const proj = lerProjetos()
+    const etapaVisao = visao.emInstalacao()
+    itens.push({ nome: 'Visão de Deus', ok: true, detalhe: visao.instalada() ? (visao.aberta() ? 'aberta' : 'instalada') : etapaVisao ? `instalando: ${etapaVisao}` : 'ainda não instalada (instala na primeira vez que você pedir)' })
     itens.push({ nome: 'Tarefas de programação', ok: proj.avisos.length === 0, detalhe: proj.projetos.length ? `${proj.projetos.length} projetos${proj.avisos.length ? ` · ${proj.avisos[0]}` : ''}` : 'nenhum projeto configurado' })
     return { ok: true, mensagem: '', dados: itens }
   }
