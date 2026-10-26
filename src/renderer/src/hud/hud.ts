@@ -4,6 +4,8 @@
 import { Nucleo, ESTADOS, type Estado } from './nucleo'
 import { Cartoes } from './cartoes'
 import type { Card } from '../../../shared/types'
+import type { Modelo3D } from '../projetor/tipos'
+import type { AcaoProjecao } from './projecao'
 
 const $ = (id: string) => document.getElementById(id)!
 
@@ -133,12 +135,85 @@ export class Hud {
   }
 
   compactar(): void {
+    // Minimizar encerra a projeção (as partículas voltam para a fita)
+    this.nucleo.projecao.esconder()
     document.body.classList.replace('expandido', 'compacto')
     this.nucleo.setCompacto(true)
     this.nucleo.esconderCena(true)
     this.painel('fechar')
     this.confirmacao(null)
     this.esconderLegenda()
+  }
+
+  // ---------- Projeção 3D ----------
+  private rafProjecao = 0
+
+  get projecaoAtiva(): boolean { return this.nucleo.projecao.ativa }
+
+  /** Abre o HUD e projeta o modelo: as partículas saem da fita e montam o objeto. */
+  projetar(m: Modelo3D): void {
+    this.expandir()
+    this.nucleo.esconderCena(true)
+    this.nucleo.projecao.mostrar(m, () => this.fimProjecao())
+    for (const a of m.acoesIniciais ?? []) this.nucleo.projecao.comando(a as AcaoProjecao)
+    $('projTitulo').textContent = m.nome
+    $('projFonte').textContent = `PROJEÇÃO · ${m.fonte}`
+    $('projCredito').textContent = m.credito ?? ''
+    $('projLegenda').hidden = false
+    document.body.classList.add('projetando')
+    cancelAnimationFrame(this.rafProjecao)
+    const seguir = () => {
+      this.rafProjecao = requestAnimationFrame(seguir)
+      this.atualizarProjecao()
+    }
+    seguir()
+  }
+
+  comandoProjecao(acao: AcaoProjecao): string {
+    return this.nucleo.projecao.comando(acao)
+  }
+
+  private ultimaFicha = ''
+  private atualizarProjecao(): void {
+    const info = this.nucleo.projecao.info()
+    const leg = $('projLegenda')
+    if (!info) return
+    leg.classList.toggle('visivel', info.visivel)
+    const linhas = [...info.detalhes, ...(info.medidas ? [info.medidas] : [])]
+    const ficha = linhas.join('|')
+    if (ficha !== this.ultimaFicha) {
+      this.ultimaFicha = ficha
+      $('projDetalhes').replaceChildren(...linhas.map((t, i) => {
+        const li = document.createElement('li')
+        li.textContent = t
+        if (info.medidas && i === linhas.length - 1) li.className = 'medida'
+        return li
+      }))
+    }
+    // Etiquetas das peças: linha da peça até o nome, como nos esquemas da armadura
+    const rot = this.nucleo.projecao.rotulos()
+    const svg = $('rotulos')
+    const ns = 'http://www.w3.org/2000/svg'
+    svg.replaceChildren(...rot.flatMap((r) => {
+      const linha = document.createElementNS(ns, 'line')
+      linha.setAttribute('x1', String(r.x)); linha.setAttribute('y1', String(r.y)); linha.setAttribute('x2', String(r.ax)); linha.setAttribute('y2', String(r.ay))
+      const ponto = document.createElementNS(ns, 'circle')
+      ponto.setAttribute('cx', String(r.x)); ponto.setAttribute('cy', String(r.y)); ponto.setAttribute('r', '2.2')
+      const texto = document.createElementNS(ns, 'text')
+      texto.setAttribute('x', String(r.ax + (r.ax >= r.x ? 4 : -4))); texto.setAttribute('y', String(r.ay + 3))
+      texto.setAttribute('text-anchor', r.ax >= r.x ? 'start' : 'end')
+      texto.textContent = r.nome
+      return [linha, ponto, texto]
+    }))
+  }
+
+  private fimProjecao(): void {
+    cancelAnimationFrame(this.rafProjecao)
+    document.body.classList.remove('projetando')
+    $('projLegenda').classList.remove('visivel')
+    $('projLegenda').hidden = true
+    $('rotulos').replaceChildren()
+    this.ultimaFicha = ''
   }
 
   /** Legenda inteligente: aparece enquanto alguém fala e some 4 s depois. */

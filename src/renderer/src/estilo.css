@@ -126,6 +126,21 @@ body.expandido .cards { right: 4vw; bottom: calc(50% - 90px) }
 .cena-legenda p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); opacity: .85; text-shadow: 0 1px 10px rgba(3, 5, 11, .95); transition: opacity .6s ease .2s }
 .cena-legenda:not(.digitado) p { opacity: 0 }
 
+/* Projeção 3D: ficha do modelo e etiquetas das peças */
+.proj-legenda { position: absolute; left: 0; bottom: 4%; width: min(330px, 36%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; opacity: 0; transform: translateX(-8px); transition: opacity .5s ease, transform .5s var(--ease) }
+.proj-legenda.visivel { opacity: 1; transform: none }
+.proj-legenda h2 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(18px, 2vw, 28px); letter-spacing: .08em; line-height: 1.1; text-transform: uppercase; text-shadow: 0 0 18px var(--state), 0 1px 10px rgba(3, 5, 11, .9); text-wrap: balance }
+.proj-legenda ul { margin: 2px 0 0; padding: 0 0 0 10px; list-style: none; border-left: 1px solid var(--state); display: flex; flex-direction: column; gap: 3px }
+.proj-legenda li { font-family: var(--f-data); font-size: 11px; letter-spacing: .04em; color: var(--ink); opacity: .82; text-shadow: 0 1px 8px rgba(3, 5, 11, .95) }
+.proj-legenda li.medida { color: var(--state); opacity: 1 }
+.proj-legenda small { font-size: 10px; color: var(--ink); opacity: .55; line-height: 1.4 }
+.proj-legenda small:empty { display: none }
+body.projetando .ro { opacity: 0 !important }
+.rotulos { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none }
+.rotulos line { stroke: var(--state); stroke-width: 1; opacity: .7 }
+.rotulos circle { fill: var(--state) }
+.rotulos text { font-family: var(--f-data); font-size: 10.5px; letter-spacing: .08em; fill: var(--ink); text-transform: uppercase; paint-order: stroke; stroke: rgba(3, 5, 11, .85); stroke-width: 3px }
+
 /* Modo foco: timer no núcleo */
 .foco { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none }
 .foco b { font-family: var(--f-data); font-weight: 500; font-size: 30px; letter-spacing: .04em; color: var(--ink); text-shadow: 0 0 16px var(--state), 0 1px 10px rgba(3, 5, 11, .9); font-variant-numeric: tabular-nums }

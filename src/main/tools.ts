@@ -19,6 +19,7 @@ import { memorizar, listarFatos, esquecer, esquecerTudo, definirAprendizado, mem
 import { buscarCena } from './cenas'
 import { pedirTarefa, statusTarefas, cancelarTarefaAtual, lerProjetos } from './tarefas'
 import * as visao from './visao'
+import { buscarModelo, listarArquivos, pastaModelos, salvarImagem, type Fonte } from './modelos3d'
 import { CAMADAS, lerCamadas, lerEstilo, type Vista } from './logica/visao'
 
 /** Espera a promessa por até `ms`; se demorar mais, ela segue sozinha em segundo plano. */
@@ -308,6 +309,33 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     const c = await buscarCena(str(a.termo))
     if (!c) return falha('Sem cena.')
     return { ok: true, mensagem: c.titulo, card: { tipo: 'cena', ...c } }
+  },
+
+  // ---------- Projeção 3D ----------
+
+  /** Uso interno do HUD: busca o modelo (seus arquivos, NASA, Wikimedia, PubChem, RCSB ou IA). */
+  async buscar_modelo(a) {
+    const fontes: Fonte[] = ['auto', 'arquivo', 'biblioteca', 'nasa', 'wikimedia', 'molecula', 'proteina', 'ia']
+    const fonte = (fontes as string[]).includes(str(a.fonte)) ? (str(a.fonte) as Fonte) : 'auto'
+    const d = await buscarModelo({ termo: str(a.termo), termoIngles: str(a.termo_ingles), fonte })
+    return { ok: true, mensagem: d.nome, dados: d }
+  },
+
+  async listar_modelos() {
+    const nomes = listarArquivos()
+    return {
+      ok: true,
+      mensagem: nomes.length
+        ? `Seus modelos: ${nomes.join(', ')}.`
+        : `Nenhum arquivo 3D seu ainda. Coloque arquivos .glb, .stl ou .obj na pasta ${pastaModelos()} e peça para projetar pelo nome.`,
+      card: { tipo: 'arquivos', titulo: 'FRIDAY Modelos', itens: nomes.slice(0, 12).map((n) => ({ nome: n, pasta: false })), total: nomes.length }
+    }
+  },
+
+  /** Uso interno do HUD: salva a foto da projeção. */
+  async salvar_imagem(a) {
+    const onde = salvarImagem(str(a.imagem), str(a.nome))
+    return { ok: true, mensagem: `Imagem salva em ${onde}.` }
   },
 
   // ---------- Visão de Deus (God's Eye View) ----------

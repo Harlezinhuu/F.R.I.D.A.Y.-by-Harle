@@ -44,5 +44,9 @@ export const sons = {
   offline: () => { tom(330, 0, 0.3, 'triangle', 0.6); tom(220, 0.22, 0.5, 'triangle', 0.6) },
   reconectou: () => { tom(523.25, 0, 0.18, 'sine', 0.5); tom(659.25, 0.1, 0.18, 'sine', 0.5); tom(783.99, 0.2, 0.4, 'sine', 0.5) },
   semMic: () => { tom(260, 0, 0.18, 'square', 0.22); tom(260, 0.28, 0.18, 'square', 0.22) },
+  /** Partículas saindo da fita e montando o holograma */
+  projetar: () => { tom(196, 0, 1.6, 'sine', 0.35, 784); tom(392, 0.25, 1.4, 'triangle', 0.12, 1568); tom(1046.5, 1.55, 0.5, 'sine', 0.3) },
+  /** "Modelo renderizado" */
+  renderizar: () => { tom(523.25, 0, 0.5, 'sine', 0.4); tom(659.25, 0.12, 0.5, 'sine', 0.35); tom(1046.5, 0.24, 0.9, 'sine', 0.35); tom(2093, 0.24, 0.6, 'sine', 0.08) },
   despedida: () => { tom(783.99, 0, 0.3, 'sine', 0.45); tom(523.25, 0.12, 0.45, 'sine', 0.4) }
 }

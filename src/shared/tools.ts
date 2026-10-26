@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -284,6 +284,41 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   { name: 'status_tarefas', description: 'Diz como estão as tarefas de programação ("como está a tarefa?").' },
   { name: 'cancelar_tarefa', description: 'Cancela a tarefa de programação em andamento (ou a próxima da fila).' },
   {
+    name: 'projetar',
+    description:
+      'Projeta um holograma 3D: as partículas saem da fita e montam o objeto. Use para "projeta...", "me mostra em 3D...", "modela...". ' +
+      'Formas prontas (fonte forma): fita de Möbius, Möbius invertida, toro, nó de trevo, esfera, Saturno, garrafa de Klein, DNA, átomo, tesseract, sistema solar (posições reais de hoje), atrator de Lorenz, galáxia, buraco negro, cubo, tetraedro, octaedro, dodecaedro, icosaedro, onda, sela. ' +
+      'Funções (fonte funcao): "z igual seno de x vezes cosseno de y" → formula "sin(x)*cos(y)"; use t para animar ("sin(x - t)"). ' +
+      'Moléculas reais (fonte molecula, nome em inglês: caffeine, water, glucose). Proteínas (fonte proteina: hemoglobin, insulin, ou o código PDB). ' +
+      'Naves, sondas, telescópios, foguetes e trajes espaciais da NASA (fonte nasa). Arquivos do usuário (fonte arquivo). Qualquer outro objeto: fonte auto (tenta arquivos, NASA, Wikimedia e por fim a IA monta) ou ia.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        o_que: { type: 'STRING', description: 'O que projetar, como o usuário falou (ex.: "motor V8", "cafeína", "estação espacial").' },
+        termo_ingles: { type: 'STRING', description: 'O mesmo nome em inglês, para buscar nas bibliotecas (ex.: "V8 engine", "caffeine", "International Space Station").' },
+        fonte: { type: 'STRING', description: 'De onde vem o modelo.', enum: ['auto', 'forma', 'funcao', 'molecula', 'proteina', 'nasa', 'wikimedia', 'arquivo', 'ia'] },
+        formula: { type: 'STRING', description: 'Só para fonte funcao: z em notação matemática com x, y e t (ex.: "sin(x)*cos(y)", "x^2 - y^2", "sin(sqrt(x^2+y^2) - t)").' }
+      },
+      required: ['o_que']
+    }
+  },
+  {
+    name: 'controlar_projecao',
+    description:
+      'Mexe no holograma que está na tela. girar/parar, esquerda/direita (90°), virar (de cabeça para baixo), frente/cima/lado (vistas), aproximar/afastar, ' +
+      'explodir (separa as peças com etiquetas)/juntar, inverter (o "inverted" do filme)/desinverter, cortar (corte transversal)/tirar_corte, renderizar (superfície sólida: "renderiza", "render"), ' +
+      'so_linhas (só wireframe)/particulas, medir (medidas e caixa), salvar (foto da projeção em Imagens/FRIDAY), fechar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['girar', 'parar', 'esquerda', 'direita', 'virar', 'frente', 'cima', 'lado', 'aproximar', 'afastar', 'explodir', 'juntar', 'inverter', 'desinverter', 'cortar', 'tirar_corte', 'renderizar', 'so_linhas', 'particulas', 'medir', 'salvar', 'fechar'] },
+        vezes: { type: 'NUMBER', description: 'Quantas vezes (para aproximar, afastar, esquerda e direita). Padrão 1.' }
+      },
+      required: ['acao']
+    }
+  },
+  { name: 'listar_modelos', description: 'Lista os arquivos 3D do usuário (pasta Documentos/FRIDAY Modelos) que dá para projetar.' },
+  {
     name: 'visao_deus',
     description:
       'Abre a Visão de Deus: um globo 3D com dados públicos ao vivo (aviões, satélites, navios, terremotos, câmeras públicas, radar de chuva, raios). Use para "visão de Deus", "me mostra os aviões sobre São Paulo", "abre o globo em Tóquio". Se já estiver aberta, troca só o que foi pedido (lugar, camadas ou estilo).',
@@ -340,6 +375,8 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Quando o usuário contar algo duradouro sobre si, chame memorizar em silêncio, sem anunciar que guardou.',
     'Quando falar de algo concreto e conhecido (pessoa, lugar, obra, objeto), chame mostrar_cena com o nome, sem anunciar.',
     'Com a Visão de Deus aberta, não chame mostrar_cena para lugares: o globo já mostra.',
+    'Com uma projeção 3D na tela, não chame mostrar_cena. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
+    'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])

@@ -14,6 +14,7 @@ import { iniciarTarefas, caminhoProjetos, type Tarefa } from './tarefas'
 import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
+import { listarArquivos, pastaModelos } from './modelos3d'
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'friday-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
@@ -81,6 +82,7 @@ function atualizarBandeja(): void {
       { label: silenciada ? 'Voltar a ouvir (Ctrl+Alt+Espaço)' : 'Silenciar (Ctrl+Alt+Espaço)', click: alternarSilencio },
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
       { label: 'Editar projetos de programação', click: () => shell.openPath(caminhoProjetos()) },
+      { label: 'Abrir pasta de modelos 3D', click: () => { listarArquivos(); shell.openPath(pastaModelos()) } },
       { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
       { type: 'separator' },
       { label: 'Sair', click: () => app.quit() }

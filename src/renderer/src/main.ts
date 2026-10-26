@@ -10,7 +10,11 @@ import { Microfone, Alto, pcm16Base64 } from './voz/audio'
 import { SessaoLive, type ChamadaFerramenta } from './voz/live'
 import { PalavraAtivacao } from './voz/ativacao'
 import { FalaFish } from './voz/fish'
-import type { ItemDiagnostico, Lembrete } from '../../shared/types'
+import type { DadosModelo3D, ItemDiagnostico, Lembrete } from '../../shared/types'
+import { FORMAS, acharForma, funcao, listaFormas } from './projetor/formas'
+import { modeloDeDados } from './projetor/carregar'
+import type { Modelo3D } from './projetor/tipos'
+import type { AcaoProjecao } from './hud/projecao'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
 const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativação também vai para a IA
@@ -262,7 +266,8 @@ async function iniciar(): Promise<void> {
     encerrarAoTerminar = false
     if (despedida) sons.despedida()
     hud.setEstado(silenciada ? 'silenciada' : micOk ? 'repouso' : 'semMic')
-    hud.compactar()
+    // Com uma projeção na tela, o HUD continua aberto até você pedir para fechar ou minimizar
+    if (!hud.projecaoAtiva) hud.compactar()
   }
 
   async function reconectar(planejado: boolean): Promise<void> {
@@ -319,6 +324,10 @@ async function iniciar(): Promise<void> {
       if (nome === 'mostrar_painel') {
         hud.painel(String(args.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar')
         resposta = { ok: true, resultado: 'Pronto.' }
+      } else if (nome === 'projetar') {
+        resposta = await projetar(args)
+      } else if (nome === 'controlar_projecao') {
+        resposta = await controlarProjecao(args)
       } else if (nome === 'minimizar') {
         // Volta ao modo compacto de quando abre: o HUD encolhe na hora e ela volta ao repouso depois de responder
         hud.compactar()
@@ -346,7 +355,7 @@ async function iniciar(): Promise<void> {
       } else if (nome === 'mostrar_cena') {
         // Responde na hora para a fala não esperar; a foto aparece quando chegar
         const termo = String(args.termo ?? '').trim()
-        if (cfg.cenas && termo) {
+        if (cfg.cenas && termo && !hud.projecaoAtiva) {
           void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cena(r.card) })
         }
         resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
@@ -390,6 +399,80 @@ async function iniciar(): Promise<void> {
       }, 7000)
     }, 7000)
     atividade()
+  }
+
+  // ---------- Projeção 3D ----------
+
+  function mostrarProjecao(m: Modelo3D): void {
+    hud.projetar(m)
+    sons.projetar()
+    hud.registrarAcao(`Projeção: ${m.nome}`)
+    console.log(`[projecao] ${m.nome} (${m.fonte}) · ${m.partes.length} partes`)
+  }
+
+  const descreverModelo = (m: Modelo3D): string =>
+    `Projetando ${m.nome} (fonte: ${m.fonte}${m.credito ? `; ${m.credito}` : ''}). ${m.detalhes.join('; ')}.${m.partes.length > 1 ? ` Peças: ${m.partes.slice(0, 12).map((p) => p.nome).filter(Boolean).join(', ')}.` : ''} Comente em uma frase curta.`
+
+  async function projetar(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const oQue = String(args.o_que ?? '').trim()
+    const ingles = String(args.termo_ingles ?? '').trim()
+    const fonte = String(args.fonte ?? 'auto')
+    const formula = String(args.formula ?? '').trim()
+    try {
+      // Formas e funções são desenhadas aqui mesmo, na hora
+      if (fonte === 'funcao' || (formula && fonte === 'auto')) {
+        const m = funcao(formula || oQue)
+        mostrarProjecao(m)
+        return { ok: true, resultado: descreverModelo(m) }
+      }
+      if (fonte === 'forma' || fonte === 'auto') {
+        const id = acharForma(oQue) ?? (ingles ? acharForma(ingles) : null)
+        if (id) {
+          const m = FORMAS[id].criar()
+          mostrarProjecao(m)
+          return { ok: true, resultado: descreverModelo(m) }
+        }
+        if (fonte === 'forma') return { ok: false, resultado: `Não tenho a forma "${oQue}". Formas disponíveis: ${listaFormas().join(', ')}.` }
+      }
+      // O resto vem de fora (seus arquivos, NASA, Wikimedia, PubChem, RCSB ou a IA)
+      hud.legenda('SISTEMA', `Buscando o modelo de ${oQue}…`)
+      const busca = (async () => {
+        const r = await window.friday.ferramenta('buscar_modelo', { termo: oQue, termo_ingles: ingles, fonte })
+        if (!r.ok) throw new Error(r.mensagem)
+        const m = await modeloDeDados(r.dados as DadosModelo3D)
+        if (!m.partes.length) throw new Error('O modelo veio vazio.')
+        mostrarProjecao(m)
+        return m
+      })()
+      const pronto = await Promise.race([busca, esperar(9000).then(() => null)])
+      if (pronto) return { ok: true, resultado: descreverModelo(pronto) }
+      busca.catch((e) => { sons.erro(); hud.legenda('SISTEMA', (e as Error).message); console.warn('[projecao] falhou depois:', (e as Error).message) })
+      return { ok: true, resultado: 'O modelo ainda está sendo baixado e aparece em instantes. Diga isso em poucas palavras.' }
+    } catch (e) {
+      sons.erro()
+      console.warn('[projecao] falhou:', (e as Error).message)
+      return { ok: false, resultado: (e as Error).message }
+    }
+  }
+
+  const ACOES: AcaoProjecao[] = ['girar', 'parar', 'esquerda', 'direita', 'virar', 'frente', 'cima', 'lado', 'aproximar', 'afastar', 'explodir', 'juntar', 'inverter', 'desinverter', 'cortar', 'tirar_corte', 'renderizar', 'so_linhas', 'particulas', 'medir', 'fechar']
+
+  async function controlarProjecao(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const acao = String(args.acao ?? '')
+    if (!hud.projecaoAtiva) return { ok: false, resultado: 'Não tem nenhuma projeção na tela.' }
+    if (acao === 'salvar') {
+      const r = await window.friday.ferramenta('salvar_imagem', { imagem: hud.nucleo.capturar(), nome: hud.nucleo.projecao.nome })
+      r.ok ? sons.feito() : sons.erro()
+      return { ok: r.ok, resultado: r.mensagem }
+    }
+    if (!ACOES.includes(acao as AcaoProjecao)) return { ok: false, resultado: `Ação desconhecida: ${acao}.` }
+    const vezes = Math.min(4, Math.max(1, Math.round(Number(args.vezes) || 1)))
+    let msg = ''
+    for (let i = 0; i < (acao === 'aproximar' || acao === 'afastar' || acao === 'esquerda' || acao === 'direita' ? vezes : 1); i++) msg = hud.comandoProjecao(acao as AcaoProjecao)
+    if (acao === 'renderizar') { sons.renderizar(); return { ok: true, resultado: `${msg} Diga apenas: "Modelo renderizado."` } }
+    if (acao === 'fechar') { sons.despedida(); if (!conversando) window.setTimeout(() => { if (!conversando) hud.compactar() }, 2000) }
+    else sons.entendi()
+    return { ok: true, resultado: msg }
   }
 
   async function diagnostico(): Promise<Record<string, unknown>> {

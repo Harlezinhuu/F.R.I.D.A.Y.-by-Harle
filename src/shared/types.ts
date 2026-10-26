@@ -78,3 +78,29 @@ export interface ItemDiagnostico {
   ok: boolean
   detalhe: string
 }
+
+/** Peça simples montada pela IA para objetos que não existem prontos. */
+export interface PecaPrimitiva {
+  peca: string
+  forma: 'caixa' | 'esfera' | 'cilindro' | 'cone' | 'toro' | 'capsula'
+  posicao: [number, number, number]
+  tamanho: [number, number, number]
+  rotacao: [number, number, number]
+}
+
+/** Modelo 3D que o processo principal buscou (NASA, Wikimedia, PubChem, RCSB, seus arquivos ou a IA). */
+export interface DadosModelo3D {
+  formato: 'glb' | 'gltf' | 'stl' | 'obj' | 'sdf' | 'pdb' | 'primitivas'
+  nome: string
+  fonte: string
+  detalhes: string[]
+  credito?: string
+  /** Binário em base64 (glb, stl) */
+  base64?: string
+  /** Texto (gltf, obj, sdf, pdb) */
+  texto?: string
+  primitivas?: PecaPrimitiva[]
+  /** O arquivo usa o eixo Z para cima (comum em STL de impressão 3D) */
+  zParaCima?: boolean
+  unidade?: string
+}

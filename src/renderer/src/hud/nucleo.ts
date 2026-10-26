@@ -3,6 +3,7 @@
 // A fita reage ao nível real do áudio (sua voz quando ela ouve, a voz dela quando fala).
 
 import * as THREE from 'three'
+import { Projecao } from './projecao'
 
 export type Estado = 'repouso' | 'ouvindo' | 'pensando' | 'falando' | 'alerta' | 'silenciada' | 'offline' | 'semMic'
 
@@ -68,6 +69,9 @@ export class Nucleo {
   private raf = 0
   private amp = 0; private flow = 0.1; private spin = 0.1; private t = 0; private phase = 0; private ultimo = 0; private anterior = performance.now()
   private reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches
+  /** Projeção 3D de modelos (a fita encolhe e vira o emissor na base) */
+  readonly projecao: Projecao
+  private escalaFita = 1
 
   constructor(private el: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
@@ -89,6 +93,8 @@ export class Nucleo {
     const anel = this.anel(2.15)
     this.mats = { cor: [anel], brilhoBase, brilhoCentro: brilhoCentro.mat, poeira }
 
+    this.projecao = new Projecao(this.tilt, this.uni, this.camera, el, () => this.pontoNaFita())
+
     new ResizeObserver(() => this.redimensionar()).observe(el)
     this.redimensionar()
     this.raf = requestAnimationFrame(this.loop)
@@ -98,6 +104,29 @@ export class Nucleo {
   /** Nível RMS do áudio atual (0 a ~0.3). */
   setNivel(n: number): void { this.nivel = n }
   setCompacto(c: boolean): void { this.compacto = c }
+
+  /** Um ponto aleatório da fita, no espaço da base (de onde as partículas da projeção saem). */
+  private pontoNaFita(): THREE.Vector3 {
+    const u = Math.random() * Math.PI * 2, v = Math.random() * 2 - 1, w = this.uni.uWidth.value * v, cu = Math.cos(u * 0.5)
+    this.holo.updateMatrix()
+    return new THREE.Vector3((1.35 + w * cu) * Math.cos(u), w * Math.sin(u * 0.5), (1.35 + w * cu) * Math.sin(u)).applyMatrix4(this.holo.matrix)
+  }
+
+  /** Foto do núcleo agora (com fundo escuro), em PNG. */
+  capturar(): string {
+    this.renderer.render(this.scene, this.camera)
+    const fonte = this.renderer.domElement
+    const c = document.createElement('canvas')
+    c.width = fonte.width
+    c.height = fonte.height
+    const g = c.getContext('2d')!
+    const grd = g.createRadialGradient(c.width / 2, c.height * 0.55, 0, c.width / 2, c.height * 0.55, Math.max(c.width, c.height) * 0.7)
+    grd.addColorStop(0, '#0E1A3A'); grd.addColorStop(1, '#03050B')
+    g.fillStyle = grd
+    g.fillRect(0, 0, c.width, c.height)
+    g.drawImage(fonte, 0, 0)
+    return c.toDataURL('image/png')
+  }
 
   private criarFita(): void {
     const N = 9000
@@ -289,7 +318,13 @@ export class Nucleo {
     this.phase += dt * this.flow * mov
     u.uTime.value = this.t; u.uPhase.value = this.phase; u.uAmp.value = this.amp * mov
     this.holo.rotation.y += dt * this.spin * mov
-    this.holo.position.y = 0.15 + Math.sin(this.t * 0.9) * 0.04
+    // Projetando: a fita encolhe e desce para a base, virando o emissor do holograma
+    const projetando = this.projecao.ativa
+    this.escalaFita += ((projetando ? 0.3 : 1) - this.escalaFita) * 0.05
+    this.holo.scale.setScalar(this.escalaFita)
+    // Fita pequena: partículas menores, senão o emissor vira um borrão branco
+    u.uSize.value = 15 * (0.3 + 0.7 * this.escalaFita)
+    this.holo.position.y = 0.15 + (1 - this.escalaFita) / 0.7 * -1.2 + Math.sin(this.t * 0.9) * 0.04 * this.escalaFita
     this.aneis[0].rotation.y -= dt * this.spin * 0.8 * mov
     this.orbitas[0].rotation.y -= dt * this.spin * 0.5 * mov
     this.orbitas[1].rotation.y += dt * this.spin * 0.3 * mov
@@ -299,6 +334,7 @@ export class Nucleo {
     this.mats.brilhoCentro.opacity = (0.18 + this.amp * 0.35) * u.uDim.value
     this.mats.brilhoBase.opacity = (0.55 + this.amp * 0.4) * u.uDim.value
     this.animarCena(agora)
+    this.projecao.animar(agora, dt, this.reduzido)
     this.renderer.render(this.scene, this.camera)
   }
 
