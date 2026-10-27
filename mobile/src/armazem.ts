@@ -12,9 +12,13 @@ export interface Ajustes {
   voz: string
   efeitoVoz: boolean
   cidade: string
+  /** A fita acompanha a inclinação do celular */
+  giroscopio: boolean
+  /** Vibração leve ao começar e terminar de falar */
+  vibrar: boolean
 }
 
-const PADRAO: Ajustes = { chave: '', nome: '', voz: 'Kore', efeitoVoz: true, cidade: '' }
+const PADRAO: Ajustes = { chave: '', nome: '', voz: 'Kore', efeitoVoz: true, cidade: '', giroscopio: true, vibrar: true }
 
 export async function lerAjustes(): Promise<Ajustes> {
   const { value } = await Preferences.get({ key: 'ajustes' })

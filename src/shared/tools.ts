@@ -217,8 +217,20 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   { name: 'desfazer', description: 'Desfaz o último mover, renomear ou criar pasta.' },
   {
     name: 'clima',
-    description: 'Clima agora e do dia.',
-    parameters: { type: 'OBJECT', properties: { cidade: { type: 'STRING', description: 'Cidade (opcional; sem ela, usa a cidade do usuário).' } } }
+    description: 'Clima e previsão de qualquer lugar do mundo: agora, hoje, amanhã ou até 16 dias ("vai chover amanhã em Gramado?", "como fica o tempo no fim de semana em Lisboa?").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        lugar: { type: 'STRING', description: 'Cidade, bairro, região, estado, país ou ponto turístico, com o estado ou país quando ajudar ("São José, SC", "Lisboa, Portugal"). Vazio = onde o usuário está.' },
+        dias: { type: 'NUMBER', description: 'Quantos dias de previsão (1 a 16). Ex.: fim de semana = até o domingo.' },
+        data: { type: 'STRING', description: 'Um dia específico, AAAA-MM-DD (ex.: amanhã). Use em vez de dias quando perguntarem de um dia só.' }
+      }
+    }
+  },
+  {
+    name: 'buscar_na_internet',
+    description: 'Pesquisa no Google e responde: notícias, resultados de jogos, preços, cotações, horários, lançamentos, qualquer fato atual ou que você não tenha certeza.',
+    parameters: { type: 'OBJECT', properties: { pergunta: { type: 'STRING', description: 'A pergunta completa, como o usuário falou.' } }, required: ['pergunta'] }
   },
   {
     name: 'modo_foco',
@@ -380,6 +392,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Quando o usuário contar algo duradouro sobre si, chame memorizar em silêncio, sem anunciar que guardou.',
     'Quando falar de algo concreto e conhecido (pessoa, lugar, obra, objeto), chame mostrar_cena com o nome, sem anunciar.',
     'Com a Visão de Deus aberta, não chame mostrar_cena para lugares: o globo já mostra.',
+    'Para qualquer coisa atual (notícias, jogos, preços, cotações, eventos) ou que você não tenha certeza, use buscar_na_internet e diga de onde veio em poucas palavras. Para clima, use clima (qualquer lugar do mundo, até 16 dias).',
     'Com uma projeção 3D na tela, não chame mostrar_cena. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',

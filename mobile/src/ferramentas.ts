@@ -5,11 +5,12 @@
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { TOOL_DECLARATIONS, type ToolDeclaration } from '../../src/shared/tools'
 import { checarFato, ehRepetido, encontrarPorTrecho, paraPrompt, CATEGORIAS, type Categoria, type Fato } from '../../src/main/logica/memoria'
-import { descreverTempo } from '../../src/main/logica/clima'
+import { acharLocal, buscarPrevisao, resumir, type Local } from '../../src/shared/tempo'
+import { buscarNaInternet, paraFala } from '../../src/shared/busca'
 import { lerAjustes, lerLista, salvarLista } from './armazem'
 
 const NOMES = [
-  'criar_lembrete', 'criar_timer', 'listar_lembretes', 'cancelar_lembrete', 'clima', 'pesquisar_web', 'abrir_site',
+  'criar_lembrete', 'criar_timer', 'listar_lembretes', 'cancelar_lembrete', 'clima', 'buscar_na_internet', 'pesquisar_web', 'abrir_site',
   'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa'
 ]
 
@@ -83,15 +84,17 @@ const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 
 // ---------- Clima ----------
 
-async function local(cidade: string): Promise<{ nome: string; lat: number; lon: number }> {
-  if (cidade) {
-    const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`)).json()
-    const x = r.results?.[0]
-    if (!x) throw new Error(`Não achei a cidade "${cidade}".`)
-    return { nome: x.name, lat: x.latitude, lon: x.longitude }
+/** Onde o usuário está: GPS do celular, a cidade dos Ajustes ou, por último, o IP. */
+async function aqui(cidade: string): Promise<Local> {
+  if (cidade) return acharLocal(cidade)
+  try {
+    const pos = await new Promise<GeolocationPosition>((ok, erro) => navigator.geolocation.getCurrentPosition(ok, erro, { timeout: 8000, maximumAge: 30 * 60_000 }))
+    return { nome: 'onde você está', regiao: '', pais: '', lat: pos.coords.latitude, lon: pos.coords.longitude }
+  } catch {
+    const d = await (await fetch('https://ipwho.is/?fields=success,city,region,country,latitude,longitude')).json()
+    if (!d.success) throw new Error('Não descobri onde você está. Coloque a sua cidade nos Ajustes.')
+    return { nome: d.city, regiao: d.region ?? '', pais: d.country ?? '', lat: d.latitude, lon: d.longitude }
   }
-  const pos = await new Promise<GeolocationPosition>((ok, erro) => navigator.geolocation.getCurrentPosition(ok, erro, { timeout: 8000, maximumAge: 30 * 60_000 }))
-  return { nome: 'onde você está', lat: pos.coords.latitude, lon: pos.coords.longitude }
 }
 
 // ---------- Execução ----------
@@ -129,9 +132,15 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
       }
       case 'clima': {
         const aj = await lerAjustes()
-        const l = await local(str(a.cidade) || aj.cidade)
-        const d = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${l.lat}&longitude=${l.lon}&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto`)).json()
-        return { ok: true, mensagem: `${l.nome}: ${Math.round(d.current.temperature_2m)} graus, ${descreverTempo(d.current.weather_code)}, sensação de ${Math.round(d.current.apparent_temperature)}. Mínima ${Math.round(d.daily.temperature_2m_min[0])}, máxima ${Math.round(d.daily.temperature_2m_max[0])}, ${d.daily.precipitation_probability_max[0] ?? 0}% de chance de chuva.` }
+        const lugar = str(a.lugar) || str(a.cidade)
+        const local = lugar ? await acharLocal(lugar) : await aqui(aj.cidade)
+        const dia = /^\d{4}-\d{2}-\d{2}$/.test(str(a.data)) ? str(a.data) : undefined
+        const dias = dia ? Math.max(1, Math.round((Date.parse(`${dia}T12:00:00Z`) - Date.now()) / 86_400_000) + 2) : Math.min(16, Math.max(1, Number(a.dias) || 1))
+        return { ok: true, mensagem: resumir(await buscarPrevisao(local, dias), dia) }
+      }
+      case 'buscar_na_internet': {
+        const aj = await lerAjustes()
+        return { ok: true, mensagem: paraFala(await buscarNaInternet(aj.chave, str(a.pergunta))) }
       }
       case 'pesquisar_web':
         window.open(`https://www.google.com/search?q=${encodeURIComponent(str(a.consulta))}`, '_blank')

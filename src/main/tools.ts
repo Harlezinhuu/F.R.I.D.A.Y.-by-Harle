@@ -13,7 +13,8 @@ import { validarPassos, resumirPassos } from './logica/rotinas'
 import { lerRotinas, encontrarRotina, salvarRotina, apagarRotina } from './rotinas'
 import * as arquivos from './arquivos'
 import { capturarTela } from './captura'
-import { buscarClima } from './clima'
+import { buscarClima, previsao } from './clima'
+import { buscarNaInternet, paraFala } from '../shared/busca'
 import { carregarConfig, carregarFish } from './config'
 import { memorizar, listarFatos, esquecer, esquecerTudo, definirAprendizado, memoriaAtiva, memoriaParaPrompt } from './memoria'
 import { buscarCena } from './cenas'
@@ -433,13 +434,18 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
   // ---------- Clima, saudação e diagnóstico ----------
 
   async clima(a) {
-    const c = await buscarClima(str(a.cidade) || undefined, carregarConfig().cidade)
-    return {
-      ok: true,
-      mensagem: `${c.cidade}: ${c.temperatura} graus, ${c.descricao}, sensação de ${c.sensacao}. Mínima ${c.minima}, máxima ${c.maxima}, ${c.chuva}% de chance de chuva.`,
-      card: { tipo: 'clima', ...c },
-      dados: c
-    }
+    const lugar = str(a.lugar) || str(a.cidade)
+    const dia = /^\d{4}-\d{2}-\d{2}$/.test(str(a.data)) ? str(a.data) : undefined
+    const dias = Math.min(16, Math.max(1, num(a.dias) ?? 1))
+    const c = await previsao(lugar || undefined, carregarConfig().cidade, dias, dia)
+    return { ok: true, mensagem: c.texto, card: { tipo: 'clima', ...c.cartao }, dados: c.cartao }
+  },
+
+  // ---------- Internet ----------
+
+  async buscar_na_internet(a) {
+    const r = await buscarNaInternet(carregarConfig().apiKey, str(a.pergunta))
+    return { ok: true, mensagem: paraFala(r), card: { tipo: 'pesquisa', consulta: str(a.pergunta) } }
   },
 
   /** Dados da saudação ao abrir: clima e lembretes de hoje. */

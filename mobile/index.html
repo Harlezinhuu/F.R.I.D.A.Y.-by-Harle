@@ -3,108 +3,171 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-  <meta name="theme-color" content="#03050B" />
+  <meta name="theme-color" content="#05060B" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.open-meteo.com https://geocoding-api.open-meteo.com" />
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://nominatim.openstreetmap.org https://ipwho.is" />
   <title>F.R.I.D.A.Y</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./src/estilo.css" />
 </head>
 <body data-tela="voz">
-  <header class="topo">
-    <div class="marca">
-      <svg width="22" height="22" viewBox="0 0 30 30" aria-hidden="true"><polygon points="15,2 27,9 27,21 15,28 3,21 3,9" fill="none" stroke="currentColor" stroke-width="1.6"/><polygon points="15,9 21,12.5 21,17.5 15,21 9,17.5 9,12.5" fill="currentColor" opacity=".55"/></svg>
-      <span class="nome">F.R.I.D.A.Y</span>
-    </div>
-    <span class="estado"><i id="ponto"></i><span id="estadoTxt">PRONTA</span></span>
-  </header>
+  <div class="fundo" aria-hidden="true"></div>
+  <!-- O mundo 3D: a fita de Möbius fica atrás de todas as telas -->
+  <div class="mundo" id="mundo" aria-hidden="true"></div>
 
-  <!-- Voz -->
+  <!-- ================= VOZ ================= -->
   <main class="tela" id="telaVoz" aria-label="Conversa por voz">
-    <div class="nucleo" id="nucleo"></div>
-    <div class="proj" id="proj" hidden><span class="proj-fonte" id="projFonte"></span><b id="projNome"></b><small>Arraste para girar · pince para aproximar</small></div>
-    <div class="rotulo" id="rotulo">TOQUE PARA FALAR</div>
-    <p class="legenda" id="legenda" aria-live="polite"><span id="legQuem"></span><span id="legTexto"></span></p>
-    <button class="falar" id="falar" type="button" aria-label="Falar com a FRIDAY">
-      <svg class="ico-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
-      <svg class="ico-parar" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-    </button>
+    <header class="topo">
+      <div class="marca">
+        <svg width="20" height="20" viewBox="0 0 30 30" aria-hidden="true"><polygon points="15,2 27,9 27,21 15,28 3,21 3,9" fill="none" stroke="#5FE1F2" stroke-width="1.8"/><polygon points="15,9 21,12.5 21,17.5 15,21 9,17.5 9,12.5" fill="#9B8CFF"/></svg>
+        <span>F.R.I.D.A.Y</span>
+      </div>
+      <span class="falando-tag" id="falandoTag"><i></i><b id="estadoTxt">OUVINDO</b></span>
+      <span class="cronometro" id="cronometro">00:00</span>
+      <button type="button" class="vidro icone" data-ir="ajustes" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+      </button>
+    </header>
+
+    <div class="saudacao" id="saudacao">
+      <span class="kicker" id="saudacaoKicker">OLÁ</span>
+      <h1>No que eu posso<br />te ajudar?</h1>
+    </div>
+    <div class="legenda" id="legenda" aria-live="polite">
+      <p class="voce"><span>VOCÊ</span><span id="legVoce"></span></p>
+      <p class="ela" id="legEla"></p>
+    </div>
+
+    <button type="button" class="fita" id="fita" aria-label="Tocar na fita para falar com a FRIDAY"></button>
+
+    <div class="cartao-acao" id="cartaoAcao" hidden>
+      <span id="acaoRotulo">LEMBRETE</span>
+      <b id="acaoTitulo"></b>
+      <small id="acaoDetalhe"></small>
+    </div>
+
+    <div class="proj" id="proj" hidden>
+      <span>PROJEÇÃO</span><b id="projNome"></b><small>Arraste para girar · pince para aproximar</small>
+    </div>
+
+    <div class="voz-rodape">
+      <div class="repouso-info">
+        <span class="pilula" id="pilula"><i></i><b id="pilulaTxt">PRONTA</b></span>
+        <span class="dica" id="dicaVoz">Toque na fita para falar</span>
+      </div>
+      <div class="falando-info">
+        <div class="ondas" id="ondas" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="dica">Fale à vontade · toque na fita para encerrar</span>
+        <button type="button" class="vidro encerrar" id="encerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>Encerrar
+        </button>
+      </div>
+    </div>
   </main>
 
-  <!-- Chat -->
-  <main class="tela" id="telaChat" aria-label="Chat por texto" hidden>
-    <div class="chat-barra">
-      <button type="button" class="botao-fantasma" id="abrirConversas" aria-label="Conversas anteriores">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>
-      </button>
-      <span class="chat-titulo" id="chatTitulo">Nova conversa</span>
-      <button type="button" class="botao-fantasma" id="novaConversa" aria-label="Nova conversa">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v14h-2zM5 11h14v2H5z"/></svg>
-      </button>
-    </div>
+  <!-- ================= CHAT ================= -->
+  <main class="tela" id="telaChat" aria-label="Chat por texto">
+    <header class="chat-topo">
+      <button type="button" class="icone" data-ir="conversas" aria-label="Conversas anteriores"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <div class="chat-titulo"><b id="chatTitulo">Nova conversa</b><span id="chatEstado">FRIDAY</span></div>
+      <button type="button" class="icone" id="novaConversa" aria-label="Nova conversa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    </header>
     <div class="mensagens" id="mensagens">
       <div class="vazio" id="vazio">
-        <b>Como posso ajudar?</b>
+        <b>Pergunte qualquer coisa</b>
         <div class="sugestoes">
-          <button type="button" data-sugestao="Me lembra de beber água daqui a 1 hora">Lembrete daqui a 1 hora</button>
-          <button type="button" data-sugestao="Como está o tempo hoje?">Clima de hoje</button>
-          <button type="button" data-sugestao="Me explica buracos negros em 5 frases">Explicar um assunto</button>
-          <button type="button" data-sugestao="O que você sabe sobre mim?">O que você sabe de mim</button>
+          <button type="button" data-sugestao="Vai chover amanhã aqui?">Vai chover amanhã?</button>
+          <button type="button" data-sugestao="Quais as principais notícias de hoje?">Notícias de hoje</button>
+          <button type="button" data-sugestao="Me lembra de beber água daqui a 1 hora">Lembrete em 1 hora</button>
+          <button type="button" data-sugestao="Projeta um tesseract">Projetar um tesseract</button>
         </div>
       </div>
     </div>
     <form class="composer" id="composer">
-      <textarea id="entrada" rows="1" placeholder="Mensagem para a FRIDAY" aria-label="Mensagem"></textarea>
-      <button type="submit" id="enviar" aria-label="Enviar">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-6 16-2-7-8-1Z"/></svg>
-      </button>
+      <button type="button" class="icone" id="foto" aria-label="Mandar foto (em breve)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+      <label class="entrada"><span class="sr">Mensagem</span><textarea id="entrada" rows="1" placeholder="Mensagem para a FRIDAY"></textarea></label>
+      <button type="button" class="icone ciano" data-ir="voz" aria-label="Falar por voz"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c2.5-6 5.5-6 9 0s6.5 6 9 0"/></svg></button>
+      <button type="submit" class="enviar" id="enviar" aria-label="Enviar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </form>
-    <div class="gaveta" id="gaveta" hidden>
-      <div class="gaveta-fundo" id="gavetaFundo"></div>
-      <aside class="gaveta-painel" aria-label="Conversas">
-        <h2>Conversas</h2>
-        <ul id="listaConversas"></ul>
-      </aside>
-    </div>
   </main>
 
-  <!-- Ajustes -->
-  <main class="tela" id="telaAjustes" aria-label="Ajustes" hidden>
-    <div class="ajustes">
-      <section class="aviso-chave" id="avisoChave" hidden>
+  <!-- ================= CONVERSAS ================= -->
+  <main class="tela" id="telaConversas" aria-label="Conversas">
+    <header class="titulo-tela">
+      <h1>Conversas</h1>
+      <button type="button" class="vidro icone" id="novaDeConversas" aria-label="Nova conversa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    </header>
+    <label class="busca"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span class="sr">Buscar nas conversas</span><input type="search" id="busca" placeholder="Buscar nas conversas" /></label>
+    <div class="carrossel" id="carrossel" aria-label="Conversas recentes"></div>
+    <div class="pontos" id="pontos" aria-hidden="true"></div>
+    <div class="grupos" id="grupos"></div>
+  </main>
+
+  <!-- ================= AJUSTES ================= -->
+  <main class="tela" id="telaAjustes" aria-label="Ajustes">
+    <header class="ajustes-topo">
+      <button type="button" class="icone" id="voltarAjustes" aria-label="Voltar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1>Ajustes</h1>
+    </header>
+    <div class="ajustes-heroi"><b id="heroiNome">FRIDAY</b><span id="heroiStatus">SÓ NESTE CELULAR</span></div>
+    <div class="ajustes-lista">
+      <section class="cartao destaque" id="avisoChave" hidden>
         <b>Falta só a chave do Gemini</b>
-        <p>Crie uma chave grátis em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>, copie e cole aqui. Ela fica guardada só neste celular.</p>
+        <p>Crie uma chave grátis em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>, copie e cole abaixo. Ela fica guardada só neste celular.</p>
       </section>
-      <label class="campo">Chave do Gemini
-        <span class="linha"><input id="ajChave" type="password" autocomplete="off" spellcheck="false" placeholder="Cole a chave aqui" /><button type="button" class="botao-fantasma" id="verChave" aria-label="Mostrar a chave">ver</button></span>
-      </label>
-      <label class="campo">Como ela te chama<input id="ajNome" type="text" placeholder="Seu nome (opcional)" /></label>
-      <label class="campo">Voz
-        <select id="ajVoz">
-          <option>Kore</option><option>Aoede</option><option>Leda</option><option>Zephyr</option><option>Callirrhoe</option><option>Autonoe</option><option>Charon</option><option>Puck</option>
-        </select>
-      </label>
-      <label class="campo">Cidade para o clima<input id="ajCidade" type="text" placeholder="Vazio = usa a localização" /></label>
-      <label class="interruptor"><input id="ajEfeito" type="checkbox" /> Efeito de voz de IA</label>
-      <button type="button" class="botao" id="salvar">Salvar</button>
-      <p class="ok" id="salvo" hidden>Salvo.</p>
 
-      <h2>Memória</h2>
-      <p class="dica">O que a FRIDAY aprendeu sobre você. Toque em × para apagar.</p>
-      <ul class="memoria" id="memoria"></ul>
+      <section class="cartao">
+        <h2>VOZ DA FRIDAY</h2>
+        <div class="chips" id="vozes" role="radiogroup" aria-label="Voz"></div>
+        <label class="linha-opcao">Efeito de voz de IA<input type="checkbox" id="ajEfeito" /></label>
+      </section>
 
-      <h2>Dados</h2>
+      <section class="cartao">
+        <h2>EXPERIÊNCIA 3D</h2>
+        <label class="linha-opcao"><span>A fita segue o celular<small>Incline o celular e o holograma acompanha</small></span><input type="checkbox" id="ajGiro" /></label>
+        <label class="linha-opcao"><span>Vibração ao falar<small>Um toque leve quando ela começa e termina</small></span><input type="checkbox" id="ajVibrar" /></label>
+      </section>
+
+      <section class="cartao">
+        <h2>CONTA</h2>
+        <div class="linha-opcao"><span>Chave do Gemini<small class="mono" id="chaveMascara">não configurada</small></span><button type="button" class="vidro pequeno" id="trocarChave">Trocar</button></div>
+        <div class="editar-chave" id="editarChave" hidden>
+          <label class="campo"><span class="sr">Chave do Gemini</span><input id="ajChave" type="password" autocomplete="off" spellcheck="false" placeholder="Cole a chave aqui" /></label>
+          <button type="button" class="botao" id="salvarChave">Salvar chave</button>
+        </div>
+        <label class="campo">Como ela te chama<input id="ajNome" type="text" placeholder="Seu nome (opcional)" /></label>
+        <label class="campo">Cidade para o clima<input id="ajCidade" type="text" placeholder="Vazio = usa a localização" /></label>
+      </section>
+
+      <section class="cartao">
+        <h2>LIGAÇÕES</h2>
+        <div class="linha-opcao"><span>FRIDAY do PC<small>Parear com o PC chega na próxima versão</small></span><button type="button" class="vidro pequeno" disabled>Em breve</button></div>
+        <button type="button" class="linha-opcao link" id="abrirMemoria"><span>Memória<small id="memoriaResumo">Nada ainda</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      </section>
+
       <button type="button" class="botao perigo" id="apagarHistorico">Apagar todas as conversas</button>
       <p class="rodape">F.R.I.D.A.Y Mobile · by Harle · <span id="versao"></span></p>
     </div>
+
+    <div class="folha" id="folhaMemoria" hidden>
+      <div class="folha-fundo" id="fecharMemoria"></div>
+      <section class="folha-painel" aria-label="Memória">
+        <h2>O QUE ELA SABE SOBRE VOCÊ</h2>
+        <ul class="memoria" id="memoria"></ul>
+      </section>
+    </div>
   </main>
 
-  <nav class="abas" aria-label="Telas">
-    <button type="button" data-aba="voz" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Voz</button>
-    <button type="button" data-aba="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>Chat</button>
-    <button type="button" data-aba="ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.4 4.6-1.9-.4a6.8 6.8 0 0 0-.6-1.5l1.1-1.6-1.6-1.6-1.6 1.1a6.8 6.8 0 0 0-1.5-.6l-.4-1.9h-2.2l-.4 1.9a6.8 6.8 0 0 0-1.5.6L6.2 8l-1.6 1.6 1.1 1.6a6.8 6.8 0 0 0-.6 1.5l-1.9.4v2.2l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6L6.2 20l1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.2l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.6-1.6-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.2Z"/></svg>Ajustes</button>
+  <!-- Navegação em órbita -->
+  <nav class="dock" id="dock" aria-label="Telas">
+    <svg class="arco" viewBox="0 0 390 104" preserveAspectRatio="none" aria-hidden="true"><path d="M24 92 Q195 14 366 92"/></svg>
+    <button type="button" data-ir="voz"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c2.5-6 5.5-6 9 0s6.5 6 9 0"/></svg></span>Voz</button>
+    <button type="button" data-ir="chat"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg></span>Chat</button>
+    <button type="button" data-ir="conversas"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>Conversas</button>
   </nav>
+
+  <div class="aviso" id="aviso" role="status" hidden></div>
 
   <script type="module" src="./src/main.ts"></script>
 </body>
