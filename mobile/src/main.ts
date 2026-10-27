@@ -8,13 +8,14 @@ import { ModoVoz } from './voz'
 import { responder } from './chat'
 import { markdown } from './markdown'
 import { lerMemoria } from './ferramentas'
+import { Celular, nativo, type Permissao } from './celular'
 import {
   apagarConversa, apagarTodas, lerAjustes, lerConversa, listarConversas, novaConversa, salvarAjustes, salvarConversa, salvarLista, tituloDe,
   type Ajustes, type Conversa, type Mensagem
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.2.0'
+const VERSAO = '0.3.0'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -374,6 +375,7 @@ async function mostrarAjustes(): Promise<void> {
   $('editarChave').hidden = !!ajustes.chave
   $('heroiNome').textContent = ajustes.nome || 'FRIDAY'
   $('versao').textContent = `v${VERSAO}`
+  void mostrarControle()
   const fatos = await lerMemoria()
   $('memoriaResumo').textContent = fatos.length ? `${fatos.length} ${fatos.length === 1 ? 'coisa' : 'coisas'} que ela sabe sobre você` : 'Nada ainda'
 }
@@ -394,6 +396,40 @@ $('salvarChave').addEventListener('click', async () => {
   avisar('Chave salva. Pode conversar!')
 })
 $('voltarAjustes').addEventListener('click', () => ir(telaAntesDosAjustes))
+
+// Controle do celular: permissões, acessibilidade e assistente padrão
+const PERMISSOES: Permissao[] = ['contatos', 'telefone', 'sms', 'agenda']
+async function mostrarControle(): Promise<void> {
+  const secao = $('controle')
+  if (!nativo()) { secao.hidden = true; return }
+  secao.hidden = false
+  try {
+    const p = await Celular.checkPermissions()
+    const ok = PERMISSOES.filter((x) => p[x] === 'granted').length
+    $('ctlPermissoes').textContent = ok === PERMISSOES.length ? 'Todas liberadas' : `${ok} de ${PERMISSOES.length} liberadas`
+    $('ctlLiberar').hidden = ok === PERMISSOES.length
+    const { ativa } = await Celular.acessibilidade()
+    $('ctlTela').textContent = ativa ? 'Ativo: ela lê a tela e toca nos botões' : 'Desligado'
+    $('ctlAtivarTela').textContent = ativa ? 'Ajustar' : 'Ativar'
+    $('ctlRestrito').hidden = ativa
+    const { ativo } = await Celular.ehAssistentePadrao()
+    $('ctlAssistente').textContent = ativo ? 'Ativo: segure o botão de ligar' : 'Segure o botão de ligar para chamar a FRIDAY'
+    $('ctlDefinir').textContent = ativo ? 'Trocar' : 'Definir'
+  } catch { /* sem o código nativo (versão antiga do app) */ }
+}
+$('ctlLiberar').addEventListener('click', async () => {
+  try { await Celular.requestPermissions({ permissions: PERMISSOES }) } catch { /* negou */ }
+  void mostrarControle()
+})
+$('ctlAtivarTela').addEventListener('click', () => {
+  avisar('Ative "FRIDAY: controle da tela" e confirme.')
+  void Celular.abrirAcessibilidade()
+})
+$('ctlInfoApp').addEventListener('click', () => void Celular.infoDoApp())
+$('ctlDefinir').addEventListener('click', () => {
+  avisar('Em "App assistente digital", escolha FRIDAY.')
+  void Celular.definirAssistente()
+})
 
 async function mostrarMemoria(): Promise<void> {
   const fatos = await lerMemoria()
@@ -429,10 +465,25 @@ void App.addListener('backButton', () => {
   if (mundo.projecao.ativa) { mundo.projecao.comando('fechar'); return }
   void App.minimizeApp()
 })
-// Saiu do app: encerra a conversa por voz (o microfone não fica ligado escondido)
-void App.addListener('pause', () => { if (voz.ativo) void voz.parar() })
+// Saiu do app no meio da conversa: ela continua ouvindo (para mexer em outros apps), com a
+// notificação fixa "FRIDAY está ouvindo" e o botão Encerrar; o silêncio encerra sozinho.
+void App.addListener('resume', () => { if (telaAtual === 'ajustes') void mostrarControle() })
+
+// ---------- Assistente padrão ----------
+
+/** Segurar o botão de ligar (ou de início) abre a FRIDAY já ouvindo. */
+async function chamadaPeloAssistente(): Promise<void> {
+  if (!ajustes.chave) { ir('ajustes'); return }
+  if (telaAtual !== 'voz') ir('voz')
+  if (!voz.ativo) await alternarConversa()
+}
+if (nativo()) {
+  void Celular.addListener('assistente', () => void chamadaPeloAssistente())
+  void Celular.addListener('encerrarVoz', () => { if (voz.ativo) void voz.parar() })
+}
 
 // ---------- Início ----------
 
 mostrarConversa()
 ir(ajustes.chave ? 'voz' : 'ajustes')
+if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente() }).catch(() => {})

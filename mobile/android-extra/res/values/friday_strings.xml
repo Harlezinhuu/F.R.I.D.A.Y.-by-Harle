@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friday_acessibilidade_nome">FRIDAY: controle da tela</string>
+    <string name="friday_acessibilidade_resumo">Ler a tela e tocar em botões quando você pedir por voz</string>
+    <string name="friday_acessibilidade_descricao">Deixa a FRIDAY ler o que está na tela e tocar, escrever e rolar em outros apps quando você pede. Ela só olha a tela quando você pede, nunca digita senhas e não mexe em apps de banco, pagamento, instalação ou permissões.</string>
+</resources>

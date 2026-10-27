@@ -219,3 +219,8 @@ body[data-tela="chat"] .dock { height: calc(96px + var(--base)) }
 .aviso { position: fixed; z-index: 8; left: 50%; bottom: calc(118px + var(--base)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; border: 1px solid var(--borda); background: #0E1530; font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5) }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+
+/* Controle do celular */
+.dica { margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: var(--apagado) }
+.dica b { color: var(--ink); font-weight: 500 }
+.link-texto { padding: 0; background: none; border: 0; font: inherit; color: var(--ciano); text-decoration: underline; text-underline-offset: 2px }

@@ -1,8 +1,9 @@
 // F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Ajusta o projeto Android gerado pelo Capacitor (npx cap add android):
-// permissões (microfone, câmera, notificações, localização), ícone das notificações,
-// número da versão e assinatura do APK (a chave vem dos segredos do GitHub, nunca do repositório).
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+// código nativo da FRIDAY (controle do celular, acessibilidade, voz em segundo plano, assistente padrão),
+// permissões, ícone das notificações, número da versão e assinatura do APK
+// (a chave vem dos segredos do GitHub, nunca do repositório).
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,12 +11,66 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const app = join(raiz, 'android', 'app')
 const pacote = JSON.parse(readFileSync(join(raiz, 'package.json'), 'utf8'))
 
+// Código nativo da FRIDAY (substitui a MainActivity gerada para registrar a ponte)
+const extra = join(raiz, 'android-extra')
+cpSync(join(extra, 'java'), join(app, 'src', 'main', 'java'), { recursive: true })
+cpSync(join(extra, 'res'), join(app, 'src', 'main', 'res'), { recursive: true })
+
 // Permissões
 const manifesto = join(app, 'src', 'main', 'AndroidManifest.xml')
 let m = readFileSync(manifesto, 'utf8')
-const permissoes = ['RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'CAMERA', 'ACCESS_COARSE_LOCATION', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'WAKE_LOCK']
-const linhas = permissoes.filter((p) => !m.includes(`android.permission.${p}"`)).map((p) => `    <uses-permission android:name="android.permission.${p}" />`).join('\n')
-if (linhas) m = m.replace('</manifest>', `${linhas}\n</manifest>`)
+if (!m.includes('xmlns:tools=')) m = m.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ')
+const permissoes = [
+  'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'CAMERA', 'ACCESS_COARSE_LOCATION', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'WAKE_LOCK',
+  // Controle do celular
+  'READ_CONTACTS', 'WRITE_CONTACTS', 'CALL_PHONE', 'SEND_SMS', 'READ_CALENDAR', 'WRITE_CALENDAR', 'ACCESS_NOTIFICATION_POLICY',
+  'FOREGROUND_SERVICE', 'FOREGROUND_SERVICE_MICROPHONE'
+]
+const linhas = [
+  ...permissoes.filter((p) => !m.includes(`android.permission.${p}"`)).map((p) => `    <uses-permission android:name="android.permission.${p}" />`),
+  '    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />',
+  '    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />',
+  // Sem câmera ou telefone o app ainda instala (tablets)
+  '    <uses-feature android:name="android.hardware.telephony" android:required="false" />',
+  '    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />',
+  // Apps que a FRIDAY pode listar e abrir (Android 11+ esconde os outros)
+  '    <queries>',
+  '        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>',
+  '        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>',
+  '        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="geo" /></intent>',
+  '        <package android:name="com.whatsapp" />',
+  '        <package android:name="com.whatsapp.w4b" />',
+  '        <package android:name="com.google.android.apps.maps" />',
+  '    </queries>'
+].join('\n')
+if (!m.includes('FridayAcessibilidade')) {
+  m = m.replace('</manifest>', `${linhas}\n</manifest>`)
+  // Assistente padrão: segurar o botão de ligar (ou de início) abre a FRIDAY já ouvindo
+  m = m.replace('</activity>', `    <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>`)
+  m = m.replace('</application>', `    <service
+            android:name=".FridayAcessibilidade"
+            android:exported="true"
+            android:label="@string/friday_acessibilidade_nome"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/friday_acessibilidade" />
+        </service>
+        <service
+            android:name=".FridayVozServico"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+    </application>`)
+}
 writeFileSync(manifesto, m)
 
 // Ícone pequeno das notificações (hexágono da FRIDAY, branco como o Android pede)

@@ -10,6 +10,7 @@ import { FORMAS, acharForma, funcao, listaFormas } from '../../src/renderer/src/
 import type { AcaoProjecao } from '../../src/renderer/src/hud/projecao'
 import { FERRAMENTAS_CELULAR, executar, instrucoes, memoriaParaPrompt, type Contexto, type Resultado } from './ferramentas'
 import { novaConversa, salvarConversa, tituloDe, type Ajustes, type Conversa } from './armazem'
+import { Celular, nativo } from './celular'
 
 const MODELO_VOZ = 'gemini-2.5-flash-native-audio-preview-12-2025'
 const SILENCIO_MS = 25_000
@@ -91,6 +92,8 @@ export class ModoVoz {
       throw new Error(`Não consegui conectar ao Gemini: ${(e as Error).message}`)
     }
     this.mic.aoBloco = (amostras, rms) => { this.nivelMic = rms; if (this.live?.aberta) this.live.enviarAudio(pcm16Base64(amostras)) }
+    // Notificação fixa que mantém o microfone quando ela abre outro app
+    if (nativo()) void Celular.servicoVoz({ ligar: true }).catch(() => {})
     this.vibrar()
     this.estado('ouvindo', 'OUVINDO')
     this.atividade()
@@ -107,6 +110,7 @@ export class ModoVoz {
     this.live = null
     this.mic.parar()
     this.alto?.limpar()
+    if (nativo()) void Celular.servicoVoz({ ligar: false }).catch(() => {})
     this.vibrar()
     this.estado('repouso', 'TOQUE NA FITA PARA FALAR')
     if (this.conversa?.mensagens.length) await salvarConversa(this.conversa)
@@ -146,6 +150,7 @@ export class ModoVoz {
     for (const c of chamadas) {
       const r = await executar(c.name ?? '', c.args ?? {}, this.contexto)
       if (r.ok) this.cartaoDaAcao(c.name ?? '', c.args ?? {}, r.mensagem)
+      else if (r.confirmar) this.aoAcao('CONFIRMAR', r.confirmar, 'Diga "confirma" ou "cancela"')
       respostas.push({ id: c.id, name: c.name, response: { ok: r.ok, resultado: r.mensagem } })
     }
     this.live?.responderFerramentas(respostas)
@@ -159,6 +164,11 @@ export class ModoVoz {
     else if (nome === 'criar_timer') this.aoAcao('TIMER', String(a.texto ?? 'Timer'), primeira)
     else if (nome === 'clima') this.aoAcao('CLIMA', primeira.split(':')[0], (primeira.split(':')[1] ?? '').trim())
     else if (nome === 'buscar_na_internet') this.aoAcao('NA INTERNET', String(a.pergunta ?? '').slice(0, 60), primeira)
+    else if (nome === 'ligar') this.aoAcao('LIGAÇÃO', primeira, String(a.contato ?? ''))
+    else if (nome === 'enviar_mensagem') this.aoAcao(String(a.app) === 'sms' ? 'SMS' : 'WHATSAPP', primeira, String(a.texto ?? '').slice(0, 80))
+    else if (nome === 'alarme') this.aoAcao('ALARME', primeira, String(a.dias ?? '') || 'Uma vez')
+    else if (nome === 'criar_evento') this.aoAcao('AGENDA', String(a.titulo ?? ''), primeira.split(': ').pop() ?? '')
+    else if (nome === 'abrir_app') this.aoAcao('APP', primeira.split('\n')[0], '')
   }
 
   // ---------- Projeção (formas e funções) ----------
