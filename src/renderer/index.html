@@ -4,13 +4,20 @@
   <meta charset="UTF-8" />
   <title>F.R.I.D.A.Y</title>
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data: friday-assets: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com" />
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' blob: friday-assets:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data: friday-assets: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700&family=Sora:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./src/estilo.css" />
 </head>
 <body class="compacto">
   <div class="veu" aria-hidden="true"></div>
+
+  <!-- Prévia da câmera do controle pelas mãos (a imagem não sai do PC) -->
+  <div class="cam" id="cam" hidden>
+    <video id="camVideo" muted playsinline></video>
+    <canvas id="camTela"></canvas>
+    <div class="cam-rodape"><b id="camStatus">PROCURANDO AS MÃOS</b><span>PROCESSADO NO SEU PC</span></div>
+  </div>
 
   <header class="top">
     <div class="brand">
@@ -53,6 +60,7 @@
       <p id="cenaDescricao"></p>
     </div>
     <svg class="rotulos" id="rotulos" aria-hidden="true"></svg>
+    <div class="mira" id="mira" aria-hidden="true" hidden><i></i></div>
     <div class="proj-legenda" id="projLegenda" role="status" hidden>
       <span class="cena-fonte" id="projFonte">PROJEÇÃO</span>
       <h2 id="projTitulo"></h2>

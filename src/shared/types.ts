@@ -21,6 +21,8 @@ export interface FridayConfig {
   saudacao: boolean
   /** URL do modelo de palavra de ativação, ou null se ainda não foi baixado */
   modeloAtivacaoUrl: string | null
+  /** Arquivos do reconhecimento de mãos (MediaPipe), ou null se ainda não foram baixados */
+  maos: { modeloUrl: string; wasmUrl: string } | null
 }
 
 /** Cartões contextuais que o HUD sabe desenhar. */

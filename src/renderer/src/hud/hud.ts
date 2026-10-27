@@ -207,6 +207,26 @@ export class Hud {
     }))
   }
 
+  /** Mira da mão sobre o núcleo (x, y de 0 a 1 na câmera). Devolve a posição em px, ou null se escondida. */
+  mira(x: number | null, y = 0): { x: number; y: number } | null {
+    const el = $('mira'), core = $('core')
+    if (x === null) { el.hidden = true; return null }
+    // Um pouco ampliada: não precisa esticar o braço até a borda da câmera
+    const px = Math.min(1, Math.max(0, 0.5 + (x - 0.5) * 1.4)) * core.clientWidth
+    const py = Math.min(1, Math.max(0, 0.5 + (y - 0.5) * 1.4)) * core.clientHeight
+    el.hidden = false
+    el.style.left = `${px}px`
+    el.style.top = `${py}px`
+    return { x: px, y: py }
+  }
+
+  marcarMira(): void {
+    const el = $('mira')
+    el.classList.remove('travando')
+    void el.offsetWidth
+    el.classList.add('travando')
+  }
+
   private fimProjecao(): void {
     cancelAnimationFrame(this.rafProjecao)
     document.body.classList.remove('projetando')

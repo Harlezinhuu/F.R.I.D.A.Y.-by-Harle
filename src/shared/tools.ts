@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -316,6 +316,11 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       },
       required: ['acao']
     }
+  },
+  {
+    name: 'gestos',
+    description: 'Liga ou desliga o controle da projeção pelas mãos, com a webcam ("quero mexer com as mãos", "liga os gestos", "desliga a câmera"). A imagem é processada só no PC.',
+    parameters: { type: 'OBJECT', properties: { ligar: { type: 'BOOLEAN', description: 'true liga, false desliga.' } }, required: ['ligar'] }
   },
   { name: 'listar_modelos', description: 'Lista os arquivos 3D do usuário (pasta Documentos/FRIDAY Modelos) que dá para projetar.' },
   {

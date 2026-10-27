@@ -3,8 +3,8 @@
 // atalho de emergência e a ponte entre a IA e o Windows.
 
 import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, nativeImage, net, protocol, screen, session, shell } from 'electron'
-import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
-import { join, normalize, sep } from 'node:path'
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { extname, join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { carregarConfig, carregarFish, diagnosticoChave, resourcesDir } from './config'
 import * as fish from './fish'
@@ -104,7 +104,12 @@ function registrarProtocolo(): void {
     const base = resourcesDir()
     const arquivo = normalize(join(base, url.hostname, decodeURIComponent(url.pathname)))
     if (!arquivo.startsWith(base + sep)) return new Response('Proibido', { status: 403 })
-    return net.fetch(pathToFileURL(arquivo).toString())
+    // Tipo certo para o WebAssembly e os scripts do reconhecimento de mãos
+    const tipos: Record<string, string> = { '.wasm': 'application/wasm', '.js': 'text/javascript', '.task': 'application/octet-stream' }
+    const tipo = tipos[extname(arquivo).toLowerCase()]
+    if (!tipo) return net.fetch(pathToFileURL(arquivo).toString())
+    if (!existsSync(arquivo)) return new Response('Não encontrado', { status: 404 })
+    return new Response(readFileSync(arquivo), { headers: { 'Content-Type': tipo } })
   })
 }
 

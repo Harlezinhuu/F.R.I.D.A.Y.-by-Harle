@@ -156,6 +156,20 @@ Com o holograma na tela: **gira**, **para**, **vira para a esquerda/direita**, *
 
 A projeção fica na tela mesmo quando a conversa acaba; diga "Friday, fecha a projeção" ou "minimiza".
 
+#### Mexendo com as mãos
+
+Diga "Friday, liga os gestos" (ou "quero mexer com as mãos"). A webcam liga, uma prévia aparece no canto e a imagem é processada só no seu PC pelo MediaPipe: nada de vídeo vai para a internet. A câmera desliga sozinha depois de um minuto e meio sem ver mãos, ou quando você diz "desliga os gestos".
+
+| Gesto | O que faz |
+|---|---|
+| Mão fechada e mover | segura e gira o holograma |
+| Pinça (polegar + indicador) subindo / descendo | aproxima / afasta |
+| Duas mãos fechadas se afastando / aproximando | aumenta / diminui |
+| Abrir as duas mãos abertas para os lados | explode as peças |
+| Juntar as duas mãos abertas | monta de novo |
+| Apontar com o indicador e parar em cima de uma peça | seleciona a peça (ela brilha e as outras apagam) |
+| Tapa rápido com a mão aberta | joga o holograma para fora (fecha) |
+
 Os modelos compactados com Draco (como os da NASA) são abertos pelo decodificador do próprio three.js, que vai junto com a FRIDAY e funciona offline.
 
 ### Visão de Deus

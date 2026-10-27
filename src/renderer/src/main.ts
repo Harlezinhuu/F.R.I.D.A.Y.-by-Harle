@@ -15,6 +15,8 @@ import { FORMAS, acharForma, funcao, listaFormas } from './projetor/formas'
 import { modeloDeDados } from './projetor/carregar'
 import type { Modelo3D } from './projetor/tipos'
 import type { AcaoProjecao } from './hud/projecao'
+import { Maos } from './gestos/maos'
+import type { Comando } from './gestos/gestos'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
 const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativação também vai para a IA
@@ -72,6 +74,8 @@ async function iniciar(): Promise<void> {
   let alertaPendente = false
   let turnosDesdeAlerta = 0
   let encerrarAoTerminar = false
+  /** Quando a última conversa acabou (logo depois, não acorda de novo com o eco ou o fim da sua frase) */
+  let fimDaConversa = 0
   let tentativasReconexao = 0
 
   const atividade = () => { ultimaAtividade = performance.now() }
@@ -206,6 +210,8 @@ async function iniciar(): Promise<void> {
 
   async function iniciarConversa(): Promise<void> {
     if (conversando || silenciada || !micOk) return
+    // A própria voz dela (ou o fim da sua frase) logo depois de encerrar não abre outra conversa
+    if (falandoAgora() || performance.now() - fimDaConversa < 1500) return
     if (!cfg.apiKey) {
       sons.erro()
       hud.cartao({ tipo: 'aviso', titulo: 'FALTA CONFIGURAR', texto: 'Coloque sua GEMINI_API_KEY no arquivo .env e reinicie a FRIDAY.' }, 10000)
@@ -257,6 +263,11 @@ async function iniciar(): Promise<void> {
 
   function encerrarConversa(despedida: boolean): void {
     if (!conversando) return
+    fimDaConversa = performance.now()
+    // Ouvido limpo: nada do que foi dito antes conta como um novo "Friday"
+    ativacao.reiniciar()
+    preRoll = []
+    blocosFalaSeguidos = 0
     fala?.cancelar()
     conversando = false
     conectando = false
@@ -328,8 +339,12 @@ async function iniciar(): Promise<void> {
         resposta = await projetar(args)
       } else if (nome === 'controlar_projecao') {
         resposta = await controlarProjecao(args)
+      } else if (nome === 'gestos') {
+        resposta = await alternarGestos(args.ligar !== false)
       } else if (nome === 'minimizar') {
         // Volta ao modo compacto de quando abre: o HUD encolhe na hora e ela volta ao repouso depois de responder
+        maos.desligar()
+        hud.mira(null)
         hud.compactar()
         encerrarAoTerminar = true
         resposta = { ok: true, resultado: 'HUD minimizado. Responda só "Ok." ou uma palavra curta.' }
@@ -473,6 +488,72 @@ async function iniciar(): Promise<void> {
     if (acao === 'fechar') { sons.despedida(); if (!conversando) window.setTimeout(() => { if (!conversando) hud.compactar() }, 2000) }
     else sons.entendi()
     return { ok: true, resultado: msg }
+  }
+
+  // ---------- Controle pelas mãos ----------
+
+  const el = (id: string) => document.getElementById(id)!
+  const maos = new Maos(el('cam'), el('camVideo') as HTMLVideoElement, el('camTela') as HTMLCanvasElement, el('camStatus'))
+  let miraParte = -1, miraDesde = 0, ultimaMira = 0
+  maos.aoDesligarSozinha = () => { hud.mira(null); hud.legenda('SISTEMA', 'Câmera desligada: nenhuma mão apareceu por um tempo.') }
+  maos.aoComandos = (cmds: Comando[]) => {
+    const p = hud.nucleo.projecao
+    for (const c of cmds) {
+      if (!hud.projecaoAtiva) continue
+      switch (c.tipo) {
+        case 'girar': p.girarPor(c.dx, c.dy); break
+        case 'escalar': p.escalarPor(c.fator); break
+        case 'explodir': if (!p.explodida) { hud.comandoProjecao('explodir'); sons.entendi() } break
+        case 'juntar': if (p.explodida) { hud.comandoProjecao('juntar'); sons.entendi() } break
+        case 'arremessar':
+          // Como o Tony jogando o holograma fora
+          p.selecionar(-1)
+          hud.comandoProjecao('fechar')
+          sons.despedida()
+          hud.mira(null)
+          window.setTimeout(() => { if (!conversando && !hud.projecaoAtiva) hud.compactar() }, 2200)
+          break
+        case 'mira': {
+          const pos = hud.mira(c.x, c.y)
+          ultimaMira = performance.now()
+          if (!pos) break
+          // Parar a mira em cima de uma peça por quase um segundo seleciona a peça
+          const i = p.parteEm(pos.x, pos.y)
+          if (i !== miraParte) { miraParte = i; miraDesde = performance.now(); if (i >= 0) hud.marcarMira() }
+          else if (i >= 0 && performance.now() - miraDesde > 900) {
+            miraDesde = Infinity
+            const nomeParte = p.selecionar(i)
+            if (nomeParte) { sons.entendi(); hud.legenda('PEÇA', nomeParte) }
+          }
+          break
+        }
+      }
+    }
+  }
+  // Sem apontar por um instante: a mira some
+  setInterval(() => { if (ultimaMira && performance.now() - ultimaMira > 350) { ultimaMira = 0; miraParte = -1; hud.mira(null) } }, 120)
+
+  async function alternarGestos(ligar: boolean): Promise<Record<string, unknown>> {
+    if (!ligar) {
+      maos.desligar()
+      hud.mira(null)
+      hud.nucleo.projecao.selecionar(-1)
+      return { ok: true, resultado: 'Controle pelas mãos desligado e câmera fechada.' }
+    }
+    if (!cfg.maos) return { ok: false, resultado: 'Os arquivos do reconhecimento de mãos ainda não foram baixados. Rode o instalador de novo (ele roda "npm run modelo").' }
+    try {
+      await maos.ligar(cfg.maos.wasmUrl, cfg.maos.modeloUrl)
+      sons.feito()
+      return {
+        ok: true,
+        resultado: `Controle pelas mãos ligado; a imagem da câmera fica só no PC. ${hud.projecaoAtiva ? '' : 'Ainda não tem projeção na tela. '}` +
+          'Gestos: mão fechada segura e gira; pinça subindo aproxima e descendo afasta; duas mãos fechadas afastando aumentam; abrir as duas mãos abertas explode e juntar monta; apontar e parar em cima de uma peça seleciona; um tapa rápido com a mão aberta joga o holograma fora. Explique em uma ou duas frases.'
+      }
+    } catch (e) {
+      sons.erro()
+      console.warn('[maos] não ligou:', (e as Error).message)
+      return { ok: false, resultado: (e as Error).message }
+    }
   }
 
   async function diagnostico(): Promise<Record<string, unknown>> {

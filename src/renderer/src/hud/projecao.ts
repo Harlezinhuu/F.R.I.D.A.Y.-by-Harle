@@ -72,7 +72,7 @@ export class Projecao {
   private uni = {
     uProg: { value: 0 }, uSaida: { value: 0 }, uExplode: { value: 0 }, uInverte: { value: 0 }, uCorte: { value: 9 },
     uRender: { value: 0 }, uVarre: { value: 0 }, uPart: { value: 1 }, uLinhas: { value: 1 }, uInv: { value: new THREE.Matrix4() },
-    uLaranja: { value: LARANJA }
+    uLaranja: { value: LARANJA }, uSelecao: { value: -1 }
   }
 
   constructor(private pai: THREE.Group, private comp: Compartilhados, private camera: THREE.Camera, private el: HTMLElement, private origemNaFita: () => THREE.Vector3) {
@@ -102,6 +102,8 @@ export class Projecao {
     Object.assign(this.alvo, { explode: 0, inverte: 0, corte: 9, render: 0, part: 1, linhas: 1 })
     this.uni.uExplode.value = 0; this.uni.uInverte.value = 0; this.uni.uCorte.value = 9; this.uni.uRender.value = 0
     this.uni.uPart.value = 1; this.uni.uLinhas.value = 1; this.uni.uSaida.value = 0; this.uni.uProg.value = 0
+    this.uni.uSelecao.value = -1
+    this.selecionada = -1
     this.cortando = false
     this.medindo = false
     this.girando = true
@@ -174,7 +176,7 @@ export class Projecao {
 
   private criarPontos(partes: Parte[]): void {
     const n = partes.reduce((s, p) => s + p.pontos.length / 3, 0)
-    const pos = new Float32Array(n * 3), orig = new Float32Array(n * 3), exp = new Float32Array(n * 3), cor = new Float32Array(n * 3), seed = new Float32Array(n)
+    const pos = new Float32Array(n * 3), orig = new Float32Array(n * 3), exp = new Float32Array(n * 3), cor = new Float32Array(n * 3), seed = new Float32Array(n), parte = new Float32Array(n)
     const unica = partes.length === 1
     let k = 0
     partes.forEach((p, ip) => {
@@ -189,6 +191,7 @@ export class Projecao {
         else exp.set([e.x, e.y, e.z], k * 3)
         cor.set(c, k * 3)
         seed[k] = Math.random()
+        parte[k] = ip
       }
     })
     const g = new THREE.BufferGeometry()
@@ -197,12 +200,13 @@ export class Projecao {
     g.setAttribute('aExplode', new THREE.BufferAttribute(exp, 3))
     g.setAttribute('aCor', new THREE.BufferAttribute(cor, 3))
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1))
+    g.setAttribute('aParte', new THREE.BufferAttribute(parte, 1))
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 8)
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: { ...this.comp, ...this.uni },
       vertexShader: INVERSAO + /* glsl */ `
-        attribute vec3 aOrigem, aExplode, aCor; attribute float aSeed;
+        attribute vec3 aOrigem, aExplode, aCor; attribute float aSeed, aParte; uniform float uSelecao; varying float vSel;
         uniform float uTime, uProg, uSaida, uExplode, uInverte, uPixel, uVarre, uRender; uniform mat4 uInv;
         varying float vA, vBrilho, vY, vS; varying vec3 vCor;
         float suave(float x){ return x*x*(3.0 - 2.0*x); }
@@ -226,10 +230,12 @@ export class Projecao {
           vBrilho = exp(-dy*dy)*ida*(1.0 - volta) + voando*.55;
           vA = (.35 + aSeed*.55)*(1.0 - smoothstep(.85, 1.0, volta));
           vY = alvo.y; vS = aSeed; vCor = aCor;
+          // Peça selecionada (pela mira da mão) brilha; as outras apagam um pouco
+          vSel = uSelecao < 0.0 ? 0.0 : (abs(aParte - uSelecao) < .5 ? 1.0 : -1.0);
         }`,
       fragmentShader: /* glsl */ `
         uniform vec3 uColA, uColB, uLaranja; uniform float uDim, uInverte, uCorte, uPart;
-        varying float vA, vBrilho, vY, vS; varying vec3 vCor;
+        varying float vA, vBrilho, vY, vS, vSel; varying vec3 vCor;
         void main(){
           if (vY > uCorte) discard;
           float r = length(gl_PointCoord - .5); if (r > .5) discard;
@@ -237,7 +243,8 @@ export class Projecao {
           if (vCor.r >= 0.0) cor = mix(cor, vCor, .45);
           cor = mix(cor, uLaranja, uInverte*.85);
           float faixa = exp(-pow((vY - uCorte)*28.0, 2.0));
-          gl_FragColor = vec4(cor + faixa*.6, smoothstep(.5, .0, r)*(vA + vBrilho*.55 + faixa)*uDim*uPart);
+          float sel = vSel > 0.0 ? 1.9 : vSel < 0.0 ? .3 : 1.0;
+          gl_FragColor = vec4(cor + faixa*.6 + max(vSel, 0.0)*.25, smoothstep(.5, .0, r)*(vA + vBrilho*.55 + faixa)*uDim*uPart*sel);
         }`
     })
     this.pontos = new THREE.Points(g, mat)
@@ -464,6 +471,31 @@ export class Projecao {
     u.uInv.value.copy(this.relInv)
   }
 
+  // ---------- Seleção pela mira da mão ----------
+  private selecionada = -1
+
+  /** Peça mais perto de um ponto da tela (px dentro do núcleo), ou -1. */
+  parteEm(x: number, y: number, raio = 70): number {
+    const m = this.modelo
+    if (!m || m.partes.length < 2 || this.saindo) return -1
+    const w = this.el.clientWidth, h = this.el.clientHeight
+    let melhor = -1, menor = raio
+    this.centros.forEach((c, i) => {
+      const v = c.clone().addScaledVector(this.explosoes[i], this.uni.uExplode.value).applyMatrix4(this.giro.matrixWorld).project(this.camera)
+      const d = Math.hypot((v.x * 0.5 + 0.5) * w - x, (-v.y * 0.5 + 0.5) * h - y)
+      if (d < menor) { menor = d; melhor = i }
+    })
+    return melhor
+  }
+
+  /** Destaca uma peça (-1 tira o destaque). Devolve o nome dela. */
+  selecionar(i: number): string | null {
+    const m = this.modelo
+    this.selecionada = m && i >= 0 && i < m.partes.length ? i : -1
+    this.uni.uSelecao.value = this.selecionada
+    return this.selecionada >= 0 ? m!.partes[this.selecionada].nome || `peça ${this.selecionada + 1}` : null
+  }
+
   // ---------- Para o HUD ----------
 
   /** Etiquetas das peças (vista explodida), em px dentro do núcleo. */
@@ -495,7 +527,9 @@ export class Projecao {
     if (!m) return null
     const particulas = this.pontos ? this.pontos.geometry.getAttribute('position').count : 0
     const linhas = this.linhas ? this.linhas.geometry.getAttribute('position').count / 2 : 0
+    const sel = this.selecionada >= 0 ? m.partes[this.selecionada] : null
     const estados = [
+      sel ? `PEÇA: ${(sel.nome || `peça ${this.selecionada + 1}`).toUpperCase()}` : '',
       this.uni.uInverte.value > 0.5 ? 'INVERTIDO' : '',
       this.alvo.explode ? 'EXPLODIDO' : '',
       this.cortando ? 'CORTE' : '',

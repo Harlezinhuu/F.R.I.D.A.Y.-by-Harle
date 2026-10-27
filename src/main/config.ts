@@ -103,6 +103,9 @@ export function carregarConfig(): FridayConfig {
     cidade: env.FRIDAY_CIDADE ?? '',
     cenas: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_CENAS || '1').toLowerCase()),
     saudacao: !['0', 'false', 'nao', 'não'].includes((env.FRIDAY_SAUDACAO || '1').toLowerCase()),
-    modeloAtivacaoUrl: existsSync(modeloPath) ? `friday-assets://models/${MODELO_ATIVACAO_ARQUIVO}` : null
+    modeloAtivacaoUrl: existsSync(modeloPath) ? `friday-assets://models/${MODELO_ATIVACAO_ARQUIVO}` : null,
+    maos: existsSync(join(resourcesDir(), 'models', 'maos', 'hand_landmarker.task')) && existsSync(join(resourcesDir(), 'models', 'maos', 'wasm'))
+      ? { modeloUrl: 'friday-assets://models/maos/hand_landmarker.task', wasmUrl: 'friday-assets://models/maos/wasm' }
+      : null
   }
 }
