@@ -194,6 +194,18 @@ Pelo ícone na bandeja, escolha **Editar programas permitidos**. Cada programa t
 
 Use `"processo": null` para programas que a FRIDAY pode abrir mas nunca fechar.
 
+## FRIDAY no celular (Android)
+
+Um app de assistente pessoal, como o do ChatGPT, com a voz e a personalidade da FRIDAY:
+
+- **Voz:** toque no botão e converse em tempo real (Gemini Live), com o núcleo de Möbius reagindo.
+- **Chat:** respostas que chegam aos pedaços, com markdown, e histórico de conversas (as de voz também ficam salvas como texto).
+- **Lembretes e timers** viram notificações do Android; **clima**, **pesquisa**, **memória** e **projeção 3D** (arraste para girar, pince para aproximar).
+
+O APK é gerado pelo GitHub Actions (`.github/workflows/celular.yml`) a cada mudança no app e publicado em **Releases**: baixe pelo celular e instale. A chave do Gemini é colada nos Ajustes do app e fica só no celular. O código fica em `mobile/` e reaproveita o núcleo 3D, o áudio, o Gemini Live e a projeção da FRIDAY do PC.
+
+Para atualizar o app sem desinstalar, o APK precisa ser sempre assinado com a mesma chave: ela fica nos segredos do repositório (`ANDROID_KEYSTORE_B64` e `ANDROID_KEYSTORE_SENHA`).
+
 ## Estrutura
 
 ```
@@ -202,7 +214,8 @@ src/
   preload/     ponte segura entre o HUD e o processo principal
   renderer/    HUD: núcleo 3D, cartões, sons, microfone, Gemini Live e palavra de ativação
   shared/      tipos e a lista de ferramentas que a IA pode usar
-scripts/       download do modelo de ativação
+scripts/       download dos modelos (palavra de ativação e mãos)
+mobile/        app do celular (Vite + Capacitor), APK gerado pelo GitHub Actions
 ```
 
 ## Próximos passos

@@ -1,0 +1,92 @@
+# F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
+# Gera o APK do app do celular e publica nos Releases do GitHub.
+# A chave de assinatura fica nos segredos do repositório (nunca no código).
+name: APK do celular
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'src/shared/**'
+      - 'src/main/logica/**'
+      - 'src/renderer/src/hud/**'
+      - 'src/renderer/src/voz/**'
+      - 'src/renderer/src/projetor/**'
+      - 'src/renderer/public/**'
+      - '.github/workflows/celular.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-celular
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Montar o app web
+        run: npm run build
+
+      - name: Criar o projeto Android
+        run: npx cap add android
+
+      - name: Ícones e tela de abertura
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#03050B' --splashBackgroundColor '#03050B'
+
+      - name: Chave de assinatura
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > android/app/friday.keystore; fi
+
+      - name: Ajustar o Android (permissões, versão, assinatura)
+        run: node scripts/preparar-android.mjs
+
+      - name: Copiar o app para o Android
+        run: npx cap sync android
+
+      - name: Gerar o APK
+        working-directory: mobile/android
+        env:
+          KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+        run: |
+          chmod +x gradlew
+          if [ -f app/friday.keystore ]; then ./gradlew assembleRelease --no-daemon; else ./gradlew assembleDebug --no-daemon; fi
+
+      - name: Publicar nos Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1 || true)
+          [ -z "$APK" ] && APK=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
+          VERSAO=$(node -p "require('./package.json').version")
+          cp "$APK" "FRIDAY-${VERSAO}.apk"
+          gh release create "celular-v${VERSAO}-${{ github.run_number }}" "FRIDAY-${VERSAO}.apk" \
+            --title "FRIDAY no celular ${VERSAO} (build ${{ github.run_number }})" \
+            --notes "Baixe o arquivo FRIDAY-${VERSAO}.apk pelo celular e toque para instalar (permita instalar de fontes desconhecidas na primeira vez)."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FRIDAY-apk
+          path: mobile/android/app/build/outputs/apk/**/*.apk

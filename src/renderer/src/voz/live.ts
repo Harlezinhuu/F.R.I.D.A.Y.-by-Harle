@@ -2,7 +2,7 @@
 // Conexão de voz em tempo real com o Gemini Live: áudio entra, áudio sai, e a IA chama ferramentas.
 
 import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from '@google/genai'
-import { TOOL_DECLARATIONS, systemPrompt } from '../../../shared/tools'
+import { TOOL_DECLARATIONS, systemPrompt, type ToolDeclaration } from '../../../shared/tools'
 import type { FridayConfig } from '../../../shared/types'
 
 export interface ChamadaFerramenta {
@@ -24,6 +24,12 @@ export interface EventosLive {
   aoFechar(inesperado: boolean, motivo: string): void
 }
 
+/** O que muda entre a FRIDAY do PC e a do celular: as ferramentas e as instruções. */
+export interface OpcoesLive {
+  ferramentas?: ToolDeclaration[]
+  instrucoes?: (memoria: string) => string
+}
+
 export class SessaoLive {
   private ai: GoogleGenAI
   private sessao: Session | null = null
@@ -32,7 +38,7 @@ export class SessaoLive {
   private usarAjustesRapidos = true
   aberta = false
 
-  constructor(private cfg: FridayConfig, private ev: EventosLive) {
+  constructor(private cfg: Pick<FridayConfig, 'apiKey' | 'modelo' | 'voz' | 'nome' | 'silencioFimFalaMs'>, private ev: EventosLive, private opcoes: OpcoesLive = {}) {
     this.ai = new GoogleGenAI({ apiKey: cfg.apiKey })
   }
 
@@ -41,9 +47,9 @@ export class SessaoLive {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config: any = {
       responseModalities: [Modality.AUDIO],
-      systemInstruction: systemPrompt(this.cfg.nome, new Date(), memoria),
+      systemInstruction: this.opcoes.instrucoes ? this.opcoes.instrucoes(memoria) : systemPrompt(this.cfg.nome, new Date(), memoria),
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.cfg.voz } } },
-      tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
+      tools: [{ functionDeclarations: this.opcoes.ferramentas ?? TOOL_DECLARATIONS }],
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       contextWindowCompression: { slidingWindow: {} }
