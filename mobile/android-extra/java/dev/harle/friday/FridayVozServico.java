@@ -20,6 +20,8 @@ public class FridayVozServico extends Service {
     static final String CANAL = "friday_voz";
     static final String ENCERRAR = "dev.harle.friday.ENCERRAR_VOZ";
     static final int ID = 4242;
+    /** A conversa por voz está aberta (os avisos viram cartão em vez de falar por cima). */
+    static volatile boolean ativo;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -57,6 +59,7 @@ public class FridayVozServico extends Service {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             else startForeground(ID, n);
+            ativo = true;
         } catch (Exception e) {
             // Sem permissão do microfone ou aberto com o app em segundo plano: segue sem o serviço
             stopSelf();
@@ -72,6 +75,7 @@ public class FridayVozServico extends Service {
 
     @Override
     public void onDestroy() {
+        ativo = false;
         super.onDestroy();
     }
 }

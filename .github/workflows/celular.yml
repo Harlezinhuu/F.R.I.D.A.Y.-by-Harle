@@ -42,6 +42,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Testar as regras dos avisos por voz
+        run: |
+          mkdir -p /tmp/teste-java
+          javac -encoding UTF-8 -d /tmp/teste-java android-extra/java/dev/harle/friday/Nomes.java android-extra/teste/TesteNomes.java
+          java -Dfile.encoding=UTF-8 -cp /tmp/teste-java dev.harle.friday.TesteNomes
+
       - name: Instalar dependências
         run: npm install --no-audit --no-fund
 

@@ -7,10 +7,10 @@ import { TOOL_DECLARATIONS, type ToolDeclaration } from '../../src/shared/tools'
 import { checarFato, ehRepetido, encontrarPorTrecho, paraPrompt, CATEGORIAS, type Categoria, type Fato } from '../../src/main/logica/memoria'
 import { acharLocal, buscarPrevisao, resumir, type Local } from '../../src/shared/tempo'
 import { buscarNaInternet, paraFala } from '../../src/shared/busca'
-import { lerAjustes, lerLista, salvarLista } from './armazem'
+import { lerAjustes, lerAvisos, lerLista, salvarAvisos, salvarLista } from './armazem'
 import { Celular, explicarErro, garantir, nativo } from './celular'
 import {
-  acharApp, acharContato, botaoSensivel, diasDoAlarme, horaMinuto, numeroWhatsapp, pareceNumero, resumirTela,
+  acharApp, acharContato, botaoSensivel, diasDoAlarme, horaMinuto, normalizar, numeroWhatsapp, pareceNumero, resumirTela,
   type App, type Contato, type Tela
 } from './celular-logica'
 
@@ -82,6 +82,16 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { texto: S('O que escrever.'), indice: N('Número do campo (#); vazio = campo em foco.') }, required: ['texto'] }
   },
   { name: 'rolar_tela', description: 'Rola a tela para baixo ou para cima.', parameters: { type: 'OBJECT', properties: { direcao: S('Para onde.', ['baixo', 'cima']) }, required: ['direcao'] } },
+  {
+    name: 'contato_importante',
+    description: 'Contatos importantes: quando eles mandam mensagem, você avisa em voz alta ("a Mãe é importante", "tira o Pedro dos importantes", "quem é importante?").',
+    parameters: { type: 'OBJECT', properties: { acao: S('O que fazer.', ['adicionar', 'remover', 'listar']), nome: S('Nome do contato.') }, required: ['acao'] }
+  },
+  {
+    name: 'avisos_por_voz',
+    description: 'Liga ou desliga os avisos falados: ligações chegando, mensagens dos importantes e ler o texto das mensagens.',
+    parameters: { type: 'OBJECT', properties: { ligacoes: B('Avisar ligações.'), so_importantes: B('Ligações só dos importantes.'), mensagens: B('Avisar mensagens dos importantes.'), ler_texto: B('Ler o texto das mensagens.') } }
+  },
   {
     name: 'botao_sistema',
     description: 'Aperta um botão do Android: voltar, início, apps recentes, notificações, ajustes rápidos, bloquear a tela ou tirar print.',
@@ -435,6 +445,43 @@ async function telefone(nome: string, a: Record<string, unknown>): Promise<Resul
       return { ok: true, mensagem: eventos.map((e) => `${e.titulo} (${e.diaInteiro ? new Date(e.inicio).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' }) + ', dia inteiro' : fmtEvento(new Date(e.inicio))}${e.local ? `, ${e.local}` : ''})`).join('; ') }
     }
 
+    case 'contato_importante': {
+      const av = await lerAvisos()
+      const acao = str(a.acao) || 'listar'
+      if (acao === 'listar') return { ok: true, mensagem: av.importantes.length ? `Importantes: ${av.importantes.join(', ')}.` : 'Nenhum contato importante ainda.' }
+      const pedido = str(a.nome)
+      if (!pedido) return { ok: false, mensagem: 'Faltou o nome do contato.' }
+      if (acao === 'remover') {
+        const p = normalizar(pedido)
+        const fica = av.importantes.filter((n) => { const x = normalizar(n); return !(x === p || x.startsWith(p + ' ') || p.startsWith(x + ' ')) })
+        if (fica.length === av.importantes.length) return { ok: false, mensagem: `${pedido} não estava nos importantes.` }
+        await salvarAvisos({ ...av, importantes: fica })
+        return { ok: true, mensagem: `${pedido} saiu dos importantes.` }
+      }
+      // Usa o nome exato dos contatos, que é o que aparece nas notificações
+      let nomeSalvo = pedido
+      try {
+        const r = acharContato(pedido, await listaDeContatos())
+        if (r && 'varios' in r) return { ok: false, mensagem: `Tenho mais de um: ${r.varios.join(', ')}. Pergunte qual.` }
+        if (r) nomeSalvo = r.contato.nome
+      } catch { /* sem permissão de contatos: guarda como foi falado */ }
+      if (!av.importantes.includes(nomeSalvo)) await salvarAvisos({ ...av, importantes: [...av.importantes, nomeSalvo] })
+      const ativo = (await Celular.avisosAtivos()).ativo
+      return { ok: true, mensagem: `${nomeSalvo} agora é importante: aviso quando mandar mensagem.${ativo ? '' : ' Falta liberar o acesso às notificações em Ajustes > Avisos por voz.'}` }
+    }
+    case 'avisos_por_voz': {
+      const av = await lerAvisos()
+      const novo = {
+        ...av,
+        ...(typeof a.ligacoes === 'boolean' ? { ligacoes: a.ligacoes } : {}),
+        ...(typeof a.so_importantes === 'boolean' ? { soImportantes: a.so_importantes } : {}),
+        ...(typeof a.mensagens === 'boolean' ? { mensagens: a.mensagens } : {}),
+        ...(typeof a.ler_texto === 'boolean' ? { lerTexto: a.ler_texto } : {})
+      }
+      await salvarAvisos(novo)
+      const partes = [novo.ligacoes ? `ligações${novo.soImportantes ? ' dos importantes' : ''}` : '', novo.mensagens ? `mensagens dos importantes${novo.lerTexto ? ' (lendo o texto)' : ''}` : ''].filter(Boolean)
+      return { ok: true, mensagem: partes.length ? `Aviso por voz: ${partes.join(' e ')}.` : 'Avisos por voz desligados.' }
+    }
     case 'ler_tela':
       ultimaTela = await Celular.lerTela()
       return { ok: true, mensagem: resumirTela(ultimaTela) }

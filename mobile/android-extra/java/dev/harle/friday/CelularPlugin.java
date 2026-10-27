@@ -107,6 +107,44 @@ public class CelularPlugin extends Plugin {
         notifyListeners("encerrarVoz", new JSObject());
     }
 
+    void avisarAviso(String frase) {
+        JSObject o = new JSObject();
+        o.put("texto", frase);
+        notifyListeners("aviso", o);
+    }
+
+    // ---------- Avisos por voz (ligações e mensagens) ----------
+
+    @PluginMethod
+    public void avisosAtivos(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("ativo", androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(ctx()).contains(ctx().getPackageName()));
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void abrirAvisos(PluginCall call) {
+        ComponentName comp = new ComponentName(ctx(), FridayAvisos.class);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Intent i = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+                i.putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, comp.flattenToString());
+                iniciar(i);
+            } else {
+                iniciar(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+            }
+        } catch (ActivityNotFoundException e) {
+            iniciar(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void testarAviso(PluginCall call) {
+        Locutor.falar(ctx(), call.getString("texto", "Avisos por voz funcionando."), false);
+        call.resolve();
+    }
+
     @PluginMethod
     public void ehAssistentePadrao(PluginCall call) {
         boolean e = false;

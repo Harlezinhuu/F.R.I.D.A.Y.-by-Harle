@@ -13,6 +13,11 @@ interface CelularPlugin {
   checkPermissions(): Promise<Record<Permissao, Estado>>
   requestPermissions(o?: { permissions: Permissao[] }): Promise<Record<Permissao, Estado>>
   addListener(evento: 'assistente' | 'encerrarVoz', cb: () => void): Promise<PluginListenerHandle>
+  addListener(evento: 'aviso', cb: (d: { texto: string }) => void): Promise<PluginListenerHandle>
+
+  avisosAtivos(): Promise<{ ativo: boolean }>
+  abrirAvisos(): Promise<void>
+  testarAviso(o: { texto: string }): Promise<void>
 
   abertura(): Promise<{ assistente: boolean }>
   ehAssistentePadrao(): Promise<{ ativo: boolean }>

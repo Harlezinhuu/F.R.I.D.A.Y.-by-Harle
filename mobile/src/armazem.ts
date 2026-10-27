@@ -29,6 +29,34 @@ export async function salvarAjustes(a: Ajustes): Promise<void> {
   await Preferences.set({ key: 'ajustes', value: JSON.stringify(a) })
 }
 
+// ---------- Avisos por voz (lidos também pelo código nativo, com o app fechado) ----------
+
+export interface Avisos {
+  /** "Senhor, a Mãe está te ligando" */
+  ligacoes: boolean
+  /** Ligações só dos contatos importantes */
+  soImportantes: boolean
+  /** Mensagens dos contatos importantes */
+  mensagens: boolean
+  /** Lê o texto da mensagem em voz alta */
+  lerTexto: boolean
+  /** Como ela te chama nos avisos */
+  tratamento: string
+  /** Nomes como estão salvos nos contatos */
+  importantes: string[]
+}
+
+const AVISOS_PADRAO: Avisos = { ligacoes: true, soImportantes: false, mensagens: true, lerTexto: false, tratamento: 'Senhor', importantes: [] }
+
+export async function lerAvisos(): Promise<Avisos> {
+  const { value } = await Preferences.get({ key: 'avisos' })
+  try { return { ...AVISOS_PADRAO, ...(value ? JSON.parse(value) : {}) } } catch { return { ...AVISOS_PADRAO } }
+}
+
+export async function salvarAvisos(a: Avisos): Promise<void> {
+  await Preferences.set({ key: 'avisos', value: JSON.stringify(a) })
+}
+
 /** Lista guardada em Preferences (memória, lembretes). */
 export async function lerLista<T>(chave: string): Promise<T[]> {
   const { value } = await Preferences.get({ key: chave })

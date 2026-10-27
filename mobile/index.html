@@ -148,6 +148,26 @@
         <div class="linha-opcao"><span>Assistente padrão<small id="ctlAssistente">Segure o botão de ligar para chamar a FRIDAY</small></span><button type="button" class="vidro pequeno" id="ctlDefinir">Definir</button></div>
       </section>
 
+      <section class="cartao" id="avisos" hidden>
+        <h2>AVISOS POR VOZ</h2>
+        <div class="linha-opcao"><span>Acesso às notificações<small id="avAcesso">Desligado</small></span><button type="button" class="vidro pequeno" id="avAtivar">Ativar</button></div>
+        <label class="linha-opcao"><span>Avisar ligações<small>"Senhor, a Mãe está te ligando"</small></span><input type="checkbox" id="avLigacoes" /></label>
+        <label class="linha-opcao"><span>Só dos importantes<small>Ligações dos outros tocam normal</small></span><input type="checkbox" id="avSoImportantes" /></label>
+        <label class="linha-opcao"><span>Mensagens dos importantes<small>WhatsApp, SMS, Telegram e outros</small></span><input type="checkbox" id="avMensagens" /></label>
+        <label class="linha-opcao"><span>Ler o texto da mensagem<small>Em voz alta, perto de quem estiver</small></span><input type="checkbox" id="avLerTexto" /></label>
+        <label class="campo">Como ela te chama nos avisos<input id="avTratamento" type="text" placeholder="Senhor" /></label>
+        <div class="campo">Contatos importantes
+          <ul class="importantes" id="avImportantes"></ul>
+          <div class="adicionar">
+            <input id="avNovo" type="text" list="avSugestoes" placeholder="Nome do contato" autocomplete="off" />
+            <datalist id="avSugestoes"></datalist>
+            <button type="button" class="vidro pequeno" id="avAdicionar">Adicionar</button>
+          </div>
+        </div>
+        <p class="dica">Ela fica quieta no modo silencioso e durante ligações; no Não perturbe, só avisa dos importantes. Com a conversa por voz aberta, o aviso aparece na tela. Se o Android chamar de <b>configuração restrita</b>, libere como no controle da tela.</p>
+        <button type="button" class="botao" id="avTestar">Testar aviso</button>
+      </section>
+
       <section class="cartao">
         <h2>LIGAÇÕES</h2>
         <div class="linha-opcao"><span>FRIDAY do PC<small>Parear com o PC chega na próxima versão</small></span><button type="button" class="vidro pequeno" disabled>Em breve</button></div>

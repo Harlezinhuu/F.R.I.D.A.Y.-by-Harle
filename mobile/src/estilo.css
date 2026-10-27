@@ -224,3 +224,10 @@ body[data-tela="chat"] .dock { height: calc(96px + var(--base)) }
 .dica { margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: var(--apagado) }
 .dica b { color: var(--ink); font-weight: 500 }
 .link-texto { padding: 0; background: none; border: 0; font: inherit; color: var(--ciano); text-decoration: underline; text-underline-offset: 2px }
+.importantes { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
+.importantes li { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; border: 1px solid var(--borda); font-size: 13px }
+.importantes li.vazio { padding: 4px 0; border: 0; color: var(--apagado) }
+.importantes button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: none; border: 0; color: var(--apagado) }
+.importantes svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2 }
+.adicionar { display: flex; gap: 8px; align-items: center }
+.adicionar input { flex: 1; min-width: 0 }

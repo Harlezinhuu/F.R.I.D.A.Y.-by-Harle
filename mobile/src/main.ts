@@ -11,11 +11,12 @@ import { lerMemoria } from './ferramentas'
 import { Celular, nativo, type Permissao } from './celular'
 import {
   apagarConversa, apagarTodas, lerAjustes, lerConversa, listarConversas, novaConversa, salvarAjustes, salvarConversa, salvarLista, tituloDe,
-  type Ajustes, type Conversa, type Mensagem
+  type Ajustes, type Conversa, type Mensagem,
+  lerAvisos, salvarAvisos, type Avisos
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.3.0'
+const VERSAO = '0.4.0'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -376,6 +377,7 @@ async function mostrarAjustes(): Promise<void> {
   $('heroiNome').textContent = ajustes.nome || 'FRIDAY'
   $('versao').textContent = `v${VERSAO}`
   void mostrarControle()
+  void mostrarAvisos()
   const fatos = await lerMemoria()
   $('memoriaResumo').textContent = fatos.length ? `${fatos.length} ${fatos.length === 1 ? 'coisa' : 'coisas'} que ela sabe sobre você` : 'Nada ainda'
 }
@@ -431,6 +433,72 @@ $('ctlDefinir').addEventListener('click', () => {
   void Celular.definirAssistente()
 })
 
+// Avisos por voz: ligações e mensagens dos contatos importantes
+let avisos: Avisos | null = null
+async function guardarAvisos(): Promise<void> { if (avisos) await salvarAvisos(avisos) }
+
+function desenharImportantes(): void {
+  const lista = avisos?.importantes ?? []
+  $('avImportantes').replaceChildren(...(lista.length ? lista.map((nome) => {
+    const li = document.createElement('li')
+    li.append(document.createTextNode(nome))
+    const x = document.createElement('button')
+    x.type = 'button'
+    x.setAttribute('aria-label', `Tirar ${nome} dos importantes`)
+    x.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+    x.addEventListener('click', () => { if (!avisos) return; avisos.importantes = avisos.importantes.filter((n) => n !== nome); void guardarAvisos(); desenharImportantes() })
+    li.append(x)
+    return li
+  }) : [Object.assign(document.createElement('li'), { className: 'vazio', textContent: 'Nenhum ainda. Ou diga: "a Mãe é importante".' })]))
+}
+
+async function mostrarAvisos(): Promise<void> {
+  const secao = $('avisos')
+  if (!nativo()) { secao.hidden = true; return }
+  secao.hidden = false
+  avisos = await lerAvisos()
+  $<HTMLInputElement>('avLigacoes').checked = avisos.ligacoes
+  $<HTMLInputElement>('avSoImportantes').checked = avisos.soImportantes
+  $<HTMLInputElement>('avMensagens').checked = avisos.mensagens
+  $<HTMLInputElement>('avLerTexto').checked = avisos.lerTexto
+  $<HTMLInputElement>('avTratamento').value = avisos.tratamento
+  desenharImportantes()
+  try {
+    const { ativo } = await Celular.avisosAtivos()
+    $('avAcesso').textContent = ativo ? 'Ativo: ela ouve as ligações e mensagens' : 'Desligado'
+    $('avAtivar').textContent = ativo ? 'Ajustar' : 'Ativar'
+    // Sugestões com os nomes dos contatos (só se já tiver permissão)
+    if ((await Celular.checkPermissions()).contatos === 'granted' && !$('avSugestoes').childElementCount) {
+      const { contatos } = await Celular.contatos()
+      $('avSugestoes').replaceChildren(...contatos.slice(0, 800).map((c) => Object.assign(document.createElement('option'), { value: c.nome })))
+    }
+  } catch { /* versão antiga do app, sem o código nativo */ }
+}
+const opcaoAviso = (id: string, campo: 'ligacoes' | 'soImportantes' | 'mensagens' | 'lerTexto') =>
+  $(id).addEventListener('change', (e) => { if (!avisos) return; avisos[campo] = (e.target as HTMLInputElement).checked; void guardarAvisos() })
+opcaoAviso('avLigacoes', 'ligacoes')
+opcaoAviso('avSoImportantes', 'soImportantes')
+opcaoAviso('avMensagens', 'mensagens')
+opcaoAviso('avLerTexto', 'lerTexto')
+$('avTratamento').addEventListener('change', (e) => { if (!avisos) return; avisos.tratamento = (e.target as HTMLInputElement).value.trim(); void guardarAvisos() })
+$('avAdicionar').addEventListener('click', () => {
+  const campo = $<HTMLInputElement>('avNovo')
+  const nome = campo.value.trim()
+  if (!avisos || !nome) return
+  if (!avisos.importantes.includes(nome)) avisos.importantes.push(nome)
+  campo.value = ''
+  void guardarAvisos()
+  desenharImportantes()
+})
+$('avAtivar').addEventListener('click', () => {
+  avisar('Ative "FRIDAY: avisos por voz" e confirme.')
+  void Celular.abrirAvisos()
+})
+$('avTestar').addEventListener('click', () => {
+  const t = avisos?.tratamento.trim()
+  void Celular.testarAviso({ texto: `${t ? `${t}, ` : ''}${avisos?.importantes[0] ?? 'a Mãe'} está te ligando.` })
+})
+
 async function mostrarMemoria(): Promise<void> {
   const fatos = await lerMemoria()
   $('memoria').replaceChildren(...(fatos.length ? fatos.slice().reverse().map((f) => {
@@ -467,7 +535,7 @@ void App.addListener('backButton', () => {
 })
 // Saiu do app no meio da conversa: ela continua ouvindo (para mexer em outros apps), com a
 // notificação fixa "FRIDAY está ouvindo" e o botão Encerrar; o silêncio encerra sozinho.
-void App.addListener('resume', () => { if (telaAtual === 'ajustes') void mostrarControle() })
+void App.addListener('resume', () => { if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos() } })
 
 // ---------- Assistente padrão ----------
 
@@ -480,6 +548,8 @@ async function chamadaPeloAssistente(): Promise<void> {
 if (nativo()) {
   void Celular.addListener('assistente', () => void chamadaPeloAssistente())
   void Celular.addListener('encerrarVoz', () => { if (voz.ativo) void voz.parar() })
+  // Ligação ou mensagem importante com a conversa aberta: aparece na tela em vez de falar por cima
+  void Celular.addListener('aviso', (d) => voz.aoAcao('AVISO', d.texto, ''))
 }
 
 // ---------- Início ----------

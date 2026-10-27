@@ -71,6 +71,19 @@ if (!m.includes('FridayAcessibilidade')) {
             android:foregroundServiceType="microphone" />
     </application>`)
 }
+// Avisos por voz: lê as notificações de ligação e de mensagem (só com o acesso liberado pelo usuário)
+if (!m.includes('FridayAvisos')) {
+  m = m.replace('</application>', `    <service
+            android:name=".FridayAvisos"
+            android:exported="true"
+            android:label="FRIDAY: avisos por voz"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>`)
+}
 writeFileSync(manifesto, m)
 
 // Ícone pequeno das notificações (hexágono da FRIDAY, branco como o Android pede)
