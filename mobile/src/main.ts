@@ -16,7 +16,7 @@ import {
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.4.0'
+const VERSAO = '0.4.1'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -424,7 +424,7 @@ $('ctlLiberar').addEventListener('click', async () => {
   void mostrarControle()
 })
 $('ctlAtivarTela').addEventListener('click', () => {
-  avisar('Ative "FRIDAY: controle da tela" e confirme.')
+  avisar('Em "Apps baixados" (ou "Serviços instalados"), ative "FRIDAY: controle da tela".')
   void Celular.abrirAcessibilidade()
 })
 $('ctlInfoApp').addEventListener('click', () => void Celular.infoDoApp())

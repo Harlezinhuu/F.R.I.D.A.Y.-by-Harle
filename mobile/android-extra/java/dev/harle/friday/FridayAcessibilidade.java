@@ -294,6 +294,14 @@ public class FridayAcessibilidade extends AccessibilityService {
         Runnable tentar = new Runnable() {
             @Override
             public void run() {
+                try {
+                    tentar();
+                } catch (Exception e) {
+                    pronto.pronto(false);
+                }
+            }
+
+            private void tentar() {
                 AccessibilityNodeInfo r = getRootInActiveWindow();
                 if (r != null && pacote.equals(texto(r.getPackageName()))) {
                     for (String id : ids) {
