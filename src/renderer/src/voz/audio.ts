@@ -137,6 +137,11 @@ export class Alto {
     this.fim = 0
   }
 
+  /** Segundos de fala que ainda vão tocar (o texto chega antes do áudio). */
+  get restante(): number {
+    return Math.max(0, this.fim - this.ctx.currentTime)
+  }
+
   get tocando(): boolean {
     return this.ctx.currentTime < this.fim - 0.01
   }

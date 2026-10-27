@@ -125,6 +125,37 @@ async function iniciar(): Promise<void> {
     lista.forEach((a, i) => setTimeout(() => mostrarLembrete(a.l, a.atrasado), 4500 + i * 6000))
   }
 
+  /** Modo explicação: a tela acompanha a fala com palavras-chave, fotos e fatos. */
+  function explicar(a: Record<string, unknown>): { ok: boolean; resultado: string } {
+    if (hud.projecaoAtiva) return { ok: false, resultado: 'Tem uma projeção 3D na tela. Explique só falando.' }
+    const lista = (v: unknown, max: number) => (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, max)
+    const dados = {
+      tema: String(a.tema ?? '').trim().slice(0, 80),
+      palavras: lista(a.palavras, 20),
+      alertas: lista(a.alertas, 20),
+      imagens: lista(a.imagens, 4),
+      fatos: lista(a.fatos, 3).map((f) => f.slice(0, 110)),
+      veredito: String(a.veredito ?? '').trim().split(/\s+/)[0]?.slice(0, 14) ?? ''
+    }
+    hud.expandir()
+    hud.nucleo.esconderCena(true)
+    hud.explicacao.iniciar(dados)
+    hud.registrarAcao(`Explicação: ${dados.tema || 'sem título'}`)
+    // As fotos chegam em segundo plano; a fala não espera por elas
+    for (const termo of dados.imagens) {
+      void window.friday.ferramenta('buscar_cena', { termo })
+        .then((r) => {
+          const c = r.ok ? r.card : undefined
+          hud.explicacao.imagemChegou(c && c.tipo === 'cena' && c.imagem ? { termo, titulo: c.titulo, descricao: c.descricao, imagem: c.imagem } : null)
+        })
+        .catch(() => hud.explicacao.imagemChegou(null))
+    }
+    return {
+      ok: true,
+      resultado: 'A explicação está na tela. Agora explique falando, com calma e ritmo de narração, em 5 a 9 frases, dizendo as palavras-chave na ordem em que as passou. Não comente a tela.'
+    }
+  }
+
   function iniciarFoco(minutos: number): number {
     const m = Math.round(Math.min(240, Math.max(1, Number.isFinite(minutos) && minutos > 0 ? minutos : 25)))
     hud.iniciarFoco(m, () => {
@@ -147,6 +178,7 @@ async function iniciar(): Promise<void> {
       if (turnoUsuarioFechado) { textoUsuario = ''; turnoUsuarioFechado = false }
       textoUsuario += t
       hud.legenda('VOCÊ', textoUsuario.trim())
+      hud.explicacao.usuarioFalou()
       atividade()
     },
     aoTextoFriday(t) {
@@ -154,11 +186,14 @@ async function iniciar(): Promise<void> {
       fala?.adicionar(t)
       textoFriday += t
       hud.legenda('FRIDAY', textoFriday.trim())
+      // No modo explicação, as palavras-chave aparecem quando o áudio chega nelas
+      hud.explicacao.falou(t, alto.restante)
     },
     aoInterrompido() {
       // Você falou por cima: ela para na hora
       fala?.cancelar()
       alto.limpar()
+      hud.explicacao.interrompido()
       textoFriday = ''
       primeiroAudioDoTurno = true
       marcaTexto = marcaPedidoVoz = 0
@@ -166,6 +201,7 @@ async function iniciar(): Promise<void> {
     },
     aoFimDoTurno() {
       fala?.finalizar()
+      hud.explicacao.fimDoTurno(alto.restante)
       primeiroAudioDoTurno = true
       textoFriday = ''
       if (alertaPendente && ++turnosDesdeAlerta >= 2) limparAlerta()
@@ -367,10 +403,12 @@ async function iniciar(): Promise<void> {
         resposta = await diagnostico()
       } else if (nome === 'executar_rotina') {
         resposta = await executarRotina(String(args.nome ?? ''))
+      } else if (nome === 'explicar') {
+        resposta = explicar(args)
       } else if (nome === 'mostrar_cena') {
         // Responde na hora para a fala não esperar; a foto aparece quando chegar
         const termo = String(args.termo ?? '').trim()
-        if (cfg.cenas && termo && !hud.projecaoAtiva) {
+        if (cfg.cenas && termo && !hud.projecaoAtiva && !hud.explicacao.ativa) {
           void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cena(r.card) })
         }
         resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }

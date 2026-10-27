@@ -3,6 +3,7 @@
 
 import { Nucleo, ESTADOS, type Estado } from './nucleo'
 import { Cartoes } from './cartoes'
+import { Explicacao } from '../explicacao/explicacao'
 import type { Card } from '../../../shared/types'
 import type { Modelo3D } from '../projetor/tipos'
 import type { AcaoProjecao } from './projecao'
@@ -18,6 +19,7 @@ const STATUS: Partial<Record<Estado, [cor: string, texto: string, piscar: boolea
 export class Hud {
   readonly nucleo: Nucleo
   readonly cartoes: Cartoes
+  readonly explicacao: Explicacao
   private estado: Estado = 'repouso'
   private timerLegenda = 0
   private latencias: number[] = []
@@ -27,6 +29,11 @@ export class Hud {
   constructor() {
     this.nucleo = new Nucleo($('core'))
     this.cartoes = new Cartoes($('cards'))
+    // O rio de partículas da explicação nasce da fita
+    this.explicacao = new Explicacao($('palco') as HTMLCanvasElement, () => {
+      const r = $('core').getBoundingClientRect()
+      return r.width ? { x: r.left + r.width / 2, y: r.top + r.height * 0.52 } : null
+    })
     const relogio = () => { $('relogio').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
     relogio()
     setInterval(relogio, 10_000)
@@ -137,6 +144,7 @@ export class Hud {
   compactar(): void {
     // Minimizar encerra a projeção (as partículas voltam para a fita)
     this.nucleo.projecao.esconder()
+    this.explicacao.fechar()
     document.body.classList.replace('expandido', 'compacto')
     this.nucleo.setCompacto(true)
     this.nucleo.esconderCena(true)
@@ -152,6 +160,7 @@ export class Hud {
 
   /** Abre o HUD e projeta o modelo: as partículas saem da fita e montam o objeto. */
   projetar(m: Modelo3D): void {
+    this.explicacao.fechar()
     this.expandir()
     this.nucleo.esconderCena(true)
     this.nucleo.projecao.mostrar(m, () => this.fimProjecao())

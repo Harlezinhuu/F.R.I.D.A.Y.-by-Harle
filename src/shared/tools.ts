@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar'] as const
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -279,6 +279,39 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       'Mostra na tela uma foto e um resumo da Wikipédia sobre algo concreto de que você está falando: pessoa, lugar, obra, animal, objeto, evento. Chame sem anunciar, no começo da resposta, no máximo uma vez por resposta. Não use para ações no PC nem para assuntos abstratos.',
     parameters: { type: 'OBJECT', properties: { termo: { type: 'STRING', description: 'Nome como estaria no título da Wikipédia, ex.: "Torre Eiffel".' } }, required: ['termo'] }
   },
+  {
+    name: 'explicar',
+    description:
+      'Abre o modo explicação na tela: enquanto você fala, as palavras-chave aparecem enormes, montadas em partículas e sincronizadas com a sua voz, com fotos e fatos ao lado. Use quando pedirem para explicar algo, contar uma história, um caso, uma teoria ou uma curiosidade, dizer como algo funciona, o que aconteceu, ou "o que você faria". Chame ANTES de começar a falar, sem anunciar, e depois explique falando.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        tema: { type: 'STRING', description: 'Título curto, ex.: "O pouso na Lua".' },
+        palavras: {
+          type: 'ARRAY',
+          description: '8 a 16 palavras-chave (uma ou duas palavras cada), escritas EXATAMENTE como você vai falá-las e na ordem da sua fala. Cada uma aparece na tela no momento em que você a disser.',
+          items: { type: 'STRING', description: 'Palavra-chave.' }
+        },
+        alertas: {
+          type: 'ARRAY',
+          description: 'Quais dessas palavras são de perigo, proibição, mentira, crime ou morte (ficam vermelhas).',
+          items: { type: 'STRING', description: 'Uma das palavras-chave.' }
+        },
+        imagens: {
+          type: 'ARRAY',
+          description: 'Até 4 coisas concretas do assunto para mostrar foto, como estariam no título da Wikipédia (pessoas, lugares, objetos, eventos).',
+          items: { type: 'STRING', description: 'Título da Wikipédia.' }
+        },
+        fatos: {
+          type: 'ARRAY',
+          description: 'Até 3 fatos curtos e verdadeiros (datas, números, nomes), até 70 caracteres cada, para cartões ao lado.',
+          items: { type: 'STRING', description: 'Fato curto.' }
+        },
+        veredito: { type: 'STRING', description: 'Opcional. Carimbo final em uma palavra quando a explicação responde se algo é verdade: "FALSO", "VERDADE", "MITO", "CONFIRMADO" ou "INCERTO".' }
+      },
+      required: ['tema', 'palavras']
+    }
+  },
   { name: 'listar_projetos', description: 'Lista os projetos de programação configurados para tarefas.' },
   {
     name: 'tarefa_programacao',
@@ -391,9 +424,10 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Quando o resultado de uma ferramenta trouxer um campo "dizer", fale esse texto.',
     'Quando o usuário contar algo duradouro sobre si, chame memorizar em silêncio, sem anunciar que guardou.',
     'Quando falar de algo concreto e conhecido (pessoa, lugar, obra, objeto), chame mostrar_cena com o nome, sem anunciar.',
+    'Quando pedirem uma explicação, história, teoria, curiosidade, "como funciona", "o que aconteceu" ou "o que você faria", chame explicar primeiro, sem anunciar, e então explique falando em 5 a 9 frases, dizendo as palavras-chave na ordem que passou. Nesse caso não chame mostrar_cena.',
     'Com a Visão de Deus aberta, não chame mostrar_cena para lugares: o globo já mostra.',
     'Para qualquer coisa atual (notícias, jogos, preços, cotações, eventos) ou que você não tenha certeza, use buscar_na_internet e diga de onde veio em poucas palavras. Para clima, use clima (qualquer lugar do mundo, até 16 dias).',
-    'Com uma projeção 3D na tela, não chame mostrar_cena. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
+    'Com uma projeção 3D na tela, não chame mostrar_cena nem explicar. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,

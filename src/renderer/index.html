@@ -12,6 +12,19 @@
 <body class="compacto">
   <div class="veu" aria-hidden="true"></div>
 
+  <!-- Modo explicação: palavras de partículas, fotos, fatos e carimbo -->
+  <canvas class="palco" id="palco" aria-hidden="true" hidden></canvas>
+  <section class="explic" id="explic" aria-live="polite" hidden>
+    <div class="explic-topo">
+      <span class="explic-rotulo">EXPLICAÇÃO <b id="explicContador">00</b></span>
+      <h2 id="explicTema"></h2>
+      <div class="explic-barra"><i id="explicBarra"></i></div>
+    </div>
+    <ol class="explic-trilha" id="explicTrilha"></ol>
+    <div class="explic-cartoes" id="explicCartoes"></div>
+    <div class="explic-carimbo" id="explicCarimbo" hidden></div>
+  </section>
+
   <!-- Prévia da câmera do controle pelas mãos (a imagem não sai do PC) -->
   <div class="cam" id="cam" hidden>
     <video id="camVideo" muted playsinline></video>
