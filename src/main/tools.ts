@@ -26,6 +26,8 @@ import { execFile } from 'node:child_process'
 import { aparelhosPareados, celularEscutando, contextoDoCelular, enviarParaCelular, iniciarPareamento } from './elo'
 import { qrSvg } from '../shared/qr'
 import type { EventoParaCelular } from '../shared/elo'
+import { aprender, apagarPessoa, definirSoDono, lerCadastro, salvarPessoa } from './rostos'
+import type { Papel } from '../shared/rostos'
 
 /** Roda um comando do Windows sem abrir janela. */
 const rodar = (exe: string, args: string[]): Promise<void> =>
@@ -312,6 +314,28 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     const cel = contextoDoCelular()
     const extra = cel ? `\n\nConversa recente com você no celular (continue dali se fizer sentido, sem recitar):\n${cel}` : ''
     return { ok: true, mensagem: memoriaParaPrompt() + extra }
+  },
+
+  // ---------- Rostos (uso interno do HUD; as assinaturas nunca saem do PC) ----------
+
+  async rostos_dados() {
+    return { ok: true, mensagem: '', dados: lerCadastro() }
+  },
+  async rostos_salvar(a) {
+    const p = salvarPessoa(str(a.nome), (a.papel === 'convidado' ? 'convidado' : 'dono') as Papel, a.descritores)
+    return { ok: true, mensagem: `${p.nome} cadastrado como ${p.papel}.`, dados: { id: p.id, papel: p.papel } }
+  },
+  async rostos_apagar(a) {
+    const fora = apagarPessoa(str(a.id))
+    return fora.length ? { ok: true, mensagem: `Apagado: ${fora.map((p) => p.nome).join(', ')}.` } : falha('Não achei esse cadastro.')
+  },
+  async rostos_so_dono(a) {
+    definirSoDono(a.ligar === true)
+    return { ok: true, mensagem: a.ligar === true ? 'Agora só atendo o dono.' : 'Atendo todo mundo de novo.' }
+  },
+  async rostos_aprender(a) {
+    aprender(str(a.id), a.descritor)
+    return { ok: true, mensagem: '' }
   },
 
   // ---------- Celular ----------

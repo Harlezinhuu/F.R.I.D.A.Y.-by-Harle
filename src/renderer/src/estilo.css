@@ -237,6 +237,10 @@ body.explicando .cards { right: auto; left: 32px; bottom: 330px }
 .card .qr svg { display: block; width: 100%; height: 100% }
 .card .codigo { font-family: var(--f-data); font-size: 30px; letter-spacing: .12em }
 
+/* Cadastro do rosto: a prévia aparece mais viva que a das mãos */
+#rostoCam { width: 300px }
+#rostoCam video { opacity: .9; filter: none }
+
 @media (prefers-reduced-motion: reduce) {
   .panel, .card, .core, .cards, .veu { transition: none; animation: none }
   .eq span { animation: none }

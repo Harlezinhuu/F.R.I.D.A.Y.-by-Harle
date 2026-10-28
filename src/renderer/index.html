@@ -32,6 +32,12 @@
     <div class="cam-rodape"><b id="camStatus">PROCURANDO AS MÃOS</b><span>PROCESSADO NO SEU PC</span></div>
   </div>
 
+  <!-- Cadastro do rosto: prévia da câmera (só a assinatura numérica fica guardada, no PC) -->
+  <div class="cam" id="rostoCam" hidden>
+    <video id="rostoVideo" muted playsinline></video>
+    <div class="cam-rodape"><b id="rostoStatus">OLHE PARA A CÂMERA</b><span>SÓ NO SEU PC</span></div>
+  </div>
+
   <header class="top">
     <div class="brand">
       <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><polygon points="15,2 27,9 27,21 15,28 3,21 3,9" fill="none" stroke="#6FB8FF" stroke-width="1.4"/><polygon points="15,9 21,12.5 21,17.5 15,21 9,17.5 9,12.5" fill="#6FB8FF" opacity=".55"/></svg>
@@ -41,6 +47,7 @@
     <div class="status">
       <span><span class="dot" id="dot"></span><span id="statusTxt">ONLINE · GEMINI LIVE</span></span>
       <span>ESTADO <span class="state-tag" id="stateTag">EM REPOUSO</span></span>
+      <span id="quem" hidden>VOCÊ <span class="state-tag" id="quemNome"></span></span>
       <span id="relogio">--:--</span>
     </div>
   </header>

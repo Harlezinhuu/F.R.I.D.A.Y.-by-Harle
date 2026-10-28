@@ -13,6 +13,7 @@ timeout /t 3 /nobreak >nul
 git pull || goto erro
 call npm install || goto erro
 call npm run build || goto erro
+if not exist "resources\models\rostos\faceres.bin" call npm run modelo
 if not exist "resources\models\maos\hand_landmarker.task" call npm run modelo
 
 echo.

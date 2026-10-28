@@ -17,6 +17,8 @@ import type { Modelo3D } from './projetor/tipos'
 import type { AcaoProjecao } from './hud/projecao'
 import { Maos } from './gestos/maos'
 import type { Comando } from './gestos/gestos'
+import { Rostos } from './rostos/rostos'
+import { filtrarAmostras, podeUsar, quemEsta, reconhecer, type Cadastro, type Papel, type Reconhecimento } from '../../shared/rostos'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
 const BLOCOS_PRE_ROLL = 20 // 20 blocos de 40 ms: o áudio logo antes da ativação também vai para a IA
@@ -70,6 +72,109 @@ async function iniciar(): Promise<void> {
   let marcaFimFala = 0, marcaTexto = 0, marcaPedidoVoz = 0
 
   let memoriaDaConversa = ''
+
+  // ---------- Reconhecimento facial (opcional: só liga quando alguém cadastra o rosto) ----------
+  const rostos = cfg.rostos ? new Rostos(cfg.rostos.modelosUrl) : null
+  let cadastroRostos: Cadastro = { soDono: false, pessoas: [] }
+  /** Quem chamou nesta conversa (null = não reconhecido) */
+  let pessoaAtual: Reconhecimento | null = null
+
+  async function lerCadastroRostos(): Promise<void> {
+    const r = await window.friday.ferramenta('rostos_dados', {}).catch(() => null)
+    cadastroRostos = (r?.dados as Cadastro | undefined) ?? { soDono: false, pessoas: [] }
+    // Com alguém cadastrado, os modelos já ficam carregados (o reconhecimento sai mais rápido)
+    if (cadastroRostos.pessoas.length && rostos) void rostos.carregar().catch((e) => console.warn('[rostos] modelos não carregaram:', (e as Error).message))
+  }
+  const nomeDono = (): string => cadastroRostos.pessoas.find((p) => p.papel === 'dono')?.nome ?? cfg.nome
+  /** Sem cadastro, todo mundo é o dono (como sempre foi). */
+  const papelAtual = (): Papel | null => (cadastroRostos.pessoas.length ? pessoaAtual?.pessoa.papel ?? null : 'dono')
+
+  /** Olha pela webcam por até 2,5 s e diz quem chamou. A câmera fecha logo depois. */
+  async function quemChamou(): Promise<Reconhecimento | null> {
+    if (!rostos || !cadastroRostos.pessoas.length) return null
+    try {
+      const inicio = performance.now()
+      const amostras = await rostos.olhar(3, 2500)
+      let melhor: Reconhecimento | null = null
+      for (const a of amostras) {
+        const r = reconhecer(a.descritor, cadastroRostos.pessoas, cfg.rostos?.limiar)
+        if (r && (!melhor || r.semelhanca > melhor.semelhanca)) melhor = r
+      }
+      const vivo = Math.max(0, ...amostras.map((a) => Math.max(a.real, a.vivo)))
+      console.log(`[rostos] ${amostras.length} quadros em ${Math.round(performance.now() - inicio)} ms: ${melhor ? `${melhor.pessoa.nome} (${melhor.semelhanca})` : 'ninguém conhecido'}, vivo ${vivo.toFixed(2)}`)
+      // Foto ou tela na frente da câmera: não vale
+      if (melhor && vivo < 0.3) { console.warn('[rostos] parece foto ou tela; tratando como visitante'); return null }
+      // Reconhecimento firme vira amostra nova: ela acompanha a luz do quarto e o cabelo novo
+      const firme = melhor ? amostras.find((a) => reconhecer(a.descritor, [melhor!.pessoa], 0.6)) : undefined
+      if (melhor && firme && Math.random() < 0.3) void window.friday.ferramenta('rostos_aprender', { id: melhor.pessoa.id, descritor: firme.descritor }).then(() => lerCadastroRostos())
+      return melhor
+    } catch (e) {
+      console.warn('[rostos] não deu para olhar:', (e as Error).message)
+      return null
+    }
+  }
+
+  /** Cadastro com a prévia da câmera no canto. */
+  async function cadastrarRosto(a: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!rostos) return { ok: false, resultado: 'Os modelos do reconhecimento facial não estão instalados. Rode "npm run modelo" (ou "Atualizar a FRIDAY" no ícone da bandeja).' }
+    const nome = String(a.nome ?? '').trim()
+    if (!nome) return { ok: false, resultado: 'Pergunte o nome de quem vai ser cadastrado.' }
+    const primeiro = !cadastroRostos.pessoas.length
+    if (!primeiro && papelAtual() !== 'dono') return { ok: false, resultado: `Só ${nomeDono()} pode cadastrar rostos novos.` }
+    if (a.confirmado !== true) {
+      return { ok: false, precisa_confirmacao: true, resultado: `Precisa de consentimento: explique para ${nome} que você guarda só uma assinatura numérica do rosto (não é foto), só neste PC, para reconhecer quem chama, e que dá para apagar quando quiser ("apaga meu rosto").${primeiro ? ` ${nome} vai ser o dono: visitantes não reconhecidos não mexem em arquivos, memória nem desligam o PC.` : ''} Pergunte se concorda; se sim, chame de novo com confirmado=true e peça para olhar para a câmera por uns segundos.` }
+    }
+    maos.desligar()
+    const caixa = document.getElementById('rostoCam') as HTMLElement
+    const video = document.getElementById('rostoVideo') as HTMLVideoElement
+    const status = document.getElementById('rostoStatus') as HTMLElement
+    caixa.hidden = false
+    status.textContent = 'OLHE PARA A CÂMERA'
+    try {
+      const amostras = await rostos.olhar(6, 9000, video, (n) => { status.textContent = `GUARDANDO · ${n}/6` })
+      const boas = filtrarAmostras(amostras.filter((x) => x.confianca >= 0.7 && x.largura >= 90).map((x) => x.descritor), 3)
+      if (boas.length < 3) return { ok: false, resultado: 'Não consegui ver o rosto direito. Peça para chegar mais perto, olhar para a câmera com a luz de frente e tentar de novo.' }
+      // Esse rosto já é de outra pessoa?
+      const ja = reconhecer(boas[0], cadastroRostos.pessoas.filter((p) => p.nome.toLowerCase() !== nome.toLowerCase()))
+      if (ja) return { ok: false, resultado: `Esse rosto já está cadastrado como ${ja.pessoa.nome}.` }
+      const papel = primeiro ? 'dono' : a.papel === 'dono' ? 'dono' : 'convidado'
+      const r = await window.friday.ferramenta('rostos_salvar', { nome, papel, descritores: boas })
+      await lerCadastroRostos()
+      if (r.ok && primeiro) pessoaAtual = reconhecer(boas[0], cadastroRostos.pessoas)
+      status.textContent = r.ok ? 'PRONTO' : 'NÃO DEU'
+      r.ok ? sons.feito() : sons.erro()
+      return { ok: r.ok, resultado: r.ok ? `${r.mensagem} A partir de agora eu reconheço ${nome} quando chamar.${primeiro ? ' Para cadastrar outras pessoas, peça com ela na frente da câmera.' : ''}` : r.mensagem }
+    } catch (e) {
+      return { ok: false, resultado: `Não consegui abrir a câmera: ${(e as Error).message}` }
+    } finally {
+      window.setTimeout(() => { caixa.hidden = true; video.srcObject = null }, 1200)
+    }
+  }
+
+  async function gerirRostos(a: Record<string, unknown>): Promise<Record<string, unknown>> {
+    await lerCadastroRostos()
+    const acao = String(a.acao ?? 'listar')
+    const ps = cadastroRostos.pessoas
+    if (acao === 'listar') return { ok: true, resultado: ps.length ? `Cadastrados: ${ps.map((p) => `${p.nome} (${p.papel})`).join(', ')}.${cadastroRostos.soDono ? ' Só atendo o dono.' : ''}` : 'Ninguém cadastrado: o reconhecimento facial está desligado.' }
+    if (acao === 'so_dono' || acao === 'todos') {
+      if (papelAtual() !== 'dono') return { ok: false, resultado: `Só ${nomeDono()} pode mudar isso.` }
+      if (!ps.length) return { ok: false, resultado: 'Primeiro cadastre o rosto do dono ("cadastra meu rosto").' }
+      const r = await window.friday.ferramenta('rostos_so_dono', { ligar: acao === 'so_dono' })
+      await lerCadastroRostos()
+      return { ok: r.ok, resultado: r.mensagem }
+    }
+    // Apagar: o dono apaga qualquer um; cada pessoa apaga o próprio rosto
+    const nome = String(a.nome ?? '').trim().toLowerCase()
+    const alvo = nome ? ps.find((p) => p.nome.toLowerCase() === nome || p.nome.toLowerCase().startsWith(nome)) : pessoaAtual?.pessoa
+    if (!alvo) return { ok: false, resultado: nome ? `Não achei ${a.nome} no cadastro.` : 'De quem? Não reconheci quem está falando.' }
+    const ehEle = pessoaAtual?.pessoa.id === alvo.id
+    if (papelAtual() !== 'dono' && !ehEle) return { ok: false, resultado: `Só ${nomeDono()} ou o próprio ${alvo.nome} podem apagar esse cadastro.` }
+    if (alvo.papel === 'dono' && a.confirmado !== true) return { ok: false, precisa_confirmacao: true, resultado: 'Precisa de confirmação: apagar o rosto do dono apaga todos os cadastros e desliga o reconhecimento facial. Pergunte antes.' }
+    const r = await window.friday.ferramenta('rostos_apagar', { id: alvo.id })
+    await lerCadastroRostos()
+    if (ehEle) pessoaAtual = null
+    return { ok: r.ok, resultado: r.ok ? `${r.mensagem} A assinatura foi apagada deste PC.` : r.mensagem }
+  }
   let vigiaFerramenta = 0
   let alertaPendente = false
   let turnosDesdeAlerta = 0
@@ -277,8 +382,24 @@ async function iniciar(): Promise<void> {
     preRoll = []
 
     try {
-      // O que ela sabe sobre você entra no começo de cada conversa
-      memoriaDaConversa = (await window.friday.ferramenta('memoria_para_prompt', {}).catch(() => ({ mensagem: '' }))).mensagem
+      // Quem chamou (se o reconhecimento facial estiver ligado) e o que ela sabe sobre o dono
+      const [memoria, quem] = await Promise.all([
+        window.friday.ferramenta('memoria_para_prompt', {}).catch(() => ({ mensagem: '' })),
+        quemChamou()
+      ])
+      pessoaAtual = quem
+      if (cadastroRostos.pessoas.length) hud.identidade(quem ? quem.pessoa.nome : 'VISITANTE')
+      if (cadastroRostos.soDono && papelAtual() !== 'dono') {
+        // Modo "só o dono": quem não é o dono ouve um aviso e a conversa nem abre
+        conectando = false
+        sons.erro()
+        hud.legenda('SISTEMA', `No momento, só atendo ${nomeDono()}.`)
+        encerrarConversa(false)
+        void avisar(`Desculpe, no momento só atendo ${nomeDono()}.`)
+        return
+      }
+      // A memória do dono só entra quando é o dono falando
+      memoriaDaConversa = [quemEsta(quem, cadastroRostos.pessoas.length > 0, nomeDono()), papelAtual() === 'dono' ? memoria.mensagem : ''].filter(Boolean).join('\n')
       console.log('[friday] conectando ao Gemini...')
       await live.conectar(memoriaDaConversa)
       console.log('[friday] conectado ao Gemini')
@@ -360,8 +481,12 @@ async function iniciar(): Promise<void> {
   // ---------- Ferramentas ----------
 
   /** Executa uma ferramenta (pedida pela conversa ou pelo celular pareado) e devolve a resposta para a IA. */
-  async function executarUma(nome: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async function executarUma(nome: string, args: Record<string, unknown>, remoto = false): Promise<Record<string, unknown>> {
     let resposta: Record<string, unknown>
+    // Com o reconhecimento facial ligado, visitantes não mexem no que é só do dono (o celular pareado é do dono)
+    if (!remoto && !podeUsar(nome, papelAtual())) {
+      return { ok: false, resultado: `Isso só ${nomeDono() || 'o dono'} pode pedir. Diga isso com educação, sem detalhes.` }
+    }
 
     if (nome === 'mostrar_painel') {
       hud.painel(String(args.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar')
@@ -402,6 +527,10 @@ async function iniciar(): Promise<void> {
       resposta = explicar(args)
     } else if (nome === 'mandar_para_celular') {
       resposta = await mandarParaCelular(args)
+    } else if (nome === 'cadastrar_rosto') {
+      resposta = await cadastrarRosto(args)
+    } else if (nome === 'rostos') {
+      resposta = await gerirRostos(args)
     } else if (nome === 'mostrar_cena') {
       // Responde na hora para a fala não esperar; a foto aparece quando chegar
       const termo = String(args.termo ?? '').trim()
@@ -814,7 +943,7 @@ async function iniciar(): Promise<void> {
 
   // O celular pediu uma ação do HUD (projetar, rotina, foco...)
   window.friday.aoEloFerramenta((id, nome, args) => {
-    void executarUma(nome, args)
+    void executarUma(nome, args, true)
       .then((r) => window.friday.eloResponder(id, { ok: r.ok === true, mensagem: String(r.resultado ?? ''), ...(r.precisa_confirmacao ? { precisaConfirmacao: true } : {}) }))
       .catch((e) => window.friday.eloResponder(id, { ok: false, mensagem: (e as Error).message }))
   })
@@ -840,6 +969,7 @@ async function iniciar(): Promise<void> {
   // ---------- Partida ----------
 
   await ligarMicrofone()
+  void lerCadastroRostos()
 
   ativacao.aoDetectar = () => { console.log('[friday] ouvi "Friday"'); void iniciarConversa() }
   ativacao.aoOuvir = (t) => console.log(`[friday] ativação ouviu: "${t}"`)

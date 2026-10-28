@@ -23,6 +23,8 @@ export interface FridayConfig {
   modeloAtivacaoUrl: string | null
   /** Arquivos do reconhecimento de mãos (MediaPipe), ou null se ainda não foram baixados */
   maos: { modeloUrl: string; wasmUrl: string } | null
+  /** Reconhecimento facial (opcional): modelos do Human na pasta resources */
+  rostos: { modelosUrl: string; limiar: number } | null
 }
 
 /** Cartões contextuais que o HUD sabe desenhar. */

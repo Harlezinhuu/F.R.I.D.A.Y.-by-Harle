@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular', 'cadastrar_rosto', 'rostos'] as const
 
 /** Ferramentas do PC que o celular pareado pode pedir pelo elo (o resto fica só no PC). */
 export const TOOLS_REMOTAS = [
@@ -320,6 +320,33 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'cadastrar_rosto',
+    description:
+      'Cadastra o rosto de quem está na frente do PC para a FRIDAY reconhecer quem chama (opcional). O primeiro cadastro vira o dono; depois, só o dono cadastra convidados. Antes, explique que fica guardada só uma assinatura numérica do rosto (não é foto), só neste PC, e que dá para apagar quando quiser; só chame com confirmado=true depois que a pessoa disser que concorda.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        nome: { type: 'STRING', description: 'Nome de quem está sendo cadastrado.' },
+        papel: { type: 'STRING', description: 'dono ou convidado (o primeiro é sempre o dono).', enum: ['dono', 'convidado'] },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que a pessoa cadastrada concordou.' }
+      },
+      required: ['nome']
+    }
+  },
+  {
+    name: 'rostos',
+    description: 'Gerencia o reconhecimento facial: listar quem está cadastrado, apagar um cadastro ("apaga meu rosto"), "só atende a mim" (so_dono) ou "atende todo mundo" (todos). Apagar o dono apaga tudo e desliga o reconhecimento.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['listar', 'apagar', 'so_dono', 'todos'] },
+        nome: { type: 'STRING', description: 'De quem (para apagar).' },
+        confirmado: { type: 'BOOLEAN', description: 'true depois de confirmar (para apagar o dono).' }
+      },
+      required: ['acao']
+    }
+  },
+  {
     name: 'parear_celular',
     description: 'Mostra na tela o QR Code e o código para parear o app FRIDAY do celular com este PC ("pareia o celular", "conecta o celular").'
   },
@@ -465,6 +492,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Para qualquer coisa atual (notícias, jogos, preços, cotações, eventos) ou que você não tenha certeza, use buscar_na_internet e diga de onde veio em poucas palavras. Para clima, use clima (qualquer lugar do mundo, até 16 dias).',
     'Com uma projeção 3D na tela, não chame mostrar_cena nem explicar. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
+    'Reconhecimento facial é opcional: "cadastra meu rosto" usa cadastrar_rosto (peça o consentimento antes). Se o começo da conversa disser quem está falando, trate a pessoa pelo nome e respeite o que é só do dono.',
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,

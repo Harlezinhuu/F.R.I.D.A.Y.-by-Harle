@@ -2,6 +2,7 @@
 // Baixa os modelos que rodam no seu PC e prepara para o HUD. Uso: npm run modelo
 // - palavra "Friday" (Vosk, ~40 MB): o áudio só vai para a internet depois que você diz "Friday"
 // - mãos (MediaPipe Hand Landmarker, ~8 MB): a imagem da câmera nunca sai do PC
+// - rostos (Human: faceres, antispoof, liveness, ~10 MB): reconhecimento facial opcional, tudo no PC
 
 import { cpSync, createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -62,8 +63,20 @@ async function prepararMaos() {
   console.log('Pronto! Modelo das mãos salvo.')
 }
 
+async function prepararRostos() {
+  // Os modelos vêm dentro do pacote @vladmandic/human (licença MIT), na mesma versão do código
+  const origem = join(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', '@vladmandic', 'human', 'models')
+  if (!existsSync(origem)) throw new Error('Rode "npm install" antes: o pacote @vladmandic/human não está instalado.')
+  const pastaRostos = join(pasta, 'rostos')
+  mkdirSync(pastaRostos, { recursive: true })
+  for (const m of ['blazeface', 'facemesh', 'faceres', 'antispoof', 'liveness']) {
+    for (const ext of ['json', 'bin']) cpSync(join(origem, `${m}.${ext}`), join(pastaRostos, `${m}.${ext}`))
+  }
+  console.log('Pronto! Modelos do reconhecimento facial copiados.')
+}
+
 let falhou = false
-for (const [nome, passo] of [['palavra "Friday"', baixarVosk], ['mãos', prepararMaos]]) {
+for (const [nome, passo] of [['palavra "Friday"', baixarVosk], ['mãos', prepararMaos], ['rostos', prepararRostos]]) {
   try { await passo() } catch (e) { falhou = true; console.error(`Não deu para preparar o modelo de ${nome}: ${e.message}`) }
 }
 if (falhou) process.exit(1)

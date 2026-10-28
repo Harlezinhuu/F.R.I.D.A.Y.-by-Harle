@@ -142,6 +142,7 @@ export class Hud {
   }
 
   compactar(): void {
+    this.identidade(null)
     // Minimizar encerra a projeção (as partículas voltam para a fita)
     this.nucleo.projecao.esconder()
     this.explicacao.fechar()
@@ -243,6 +244,13 @@ export class Hud {
     $('projLegenda').hidden = true
     $('rotulos').replaceChildren()
     this.ultimaFicha = ''
+  }
+
+  /** Quem a FRIDAY reconheceu pelo rosto nesta conversa (no topo, ao lado do estado). */
+  identidade(nome: string | null): void {
+    const el = $('quem')
+    el.hidden = !nome
+    if (nome) $('quemNome').textContent = nome.toUpperCase()
   }
 
   /** Legenda inteligente: aparece enquanto alguém fala e some 4 s depois. */

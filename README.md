@@ -25,6 +25,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Memória que aprende** com as conversas, **cenas** da Wikipédia na tela e **tarefas de programação** com o Claude Code em segundo plano.
 - **Modo explicação:** quando você pede uma explicação ou uma história, as palavras-chave aparecem gigantes, montadas em partículas, no instante em que ela as fala, com fotos, fatos e um carimbo de veredito.
 - **Projeção 3D:** as partículas saem da fita e montam o objeto em holograma, como na cena da máquina do tempo. Formas da ciência, funções matemáticas, moléculas, proteínas, 257 modelos da NASA, STLs da Wikimedia, os seus arquivos e a IA para o resto.
+- **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Visão de Deus:** um globo 3D com aviões, satélites, navios, terremotos, câmeras públicas e radar de chuva ao vivo, aberto e controlado por voz.
 - **Clima de qualquer lugar do mundo** (cidade, bairro, região, estado, país ou ponto turístico), agora e até 16 dias, e **busca na internet** pelo Google para notícias, jogos, preços e qualquer fato atual.
@@ -222,6 +223,22 @@ Um app de assistente pessoal, como o do ChatGPT, com a voz e a personalidade da 
 O APK é gerado pelo GitHub Actions (`.github/workflows/celular.yml`) a cada mudança no app e publicado em **Releases**: baixe pelo celular e instale. A chave do Gemini é colada nos Ajustes do app e fica só no celular. O código fica em `mobile/` e reaproveita o núcleo 3D, o áudio, o Gemini Live e a projeção da FRIDAY do PC.
 
 Para atualizar o app sem desinstalar, o APK precisa ser sempre assinado com a mesma chave: ela fica nos segredos do repositório (`ANDROID_KEYSTORE_B64` e `ANDROID_KEYSTORE_SENHA`).
+
+### Reconhecimento facial (opcional)
+
+Vem desligado. Liga quando alguém diz **"Friday, cadastra meu rosto"**: ela explica o que vai guardar, pede o seu "sim", e você olha para a webcam por uns segundos. O primeiro cadastro é o **dono**; depois, com o dono por perto, dá para cadastrar a família ("cadastra o rosto da Ana") como **convidados**.
+
+A cada "Friday", a webcam abre por uns 2 segundos, ela vê quem é e fecha a câmera:
+
+| Quem chamou | O que muda |
+|---|---|
+| O dono | Tudo como sempre, com a memória dele |
+| Um convidado | Ela chama pelo nome; não conta nada da memória do dono e não mexe em arquivos, memória, tarefas, desligar o PC nem pareamento |
+| Alguém não reconhecido (ou uma foto na frente da câmera) | Visitante, com as mesmas limitações |
+
+"Friday, só atende a mim" faz ela não conversar com mais ninguém ("atende todo mundo" desfaz). "Quem está cadastrado?", "apaga meu rosto" (cada um apaga o seu; apagar o dono apaga tudo e desliga o reconhecimento).
+
+**Privacidade:** nenhuma foto é guardada. Fica só uma assinatura numérica do rosto (a "impressão digital" que o modelo tira), em `rostos.json` na pasta de configuração, **só neste PC**: não vai para a internet, para o Gemini nem para o celular. Rosto é dado biométrico (dado pessoal sensível na LGPD), por isso o cadastro só acontece com o consentimento de quem é cadastrado e pode ser apagado a qualquer momento. Os modelos são do [Human](https://github.com/vladmandic/human) (licença MIT) e rodam na placa de vídeo do seu PC. Se ela errar muito, ajuste `FRIDAY_ROSTO_LIMIAR` no `.env`.
 
 ## Uma FRIDAY só: PC e celular
 
