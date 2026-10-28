@@ -4,17 +4,30 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import type { App, Contato, Tela } from './celular-logica'
 
-export type Permissao = 'contatos' | 'telefone' | 'sms' | 'agenda' | 'bluetooth'
+export type Permissao = 'contatos' | 'telefone' | 'sms' | 'agenda' | 'bluetooth' | 'microfone'
 type Estado = 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
 
 export interface MensagemRecente { app: string; remetente: string; grupo: string; texto: string; quando: number; responder: boolean }
+
+export interface EstadoCentral {
+  rodando: boolean
+  estado: string
+  /** O modelo da palavra "Friday" já foi baixado */
+  modelo: boolean
+  sobreposicao: boolean
+  bateriaLivre: boolean
+  silenciadaAte: number
+  registro: string[]
+}
 
 export interface Evento { titulo: string; inicio: number; fim: number; diaInteiro: boolean; local: string }
 
 interface CelularPlugin {
   checkPermissions(): Promise<Record<Permissao, Estado>>
   requestPermissions(o?: { permissions: Permissao[] }): Promise<Record<Permissao, Estado>>
-  addListener(evento: 'assistente' | 'encerrarVoz', cb: () => void): Promise<PluginListenerHandle>
+  addListener(evento: 'assistente', cb: (d: { central?: boolean }) => void): Promise<PluginListenerHandle>
+  addListener(evento: 'encerrarVoz', cb: () => void): Promise<PluginListenerHandle>
+  addListener(evento: 'centralProgresso', cb: (d: { pct: number }) => void): Promise<PluginListenerHandle>
   addListener(evento: 'aviso', cb: (d: { texto: string }) => void): Promise<PluginListenerHandle>
   addListener(evento: 'carro', cb: (d: { ativo: boolean }) => void): Promise<PluginListenerHandle>
 
@@ -36,7 +49,18 @@ interface CelularPlugin {
   abrirAvisos(): Promise<void>
   testarAviso(o: { texto: string }): Promise<void>
 
-  abertura(): Promise<{ assistente: boolean }>
+  abertura(): Promise<{ assistente: boolean; central?: boolean }>
+
+  centralEstado(): Promise<EstadoCentral>
+  centralLigar(o: { ligar: boolean }): Promise<void>
+  centralBaixarModelo(): Promise<void>
+  /** Solta o microfone da central; devolve o que foi dito logo depois do "Friday" (PCM 16 kHz, base64) */
+  centralSoltar(): Promise<{ audio: string }>
+  centralRetomar(o: { bloquear: boolean }): Promise<void>
+  centralSilenciar(o: { minutos: number }): Promise<{ ate: number; rodando: boolean }>
+  abrirSobreposicao(): Promise<void>
+  abrirBateria(): Promise<void>
+  porteiroAcordar(): Promise<{ porteiro: string; jaLigado: boolean }>
   ehAssistentePadrao(): Promise<{ ativo: boolean }>
   definirAssistente(): Promise<void>
   servicoVoz(o: { ligar: boolean }): Promise<void>
@@ -77,7 +101,7 @@ export const Celular = registerPlugin<CelularPlugin>('FridayCelular')
 /** Só dá para mexer no celular dentro do app Android (no navegador do PC, não). */
 export const nativo = (): boolean => Capacitor.isNativePlatform()
 
-const NOMES: Record<Permissao, string> = { contatos: 'contatos', telefone: 'ligações', sms: 'SMS', agenda: 'agenda', bluetooth: 'Bluetooth' }
+const NOMES: Record<Permissao, string> = { contatos: 'contatos', telefone: 'ligações', sms: 'SMS', agenda: 'agenda', bluetooth: 'Bluetooth', microfone: 'microfone' }
 
 /** Pede a permissão se ainda não tiver; falha com uma frase clara se ele negar. */
 export async function garantir(p: Permissao): Promise<void> {

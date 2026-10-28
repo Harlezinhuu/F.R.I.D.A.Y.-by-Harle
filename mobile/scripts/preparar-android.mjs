@@ -93,6 +93,26 @@ if (!m.includes('FridayAvisos')) {
         </service>
     </application>`)
 }
+// Central do quarto: ouve "Friday" sempre (serviço de microfone), volta sozinha quando o celular
+// liga, abre por cima da tela de bloqueio e fica fora da economia de bateria
+if (!m.includes('FridayCentral')) {
+  const extras = ['RECEIVE_BOOT_COMPLETED', 'SYSTEM_ALERT_WINDOW', 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', 'USE_FULL_SCREEN_INTENT', 'TURN_SCREEN_ON']
+    .filter((p) => !m.includes(`android.permission.${p}"`))
+    .map((p) => `    <uses-permission android:name="android.permission.${p}" />`).join('\n')
+  m = m.replace('<application', `${extras}\n    <application`)
+  m = m.replace('</application>', `    <service
+            android:name=".FridayCentral"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        <receiver android:name=".FridayInicio" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>`)
+}
 writeFileSync(manifesto, m)
 
 // Ícone pequeno das notificações (hexágono da FRIDAY, branco como o Android pede)
@@ -109,6 +129,14 @@ const gradle = join(app, 'build.gradle')
 let g = readFileSync(gradle, 'utf8')
 if (!g.includes('play-services-code-scanner')) {
   g = g.replace(/dependencies\s*\{/, (d) => `${d}\n    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'`)
+}
+// Vosk: reconhece a palavra "Friday" no próprio celular (central do quarto)
+if (!g.includes('vosk-android')) {
+  g = g.replace(/dependencies\s*\{/, (d) => `${d}\n    implementation 'net.java.dev.jna:jna:5.13.0@aar'\n    implementation 'com.alphacephei:vosk-android:0.3.47@aar'`)
+}
+// Duas bibliotecas trazendo o mesmo .so não derrubam a montagem
+if (!g.includes('libc++_shared.so')) {
+  g = g.replace(/android\s*\{/, (a) => `${a}\n    packagingOptions {\n        pickFirst 'lib/**/libc++_shared.so'\n        pickFirst 'lib/**/libjnidispatch.so'\n    }`)
 }
 const codigo = Number(process.env.GITHUB_RUN_NUMBER || 1)
 g = g.replace(/versionCode\s+\d+/, `versionCode ${codigo}`).replace(/versionName\s+"[^"]*"/, `versionName "${pacote.version}"`)

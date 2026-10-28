@@ -58,7 +58,8 @@ import java.util.TimeZone;
         @Permission(alias = "telefone", strings = { Manifest.permission.CALL_PHONE }),
         @Permission(alias = "sms", strings = { Manifest.permission.SEND_SMS }),
         @Permission(alias = "agenda", strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR }),
-        @Permission(alias = "bluetooth", strings = { Manifest.permission.BLUETOOTH_CONNECT })
+        @Permission(alias = "bluetooth", strings = { Manifest.permission.BLUETOOTH_CONNECT }),
+        @Permission(alias = "microfone", strings = { Manifest.permission.RECORD_AUDIO })
     }
 )
 public class CelularPlugin extends Plugin {
@@ -90,7 +91,9 @@ public class CelularPlugin extends Plugin {
     }
 
     static boolean ehAssistente(Intent i) {
-        if (i == null || i.getAction() == null) return false;
+        if (i == null) return false;
+        if (i.getBooleanExtra(MainActivity.EXTRA_CENTRAL, false)) return true;
+        if (i.getAction() == null) return false;
         String a = i.getAction();
         return Intent.ACTION_ASSIST.equals(a) || Intent.ACTION_VOICE_COMMAND.equals(a);
     }
@@ -101,7 +104,9 @@ public class CelularPlugin extends Plugin {
     public void abertura(PluginCall call) {
         try {
             JSObject r = new JSObject();
-            r.put("assistente", !aberturaLida && getActivity() != null && ehAssistente(getActivity().getIntent()));
+            Intent i = getActivity() != null ? getActivity().getIntent() : null;
+            r.put("assistente", !aberturaLida && ehAssistente(i));
+            r.put("central", !aberturaLida && i != null && i.getBooleanExtra(MainActivity.EXTRA_CENTRAL, false));
             aberturaLida = true;
             call.resolve(r);
         } catch (Exception e) {
@@ -112,7 +117,11 @@ public class CelularPlugin extends Plugin {
     @Override
     protected void handleOnNewIntent(Intent intent) {
         super.handleOnNewIntent(intent);
-        if (ehAssistente(intent)) notifyListeners("assistente", new JSObject());
+        if (ehAssistente(intent)) {
+            JSObject o = new JSObject();
+            o.put("central", intent.getBooleanExtra(MainActivity.EXTRA_CENTRAL, false));
+            notifyListeners("assistente", o);
+        }
     }
 
     void avisarEncerrarVoz() {
@@ -197,6 +206,244 @@ public class CelularPlugin extends Plugin {
                 falhou(call, e);
             }
         });
+    }
+
+    // ---------- Central do quarto (o celular que fica em casa ouvindo "Friday") ----------
+
+    @PluginMethod
+    public void centralEstado(PluginCall call) {
+        try {
+            JSObject r = new JSObject();
+            r.put("rodando", FridayCentral.rodando);
+            r.put("estado", FridayCentral.estado);
+            r.put("modelo", FridayCentral.temModelo(ctx()));
+            r.put("sobreposicao", Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(ctx()));
+            android.os.PowerManager pm = (android.os.PowerManager) ctx().getSystemService(Context.POWER_SERVICE);
+            r.put("bateriaLivre", Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (pm != null && pm.isIgnoringBatteryOptimizations(ctx().getPackageName())));
+            r.put("silenciadaAte", FridayCentral.silenciadaAte);
+            r.put("registro", FridayCentral.registro());
+            call.resolve(r);
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    /** Liga ou desliga a central (a configuração já foi salva pelo app). */
+    @PluginMethod
+    public void centralLigar(PluginCall call) {
+        try {
+            boolean ligar = Boolean.TRUE.equals(call.getBoolean("ligar", true));
+            Intent i = new Intent(ctx(), FridayCentral.class);
+            if (!ligar) {
+                if (FridayCentral.rodando) ctx().startService(i.setAction(FridayCentral.DESLIGAR));
+                call.resolve();
+                return;
+            }
+            if (!permitido("microfone")) {
+                call.reject("PERMISSAO: microfone");
+                return;
+            }
+            if (!FridayCentral.temModelo(ctx())) {
+                call.reject("Falta baixar o ouvido da central (o modelo da palavra \"Friday\").");
+                return;
+            }
+            androidx.core.content.ContextCompat.startForegroundService(ctx(), i);
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    /** Baixa o modelo da palavra "Friday" (uns 40 MB, uma vez só). Avisa o progresso em "centralProgresso". */
+    @PluginMethod
+    public void centralBaixarModelo(PluginCall call) {
+        REDE.execute(() -> {
+            java.io.File zip = new java.io.File(ctx().getCacheDir(), "vosk.zip");
+            try {
+                java.net.HttpURLConnection con = (java.net.HttpURLConnection) new java.net.URL("https://alphacephei.com/vosk/models/" + FridayCentral.MODELO + ".zip").openConnection();
+                con.setConnectTimeout(15000);
+                con.setReadTimeout(30000);
+                con.setInstanceFollowRedirects(true);
+                if (con.getResponseCode() != 200) throw new java.io.IOException("O site do modelo respondeu " + con.getResponseCode());
+                long total = con.getContentLength();
+                long lido = 0;
+                int ultimo = -1;
+                try (java.io.InputStream in = con.getInputStream(); java.io.OutputStream out = new java.io.FileOutputStream(zip)) {
+                    byte[] b = new byte[65536];
+                    int n;
+                    while ((n = in.read(b)) > 0) {
+                        out.write(b, 0, n);
+                        lido += n;
+                        int pct = total > 0 ? (int) (lido * 100 / total) : -1;
+                        if (pct != ultimo && pct % 5 == 0) {
+                            ultimo = pct;
+                            JSObject o = new JSObject();
+                            o.put("pct", pct);
+                            notifyListeners("centralProgresso", o);
+                        }
+                    }
+                } finally {
+                    con.disconnect();
+                }
+                // Abre o zip na pasta do app (só arquivos dentro dela)
+                java.io.File base = ctx().getFilesDir();
+                String raiz = base.getCanonicalPath() + java.io.File.separator;
+                try (java.util.zip.ZipInputStream z = new java.util.zip.ZipInputStream(new java.io.FileInputStream(zip))) {
+                    java.util.zip.ZipEntry e;
+                    byte[] b = new byte[65536];
+                    while ((e = z.getNextEntry()) != null) {
+                        java.io.File f = new java.io.File(base, e.getName());
+                        if (!f.getCanonicalPath().startsWith(raiz)) continue;
+                        if (e.isDirectory()) {
+                            f.mkdirs();
+                            continue;
+                        }
+                        java.io.File pai = f.getParentFile();
+                        if (pai != null) pai.mkdirs();
+                        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) {
+                            int n;
+                            while ((n = z.read(b)) > 0) out.write(b, 0, n);
+                        }
+                    }
+                }
+                if (!FridayCentral.temModelo(ctx())) throw new java.io.IOException("O modelo veio incompleto. Tente de novo.");
+                call.resolve();
+            } catch (Exception e) {
+                falhou(call, e);
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                zip.delete();
+            }
+        });
+    }
+
+    /** A conversa vai abrir: a central solta o microfone e entrega o que você disse logo depois do "Friday". */
+    @PluginMethod
+    public void centralSoltar(PluginCall call) {
+        REDE.execute(() -> {
+            try {
+                FridayCentral c = FridayCentral.instancia;
+                JSObject r = new JSObject();
+                r.put("audio", c == null ? "" : c.soltar());
+                call.resolve(r);
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    /** A conversa terminou: a central volta a ouvir. `bloquear` apaga a tela (precisa do controle da tela). */
+    @PluginMethod
+    public void centralRetomar(PluginCall call) {
+        try {
+            FridayCentral c = FridayCentral.instancia;
+            if (c != null) c.retomar();
+            boolean bloquear = Boolean.TRUE.equals(call.getBoolean("bloquear", false));
+            if (getActivity() instanceof MainActivity) {
+                MainActivity a = (MainActivity) getActivity();
+                a.runOnUiThread(() -> a.mostrarPorCima(false));
+            }
+            if (bloquear && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && FridayAcessibilidade.instancia != null) {
+                FridayAcessibilidade.instancia.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+            }
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    /** "Friday, fica quieta": a central ignora a palavra por `minutos` (0 = volta a ouvir). */
+    @PluginMethod
+    public void centralSilenciar(PluginCall call) {
+        try {
+            double min = call.getData().optDouble("minutos", 60);
+            FridayCentral.silenciadaAte = min <= 0 ? 0 : System.currentTimeMillis() + (long) (min * 60_000);
+            FridayCentral c = FridayCentral.instancia;
+            if (c != null) c.atualizarNotificacao();
+            JSObject r = new JSObject();
+            r.put("ate", FridayCentral.silenciadaAte);
+            r.put("rodando", FridayCentral.rodando);
+            call.resolve(r);
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    /** Permissão de abrir por cima (a central abre a FRIDAY sozinha quando ouve "Friday"). */
+    @PluginMethod
+    public void abrirSobreposicao(PluginCall call) {
+        try {
+            iniciar(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + ctx().getPackageName())));
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    /** Tira a FRIDAY da economia de bateria (o Android não fecha a central). */
+    @PluginMethod
+    @android.annotation.SuppressLint("BatteryLife")
+    public void abrirBateria(PluginCall call) {
+        try {
+            try {
+                iniciar(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx().getPackageName())));
+            } catch (ActivityNotFoundException e) {
+                iniciar(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+            }
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    // ---------- Porteiro: do celular da rua ----------
+
+    /** Pede ao porteiro (a central em casa) para ligar o PC. Devolve quem respondeu, ou vazio. */
+    @PluginMethod
+    public void porteiroAcordar(PluginCall call) {
+        REDE.execute(() -> {
+            try {
+                org.json.JSONObject cfg = Elo.config(ctx());
+                if (cfg == null) throw new IllegalStateException("O celular não está pareado com o PC.");
+                String segredo = cfg.getString("segredo");
+                byte[] chave = Lacre.chave(segredo);
+                String topico = Porteiro.topico(segredo);
+                long desde = System.currentTimeMillis() / 1000 - 2;
+                Porteiro.Recado r = Porteiro.pedirParaAcordar(chave, topico, Build.MODEL, 9000);
+                JSObject o = new JSObject();
+                o.put("porteiro", r == null ? "" : r.dados.optString("de", "porteiro"));
+                o.put("jaLigado", r != null && r.dados.optBoolean("jaLigado", false));
+                call.resolve(o);
+                if (r != null && !r.dados.optBoolean("jaLigado", false)) esperarPcLigar(chave, topico, String.valueOf(desde));
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    /** Fica de olho por uns minutos e avisa quando o porteiro disser que o PC ligou (ou não). */
+    private void esperarPcLigar(byte[] chave, String topico, String desde) {
+        try {
+            String res = Porteiro.esperarResultado(chave, topico, desde, 180_000);
+            if (res.isEmpty()) return;
+            String texto = "pc_ligado".equals(res) ? "O PC ligou." : "O PC não ligou. Confira se ele está no cabo e com o Wake on LAN ligado na BIOS.";
+            JSObject o = new JSObject();
+            o.put("texto", texto);
+            notifyListeners("aviso", o);
+            NotificationManager nm = (NotificationManager) ctx().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(new android.app.NotificationChannel("friday_porteiro", "Ligar o PC", NotificationManager.IMPORTANCE_DEFAULT));
+            }
+            nm.notify(4345, new androidx.core.app.NotificationCompat.Builder(ctx(), "friday_porteiro")
+                .setSmallIcon(R.drawable.ic_stat_friday)
+                .setContentTitle("FRIDAY")
+                .setContentText(texto)
+                .setAutoCancel(true)
+                .build());
+        } catch (Exception ignorado) {
+            // sem rede: fica sem a confirmação
+        }
     }
 
     // ---------- Mensagens recentes, resumo da manhã e modo carro ----------

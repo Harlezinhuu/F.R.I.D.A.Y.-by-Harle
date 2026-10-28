@@ -7,8 +7,8 @@ import { Mundo, type Tela } from './mundo'
 import { ModoVoz } from './voz'
 import { responder } from './chat'
 import { markdown } from './markdown'
-import { lerMemoria } from './ferramentas'
-import { Celular, garantir, nativo, type Permissao } from './celular'
+import { executar, lerMemoria } from './ferramentas'
+import { Celular, explicarErro, garantir, nativo, type Permissao } from './celular'
 import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarCasa, sincronizarMemoria } from './elo'
 import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
 import type { EventoParaCelular } from '../../src/shared/elo'
@@ -16,11 +16,12 @@ import { avisos as avisosConsulta, definirPerguntaDoPc, retomarConsulta } from '
 import {
   apagarConversa, apagarTodas, lerAjustes, lerConversa, listarConversas, novaConversa, salvarAjustes, salvarConversa, salvarLista, tituloDe,
   type Ajustes, type Conversa, type Mensagem,
-  lerAvisos, salvarAvisos, type Avisos
+  lerAvisos, salvarAvisos, type Avisos,
+  lerCentral, salvarCentral, type Central
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.6.1'
+const VERSAO = '0.7.0'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -236,14 +237,14 @@ voz.aoProjecao = (ativa) => {
   }
 }
 
-async function alternarConversa(): Promise<void> {
+async function alternarConversa(central = false): Promise<void> {
   if (voz.ativo) { await voz.parar(); return }
   if (!ajustes.chave) { ir('ajustes'); return }
   $('legVoce').textContent = ''
   $('legEla').textContent = ''
   conversando(true)
   try {
-    await voz.iniciar()
+    await voz.iniciar({ central })
   } catch (e) {
     conversando(false)
     avisar((e as Error).message)
@@ -518,6 +519,7 @@ async function mostrarAjustes(): Promise<void> {
   void mostrarControle()
   void mostrarAvisos()
   void mostrarPc()
+  void mostrarCentral()
   const fatos = await lerMemoria()
   $('memoriaResumo').textContent = fatos.length ? `${fatos.length} ${fatos.length === 1 ? 'coisa' : 'coisas'} que ela sabe sobre você` : 'Nada ainda'
 }
@@ -695,12 +697,10 @@ $('lerQR').addEventListener('click', async () => {
 })
 $('parearCodigo').addEventListener('click', () => void aposParear(parearPorCodigo($<HTMLInputElement>('pcIp').value, $<HTMLInputElement>('pcCodigo').value)))
 $('pcAcordar').addEventListener('click', async () => {
-  try {
-    await Celular.acordarPC()
-    avisar('Sinal enviado. Se o PC estiver configurado para ligar pela rede, ele liga em alguns segundos.')
-  } catch (e) {
-    avisar((e as Error).message)
-  }
+  // Mesmo caminho do "liga o PC" falado: rede de casa, internet e o porteiro
+  avisar('Mandando o sinal…')
+  const r = await executar('acordar_pc', {}, voz.contexto)
+  avisar(r.mensagem)
 })
 $('pcSincronizar').addEventListener('click', async () => {
   const n = await sincronizarMemoria()
@@ -738,6 +738,88 @@ $('apagarHistorico').addEventListener('click', async () => {
   avisar('Conversas apagadas.')
 })
 
+// ---------- Central do quarto ----------
+
+let central: Central | null = null
+
+async function mostrarCentral(): Promise<void> {
+  const secao = $('secaoCentral')
+  if (!nativo()) { secao.hidden = true; return }
+  secao.hidden = false
+  central = await lerCentral()
+  $<HTMLInputElement>('ceLigada').checked = central.ligada
+  $<HTMLInputElement>('cePorteiro').checked = central.porteiro
+  $<HTMLSelectElement>('ceSensibilidade').value = central.sensibilidade
+  try {
+    const e = await Celular.centralEstado()
+    const quieta = e.silenciadaAte > Date.now()
+    $('ceEstado').textContent = !e.rodando ? (central.ligada ? 'Ligada, mas parada: toque de novo para religar' : 'Desligada')
+      : quieta ? `Quieta até ${new Date(e.silenciadaAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+        : e.estado === 'ouvindo' ? 'Ouvindo "Friday"' : e.estado === 'pausada' ? 'Conversando' : e.estado
+    $('ceModelo').textContent = e.modelo ? 'Pronto' : 'Não baixado (40 MB, uma vez só)'
+    $('ceBaixar').hidden = e.modelo
+    $('ceSobre').textContent = e.sobreposicao ? 'Permitido' : 'Para ela aparecer sozinha quando você chamar'
+    $('ceSobreBtn').hidden = e.sobreposicao
+    $('ceBateria').textContent = e.bateriaLivre ? 'Liberada' : 'Para o Android não fechar a central'
+    $('ceBateriaBtn').hidden = e.bateriaLivre
+    $('ceRegistro').replaceChildren(...(e.registro.length ? e.registro : ['Nada ainda.']).slice().reverse().map((t) => Object.assign(document.createElement('li'), { textContent: t })))
+  } catch { /* app antigo sem o código nativo */ }
+}
+
+async function baixarOuvido(): Promise<boolean> {
+  const botao = $<HTMLButtonElement>('ceBaixar')
+  botao.disabled = true
+  const ouvinte = await Celular.addListener('centralProgresso', (d) => { $('ceModelo').textContent = d.pct >= 0 ? `Baixando… ${d.pct}%` : 'Baixando…' })
+  try {
+    await Celular.centralBaixarModelo()
+    return true
+  } catch (e) {
+    avisar(explicarErro(e))
+    return false
+  } finally {
+    void ouvinte.remove()
+    botao.disabled = false
+    void mostrarCentral()
+  }
+}
+
+async function guardarCentral(): Promise<void> {
+  if (central) await salvarCentral(central)
+}
+
+$('ceLigada').addEventListener('change', async (e) => {
+  const caixa = e.target as HTMLInputElement
+  if (!central) return
+  if (!caixa.checked) {
+    central.ligada = false
+    await guardarCentral()
+    await Celular.centralLigar({ ligar: false }).catch(() => {})
+    setTimeout(() => void mostrarCentral(), 600)
+    return
+  }
+  try {
+    await garantir('microfone')
+    if (!(await Celular.centralEstado()).modelo && !(await baixarOuvido())) { caixa.checked = false; return }
+    central.ligada = true
+    await guardarCentral()
+    await Celular.centralLigar({ ligar: true })
+    avisar('Central ligada: diga "Friday".')
+    if (!(await lerElo())) avisar('Pareie este celular com o PC para ela mandar no PC e ser o porteiro.')
+  } catch (erro) {
+    caixa.checked = false
+    central.ligada = false
+    await guardarCentral()
+    avisar(explicarErro(erro))
+  }
+  setTimeout(() => void mostrarCentral(), 800)
+})
+$('ceBaixar').addEventListener('click', () => void baixarOuvido())
+$('ceSobreBtn').addEventListener('click', () => void Celular.abrirSobreposicao().catch(() => {}))
+$('ceBateriaBtn').addEventListener('click', () => void Celular.abrirBateria().catch(() => {}))
+$('cePorteiro').addEventListener('change', (e) => { if (!central) return; central.porteiro = (e.target as HTMLInputElement).checked; void guardarCentral() })
+$('ceSensibilidade').addEventListener('change', (e) => { if (!central) return; central.sensibilidade = (e.target as HTMLSelectElement).value as Central['sensibilidade']; void guardarCentral() })
+$('ceRegistro').parentElement?.addEventListener('toggle', () => void mostrarCentral())
+
 // ---------- Botão voltar do Android ----------
 
 void App.addListener('backButton', () => {
@@ -752,7 +834,7 @@ void App.addListener('backButton', () => {
 // Saiu do app no meio da conversa: ela continua ouvindo (para mexer em outros apps), com a
 // notificação fixa "FRIDAY está ouvindo" e o botão Encerrar; o silêncio encerra sozinho.
 void App.addListener('resume', () => {
-  if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos(); void mostrarPc() }
+  if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos(); void mostrarPc(); void mostrarCentral() }
   if (nativo()) escutarPC(eventoDoPc)
 })
 // Fora do app, a escuta do PC para (a não ser no meio de uma conversa por voz)
@@ -761,13 +843,14 @@ void App.addListener('pause', () => { if (!voz.ativo) pararEscuta() })
 // ---------- Assistente padrão ----------
 
 /** Segurar o botão de ligar (ou de início) abre a FRIDAY já ouvindo. */
-async function chamadaPeloAssistente(): Promise<void> {
+async function chamadaPeloAssistente(central = false): Promise<void> {
   if (!ajustes.chave) { ir('ajustes'); return }
   if (telaAtual !== 'voz') ir('voz')
-  if (!voz.ativo) await alternarConversa()
+  if (!voz.ativo) await alternarConversa(central)
 }
 if (nativo()) {
-  void Celular.addListener('assistente', () => void chamadaPeloAssistente())
+  // Botão de assistente, ou a central do quarto ouviu "Friday"
+  void Celular.addListener('assistente', (d) => void chamadaPeloAssistente(d?.central === true))
   void Celular.addListener('encerrarVoz', () => { if (voz.ativo) void voz.parar() })
   // Ligação ou mensagem importante com a conversa aberta: aparece na tela em vez de falar por cima
   void Celular.addListener('aviso', (d) => voz.aoAcao('AVISO', d.texto, ''))
@@ -778,9 +861,15 @@ if (nativo()) {
 
 mostrarConversa()
 ir(ajustes.chave ? 'voz' : 'ajustes')
-if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente() }).catch(() => {})
+if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente(a.central === true) }).catch(() => {})
 // A memória do celular e a do PC se juntam toda vez que o app abre (e ele pega o endereço de casa)
 void sincronizarMemoria()
 void sincronizarCasa()
+// Central do quarto: se ela devia estar ligada e não está (o Android fechou), religa
+if (nativo()) {
+  void lerCentral().then(async (c) => {
+    if (c.ligada && !(await Celular.centralEstado()).rodando) await Celular.centralLigar({ ligar: true })
+  }).catch(() => {})
+}
 // Uma consulta pela metade (o app fechou no meio) continua de onde parou
 if (nativo()) void retomarConsulta().catch(() => {})

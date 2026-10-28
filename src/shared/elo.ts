@@ -118,6 +118,8 @@ export type PedidoElo =
   | { acao: 'escutar' }
   /** Endereço de casa para ligar o PC de fora (Wake-on-LAN pela internet) */
   | { acao: 'casa' }
+  /** O celular que fica em casa ouvindo "Friday" (central do quarto) está no ar: o PC fica só nas mãos */
+  | { acao: 'central'; ativa: boolean; aparelho: string }
   | { acao: 'parear'; aparelho: string }
 
 /** O que o PC manda para o celular pela escuta. */

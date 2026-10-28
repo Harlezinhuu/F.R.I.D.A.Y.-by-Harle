@@ -123,6 +123,23 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'friday-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
 ])
 
+// ---------- Central do quarto ----------
+
+/** Enquanto a central (o celular em casa) estiver no ar, o PC não ouve "Friday": fica só nas mãos. */
+let centralAte = 0
+let centralNome = ''
+let centralAvisada = false
+const centralNoAr = (): boolean => Date.now() < centralAte
+
+function mudouCentral(): void {
+  const ativa = centralNoAr()
+  if (ativa === centralAvisada) return
+  centralAvisada = ativa
+  log('central', ativa ? `${centralNome} é a central: o PC parou de ouvir "Friday"` : 'a central saiu do ar: o PC volta a ouvir "Friday"')
+  win?.webContents.send('central', ativa, centralNome)
+  atualizarBandeja()
+}
+
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let silenciada = false
@@ -181,6 +198,7 @@ function atualizarBandeja(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'F.R.I.D.A.Y', enabled: false },
+      ...(centralNoAr() ? [{ label: `Ouvindo pelo ${centralNome || 'celular'} (central do quarto)`, enabled: false }] : []),
       { type: 'separator' },
       { label: silenciada ? 'Voltar a ouvir (Ctrl+Alt+Espaço)' : 'Silenciar (Ctrl+Alt+Espaço)', click: alternarSilencio },
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
@@ -304,8 +322,17 @@ app.whenReady().then(() => {
       return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true } : {}) }
     },
     memoria: (fatos, esquecidos) => sincronizar(fatos, esquecidos),
-    pareou: (aparelho) => avisarEmSegundoPlano(`${aparelho} pareado. Agora a FRIDAY do PC e a do celular são uma só.`, true)
+    pareou: (aparelho) => avisarEmSegundoPlano(`${aparelho} pareado. Agora a FRIDAY do PC e a do celular são uma só.`, true),
+    central(ativa, aparelho) {
+      // A central avisa a cada 30 s; sem notícia por 75 s, o PC volta a ouvir
+      centralAte = ativa ? Date.now() + 75_000 : 0
+      centralNome = aparelho
+      mudouCentral()
+    }
   })
+  setInterval(mudouCentral, 10_000)
+  // O HUD recarregou: diz de novo quem está ouvindo
+  win?.webContents.on('did-finish-load', () => { if (centralNoAr()) win?.webContents.send('central', true, centralNome) })
   // Porta do roteador e endereço de casa sempre em dia (para o celular ligar o PC de fora)
   manterCasa((t) => log('casa', t))
   configurarConsultas({ avisar: avisoDaConsulta, marcou: consultaMarcada, log: (t) => log('consulta', t) })

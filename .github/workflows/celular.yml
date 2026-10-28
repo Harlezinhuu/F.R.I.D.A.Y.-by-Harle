@@ -48,6 +48,13 @@ jobs:
           javac -encoding UTF-8 -d /tmp/teste-java android-extra/java/dev/harle/friday/Nomes.java android-extra/teste/TesteNomes.java
           java -Dfile.encoding=UTF-8 -cp /tmp/teste-java dev.harle.friday.TesteNomes
 
+      - name: Testar o porteiro (ligar o PC da rua)
+        run: |
+          mkdir -p /tmp/teste-porteiro
+          curl -sSfL -o /tmp/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
+          javac -encoding UTF-8 -cp /tmp/json.jar -d /tmp/teste-porteiro android-extra/java/dev/harle/friday/Lacre.java android-extra/java/dev/harle/friday/Porteiro.java android-extra/teste/TestePorteiro.java
+          timeout 60 java -Dfile.encoding=UTF-8 -cp /tmp/teste-porteiro:/tmp/json.jar dev.harle.friday.TestePorteiro
+
       - name: Instalar dependências
         run: npm install --no-audit --no-fund
 

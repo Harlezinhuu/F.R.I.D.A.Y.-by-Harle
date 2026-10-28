@@ -54,6 +54,8 @@ async function iniciar(): Promise<void> {
   let silenciada = false
   let micOk = false
   let modoSemAtivacao = false
+  /** A central do quarto (o celular em casa) está ouvindo "Friday" no lugar do PC */
+  let centralNoAr = false
   let blocosFalaSeguidos = 0
   let nivelMic = 0
 
@@ -825,7 +827,7 @@ async function iniciar(): Promise<void> {
         ativacao.alimentar(amostras)
       } else if (modoSemAtivacao) {
         blocosFalaSeguidos = rms > LIMIAR_FALA * 1.5 ? blocosFalaSeguidos + 1 : 0
-        if (blocosFalaSeguidos >= BLOCOS_GATILHO_SEM_MODELO) { blocosFalaSeguidos = 0; void iniciarConversa() }
+        if (blocosFalaSeguidos >= BLOCOS_GATILHO_SEM_MODELO) { blocosFalaSeguidos = 0; if (!centralNoAr) void iniciarConversa() }
       }
       return
     }
@@ -994,7 +996,17 @@ async function iniciar(): Promise<void> {
   await ligarMicrofone()
   void lerCadastroRostos()
 
-  ativacao.aoDetectar = () => { console.log('[friday] ouvi "Friday"'); void iniciarConversa() }
+  // Com a central do quarto no ar (o celular em casa), quem ouve "Friday" é ela: o PC fica só nas mãos
+  window.friday.aoCentral((ativa, aparelho) => {
+    centralNoAr = ativa
+    console.log(ativa ? `[friday] ${aparelho} é a central: o PC não ouve "Friday"` : '[friday] a central saiu do ar: o PC volta a ouvir')
+    hud.legenda('SISTEMA', ativa ? `Ouvindo pelo ${aparelho}.` : 'Voltei a ouvir aqui no PC.')
+  })
+  ativacao.aoDetectar = () => {
+    if (centralNoAr) { console.log('[friday] ouvi "Friday", mas quem atende é a central'); return }
+    console.log('[friday] ouvi "Friday"')
+    void iniciarConversa()
+  }
   ativacao.aoOuvir = (t) => console.log(`[friday] ativação ouviu: "${t}"`)
   const semModelo = () => {
     modoSemAtivacao = true

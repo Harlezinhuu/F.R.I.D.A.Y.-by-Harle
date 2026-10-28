@@ -63,6 +63,29 @@ export async function salvarAvisos(a: Avisos): Promise<void> {
   await Preferences.set({ key: 'avisos', value: JSON.stringify(a) })
 }
 
+// ---------- Central do quarto (o celular que fica em casa ouvindo "Friday") ----------
+
+export interface Central {
+  /** Este celular é a central */
+  ligada: boolean
+  /** Liga o PC quando você pede da rua */
+  porteiro: boolean
+  /** Quão alto precisa ser o "Friday" */
+  sensibilidade: 'sensivel' | 'normal' | 'exigente'
+}
+
+const CENTRAL_PADRAO: Central = { ligada: false, porteiro: true, sensibilidade: 'normal' }
+
+export async function lerCentral(): Promise<Central> {
+  const { value } = await Preferences.get({ key: 'central' })
+  try { return { ...CENTRAL_PADRAO, ...(value ? JSON.parse(value) : {}) } } catch { return { ...CENTRAL_PADRAO } }
+}
+
+/** O código nativo lê a mesma chave ("central") para saber a sensibilidade e o porteiro. */
+export async function salvarCentral(c: Central): Promise<void> {
+  await Preferences.set({ key: 'central', value: JSON.stringify(c) })
+}
+
 /** Lista guardada em Preferences (memória, lembretes). */
 export async function lerLista<T>(chave: string): Promise<T[]> {
   const { value } = await Preferences.get({ key: chave })

@@ -24,6 +24,8 @@ export interface OpcoesElo {
   memoria(fatos: unknown[], esquecidos: string[]): { fatos: unknown[]; esquecidos: string[] }
   /** Um celular acabou de parear. */
   pareou(aparelho: string): void
+  /** A central do quarto (celular em casa ouvindo "Friday") avisou que está no ar, ou que saiu. */
+  central(ativa: boolean, aparelho: string): void
 }
 
 interface Arquivo { segredo: string; aparelhos: { nome: string; ultimaVez: string }[] }
@@ -166,6 +168,9 @@ async function tratar(p: PedidoElo): Promise<unknown> {
       return { texto: recentes(contextoPc) }
     case 'casa':
       return { casa: lerCasa() }
+    case 'central':
+      o.central(p.ativa === true, String(p.aparelho ?? 'celular').slice(0, 60))
+      return { ok: true }
     case 'escutar': {
       ultimaEscuta = Date.now()
       if (fila.length) return { eventos: fila.splice(0) }

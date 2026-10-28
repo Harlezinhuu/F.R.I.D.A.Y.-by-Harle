@@ -97,6 +97,11 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { ligacoes: B('Avisar ligações.'), so_importantes: B('Ligações só dos importantes.'), mensagens: B('Avisar mensagens dos importantes.'), ler_texto: B('Ler o texto das mensagens.') } }
   },
   {
+    name: 'central',
+    description: 'A central do quarto (este celular ouvindo "Friday" sozinho): "fica quieta" (silenciar por um tempo), "pode voltar a ouvir" ou "como está a central?".',
+    parameters: { type: 'OBJECT', properties: { acao: S('O que fazer.', ['quieta', 'ouvir', 'estado']), minutos: N('Por quanto tempo fica quieta. Padrão: 60.') }, required: ['acao'] }
+  },
+  {
     name: 'botao_sistema',
     description: 'Aperta um botão do Android: voltar, início, apps recentes, notificações, ajustes rápidos, bloquear a tela ou tirar print.',
     parameters: { type: 'OBJECT', properties: { acao: S('Qual botão.', ['voltar', 'inicio', 'recentes', 'notificacoes', 'ajustes_rapidos', 'bloquear', 'print']) }, required: ['acao'] }
@@ -149,6 +154,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
     '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
     'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
+    '"Liga o PC" (até da rua) usa acordar_pc. Se este celular é a central do quarto, "fica quieta" usa central com acao=quieta.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano e pergunta antes de escolher horário ou confirmar. Quando a consulta te perguntar algo, pergunte a ele e passe a resposta em responder_consulta (ou pc_responder_consulta, se quem está marcando é o PC).',
     extra,
     `Agora é ${data} (horário de Brasília).`,
@@ -331,13 +337,28 @@ async function esquecidos(textos: string[]): Promise<void> {
 async function noPc(nome: string, a: Record<string, unknown>): Promise<Resultado> {
   if (!(await pareado())) return { ok: false, mensagem: 'O celular ainda não está pareado com o PC. No PC, diga "Friday, pareia o celular"; aqui, Ajustes > FRIDAY do PC > Parear.' }
   if (nome === 'acordar_pc') {
+    // Três caminhos ao mesmo tempo: rede de casa, internet (porta no roteador) e o porteiro (central em casa)
     const casa = await lerCasa()
-    const r = await Celular.acordarPC(casa ? { casa: casa.endereco, porta: casa.porta } : {})
+    const souACentral = await Celular.centralEstado().then((e) => e.rodando).catch(() => false)
+    const [rede, porteiro] = await Promise.all([
+      Celular.acordarPC(casa ? { casa: casa.endereco, porta: casa.porta } : {}).catch(() => ({ enviados: 0 })),
+      souACentral ? Promise.resolve(null) : Celular.porteiroAcordar().catch(() => null)
+    ])
+    if (porteiro?.porteiro) {
+      return {
+        ok: true,
+        mensagem: porteiro.jaLigado
+          ? `O ${porteiro.porteiro}, aí em casa, diz que o PC já está ligado.`
+          : `O ${porteiro.porteiro}, aí em casa, recebeu e mandou o sinal. Te aviso quando o PC ligar (leva uns 30 segundos a 1 minuto).`
+      }
+    }
     return {
-      ok: true,
-      mensagem: casa
-        ? `Mandei o sinal pela rede de casa e pela internet (${r.enviados} pacotes). Ele liga em uns 30 segundos.`
-        : `Mandei o sinal pela rede de casa (${r.enviados} pacotes). Se você estiver fora de casa, não vai chegar: no PC, diga "prepara para ligar o PC de fora" uma vez.`
+      ok: rede.enviados > 0,
+      mensagem: rede.enviados === 0
+        ? 'Não consegui mandar o sinal para o PC.'
+        : casa
+          ? `Mandei o sinal pela rede de casa e pela internet (${rede.enviados} pacotes). Ele liga em uns 30 segundos.`
+          : `Mandei o sinal pela rede de casa (${rede.enviados} pacotes). Fora de casa só funciona com a central do quarto ligada (o porteiro) ou com "prepara para ligar o PC de fora" no PC.`
     }
   }
   if (nome === 'sincronizar_com_pc') {
@@ -645,6 +666,18 @@ async function telefone(nome: string, a: Record<string, unknown>): Promise<Resul
     case 'rolar_tela':
       await Celular.rolar({ direcao: str(a.direcao) === 'cima' ? 'cima' : 'baixo' })
       return { ok: true, mensagem: `Rolei.${await telaDepois(600)}` }
+    case 'central': {
+      const acao = str(a.acao) || 'estado'
+      if (acao === 'estado') {
+        const e = await Celular.centralEstado()
+        if (!e.rodando) return { ok: true, mensagem: 'A central do quarto está desligada neste celular (Ajustes › Central do quarto).' }
+        return { ok: true, mensagem: e.silenciadaAte > Date.now() ? `Quieta até ${new Date(e.silenciadaAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.` : 'Ouvindo "Friday".' }
+      }
+      const minutos = acao === 'ouvir' ? 0 : Math.max(1, Math.min(24 * 60, Number(a.minutos) || 60))
+      const r = await Celular.centralSilenciar({ minutos })
+      if (!r.rodando) return { ok: false, mensagem: 'A central do quarto não está ligada neste celular.' }
+      return { ok: true, mensagem: minutos ? `Fico quieta até ${new Date(r.ate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}. Para me chamar antes, toque na tela ou use o botão da notificação.` : 'Voltei a ouvir "Friday".' }
+    }
     case 'botao_sistema':
       await Celular.botao({ acao: str(a.acao) || 'voltar' })
       return { ok: true, mensagem: `Feito.${['voltar', 'inicio', 'recentes', 'notificacoes', 'ajustes_rapidos'].includes(str(a.acao)) ? await telaDepois(800) : ''}` }

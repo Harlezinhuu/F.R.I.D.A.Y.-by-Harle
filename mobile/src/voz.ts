@@ -20,6 +20,15 @@ const SILENCIO_MS = 25_000
 
 type Estado = EstadoFita
 
+/** Áudio PCM em base64 cortado em pedaços de 100 ms (o Gemini Live prefere pedaços pequenos). */
+function pedacos(b64: string): string[] {
+  if (!b64) return []
+  const bin = atob(b64)
+  const saida: string[] = []
+  for (let i = 0; i < bin.length; i += 3200) saida.push(btoa(bin.slice(i, i + 3200)))
+  return saida
+}
+
 export class ModoVoz {
   private mic = new Microfone()
   private alto: Alto | null = null
@@ -46,6 +55,10 @@ export class ModoVoz {
   /** Busca foto da Wikipédia para os cartões da explicação */
   buscarImagem: (termo: string) => Promise<{ titulo: string; descricao: string; imagem: string } | null> = async () => null
   private ultimaProjecao: Record<string, unknown> | null = null
+  /** A conversa foi aberta pela central do quarto (ouviu "Friday" com a tela apagada) */
+  private daCentral = false
+  /** Você já disse algo nesta conversa (sem isso, a central volta a dormir quieta) */
+  private falouAlgo = false
 
   constructor(private mundo: Mundo, toque: HTMLElement, private ajustes: () => Ajustes) {
     this.ligarToque(toque)
@@ -62,8 +75,10 @@ export class ModoVoz {
 
   // ---------- Conversa ----------
 
-  async iniciar(): Promise<void> {
+  async iniciar(opcoes: { central?: boolean } = {}): Promise<void> {
     if (this.ativo) return
+    this.daCentral = opcoes.central === true
+    this.falouAlgo = false
     const aj = this.ajustes()
     if (!aj.chave) throw new Error('Coloque a sua chave do Gemini nos Ajustes.')
     this.ativo = true
@@ -72,10 +87,13 @@ export class ModoVoz {
     this.conversa = novaConversa()
     this.encerrarDepois = false
     this.estado('pensando', 'CONECTANDO')
+    // A central do quarto solta o microfone e entrega o que você disse logo depois do "Friday"
+    const depoisDoFriday = nativo() ? (await Celular.centralSoltar().catch(() => ({ audio: '' }))).audio : ''
     try {
       await this.mic.iniciar()
     } catch {
       this.ativo = false
+      if (nativo()) void Celular.centralRetomar({ bloquear: false }).catch(() => {})
       this.estado('semMic', 'SEM MICROFONE')
       throw new Error('Preciso do microfone. Libere a permissão nas configurações do Android.')
     }
@@ -86,7 +104,7 @@ export class ModoVoz {
       { apiKey: aj.chave, modelo: MODELO_VOZ, voz: aj.voz, nome: aj.nome, silencioFimFalaMs: 550 },
       {
         aoAudio: (b64) => { this.alto?.enfileirar(b64); this.estado('falando', 'FALANDO'); this.atividade() },
-        aoTextoUsuario: (t) => { this.textoUsuario += t; this.aoLegenda('VOCÊ', this.textoUsuario.trim()); this.atividade(); this.explicacao?.usuarioFalou() },
+        aoTextoUsuario: (t) => { this.falouAlgo = true; this.textoUsuario += t; this.aoLegenda('VOCÊ', this.textoUsuario.trim()); this.atividade(); this.explicacao?.usuarioFalou() },
         aoTextoFriday: (t) => { this.textoFriday += t; this.aoLegenda('FRIDAY', this.textoFriday.trim()); this.explicacao?.falou(t, this.alto?.restante ?? 0) },
         aoInterrompido: () => { this.alto?.limpar(); this.explicacao?.interrompido(); this.fecharTurno() },
         aoFimDoTurno: () => { this.explicacao?.fimDoTurno(this.alto?.restante ?? 0); this.fecharTurno() },
@@ -97,18 +115,27 @@ export class ModoVoz {
       },
       { ferramentas: FERRAMENTAS_CELULAR, instrucoes: (m) => instrucoes(aj.nome, m + extraPc, 'Aqui é o modo de voz: respostas curtas, de uma ou duas frases (explicações podem ser mais longas). Se a câmera estiver ligada, você vê o que ele mostra.') }
     )
+    // Enquanto conecta, o que você fala fica guardado e vai logo depois
+    const fila: string[] = []
+    this.mic.aoBloco = (amostras, rms) => {
+      this.nivelMic = rms
+      const b = pcm16Base64(amostras)
+      if (this.live?.aberta) this.live.enviarAudio(b)
+      else if (fila.length < 100) fila.push(b)
+    }
     try {
       await this.live.conectar(memoria)
     } catch (e) {
       this.mic.parar()
       this.ativo = false
       this.estado('offline', 'SEM CONEXÃO')
+      if (nativo()) void Celular.centralRetomar({ bloquear: false }).catch(() => {})
       throw new Error(`Não consegui conectar ao Gemini: ${(e as Error).message}`)
     }
-    this.mic.aoBloco = (amostras, rms) => { this.nivelMic = rms; if (this.live?.aberta) this.live.enviarAudio(pcm16Base64(amostras)) }
+    for (const b of [...pedacos(depoisDoFriday), ...fila.splice(0)]) this.live.enviarAudio(b)
     // Notificação fixa que mantém o microfone quando ela abre outro app
     if (nativo()) void Celular.servicoVoz({ ligar: true }).catch(() => {})
-    this.vibrar()
+    if (!this.daCentral) this.vibrar()
     this.estado('ouvindo', 'OUVINDO')
     this.atividade()
     clearInterval(this.relogio)
@@ -125,6 +152,8 @@ export class ModoVoz {
     this.mic.parar()
     this.alto?.limpar()
     if (nativo()) void Celular.servicoVoz({ ligar: false }).catch(() => {})
+    // A central do quarto volta a ouvir "Friday" (e apaga a tela, se foi ela que chamou)
+    if (nativo()) void Celular.centralRetomar({ bloquear: this.daCentral }).catch(() => {})
     this.olhos(false)
     this.explicacao?.fechar()
     this.vibrar()
@@ -152,6 +181,8 @@ export class ModoVoz {
     if (!alto?.tocando && this.atual === 'falando') this.estado('ouvindo', 'OUVINDO')
     const parado = performance.now() - this.ultimaAtividade
     if (this.encerrarDepois && !alto?.tocando && parado > 1200) void this.parar()
+    // Chamada pela central e você não disse nada: foi engano, volta a dormir quieta
+    else if (this.daCentral && !this.falouAlgo && !alto?.tocando && parado > 7000) void this.parar()
     else if (!alto?.tocando && parado > SILENCIO_MS) void this.parar()
   }
 

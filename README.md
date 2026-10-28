@@ -26,6 +26,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Modo explicação:** quando você pede uma explicação ou uma história, as palavras-chave aparecem gigantes, montadas em partículas, no instante em que ela as fala, com fotos, fatos e um carimbo de veredito.
 - **Projeção 3D:** as partículas saem da fita e montam o objeto em holograma, como na cena da máquina do tempo. Formas da ciência, funções matemáticas, moléculas, proteínas, 257 modelos da NASA, STLs da Wikimedia, os seus arquivos e a IA para o resto.
 - **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
+- **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
 - **Visão de Deus:** um globo 3D com aviões, satélites, navios, terremotos, câmeras públicas e radar de chuva ao vivo, aberto e controlado por voz.
@@ -268,6 +269,26 @@ Fica com você: na BIOS, ligar "Wake on LAN" (ou "Power On By PCI-E") e desligar
 Tudo que passa entre os dois vai lacrado com AES-256-GCM, com a chave trocada no pareamento; cada mensagem tem hora e número único (não dá para repetir uma mensagem copiada da rede). Fora de casa, funciona pelo [Tailscale](https://tailscale.com) se os dois estiverem nele. "Desparear" no celular, ou parear de novo no PC, troca a chave.
 
 **Também no celular:** câmera no modo de voz (o olho no canto: ela vê o que você mostra e responde "o que é isso?"), foto no chat, responder mensagens pela voz ("responde que já tô indo", sem abrir o WhatsApp), "quem me mandou mensagem?", resumo da manhã quando você desliga o alarme (clima, agenda, lembretes e quem mandou mensagem de noite), modo carro (no Bluetooth do carro ela lê todas as mensagens) e o modo explicação de partículas.
+
+## Central do quarto (o seu Echo Dot)
+
+Um celular que fica em casa, na tomada, vira a central do quarto. Testado para um Galaxy A51, serve qualquer Android 8 ou mais novo.
+
+**Para ligar, no celular da central:**
+1. Instale o app, coloque a chave do Gemini e **pareie com o PC** (Ajustes › FRIDAY do PC).
+2. Ajustes › **Central do quarto** › marque "Este celular é a central". Na primeira vez ela baixa o ouvido da palavra "Friday" (uns 40 MB) e pede o microfone.
+3. Toque em **Permitir** (abrir por cima) e **Liberar** (bateria sem restrição).
+4. Tire a senha da tela de bloqueio desse celular (ele fica em casa) e, na Samsung, ligue Bateria › Proteger bateria.
+
+**Como funciona:**
+- Ela procura "Friday" **no próprio celular**, com supressão de ruído e cancelamento de eco. Nada sai do aparelho antes disso. Ouviu: acende a tela e já está conversando, e o que você disse logo depois do "Friday" ("Friday, que horas são?") vai junto.
+- Se ela acordar por engano e você não falar nada, volta a dormir quieta em 7 segundos.
+- Enquanto a central está no ar, o PC não ouve "Friday" (fica só nas mãos, recebendo as ordens dela). Se a central sair do ar, o PC volta a ouvir em até 75 segundos.
+- "Friday, fica quieta" silencia a central por uma hora (ou o tempo que você disser); o botão da notificação faz o mesmo.
+- Se o celular reiniciar, ela volta sozinha.
+- **Sensibilidade:** "O que ela ouviu" mostra cada vez que ela ouviu a palavra e com que volume; se ela acordar demais ou de menos, mude entre Sensível, Normal e Exigente.
+
+**Porteiro (ligar o PC da rua):** com a central pareada com o PC, diga "liga o PC" no seu celular de qualquer lugar. O pedido vai lacrado (a mesma chave do pareamento) por um serviço público de avisos, o [ntfy](https://ntfy.sh), até a central, que manda o sinal pela rede de casa e te avisa quando o PC ligar. Funciona com CGNAT e sem mexer no roteador. Precisa só do Wake-on-LAN na BIOS e do PC no cabo.
 
 ## Consultas pelo WhatsApp
 

@@ -195,6 +195,24 @@
         </div>
       </section>
 
+      <section class="cartao" id="secaoCentral" hidden>
+        <h2>CENTRAL DO QUARTO</h2>
+        <label class="linha-opcao"><span>Este celular é a central<small id="ceEstado">Desligada</small></span><input type="checkbox" id="ceLigada" /></label>
+        <div class="linha-opcao"><span>Ouvido da palavra "Friday"<small id="ceModelo">Não baixado (40 MB, uma vez só)</small></span><button type="button" class="vidro pequeno" id="ceBaixar">Baixar</button></div>
+        <div class="linha-opcao"><span>Abrir por cima<small id="ceSobre">Para ela aparecer sozinha quando você chamar</small></span><button type="button" class="vidro pequeno" id="ceSobreBtn">Permitir</button></div>
+        <div class="linha-opcao"><span>Bateria sem restrição<small id="ceBateria">Para o Android não fechar a central</small></span><button type="button" class="vidro pequeno" id="ceBateriaBtn">Liberar</button></div>
+        <label class="campo">Sensibilidade
+          <select id="ceSensibilidade">
+            <option value="sensivel">Sensível: ouve de mais longe</option>
+            <option value="normal">Normal</option>
+            <option value="exigente">Exigente: só de perto</option>
+          </select>
+        </label>
+        <label class="linha-opcao"><span>Porteiro<small>Liga o PC quando você pede pelo outro celular, da rua</small></span><input type="checkbox" id="cePorteiro" /></label>
+        <details class="registro"><summary>O que ela ouviu (para calibrar)</summary><ul id="ceRegistro"></ul></details>
+        <p class="dica">Deixe este celular na tomada, no Wi-Fi de casa e pareado com o PC. Ele procura "Friday" só aqui no aparelho: nada vai para a internet antes disso. Enquanto ele estiver no ar, o PC para de ouvir. Sem senha na tela de bloqueio, ela abre direto; na Samsung, ligue Bateria › <b>Proteger bateria</b> (carga até 85%) para a bateria durar.</p>
+      </section>
+
       <section class="cartao" id="secaoPc">
         <h2>FRIDAY DO PC</h2>
         <div class="linha-opcao"><span>PC<small id="pcEstado">Não pareado</small></span><button type="button" class="vidro pequeno" id="pcParear">Parear</button></div>
