@@ -132,6 +132,12 @@ export class SessaoLive {
     this.sessao.sendClientContent({ turns: [{ role: 'user', parts: [{ text: '(Diga em uma frase curta o resultado da ação.)' }] }], turnComplete: true })
   }
 
+  /** Um aviso em texto no meio da conversa (ex.: a consulta pelo WhatsApp precisa de uma resposta): ela fala. */
+  dizer(texto: string): void {
+    if (!this.aberta || !this.sessao) return
+    this.sessao.sendClientContent({ turns: [{ role: 'user', parts: [{ text: texto }] }], turnComplete: true })
+  }
+
   fechar(): void {
     this.geracao++
     this.aberta = false

@@ -8,10 +8,11 @@ import { ModoVoz } from './voz'
 import { responder } from './chat'
 import { markdown } from './markdown'
 import { lerMemoria } from './ferramentas'
-import { Celular, nativo, type Permissao } from './celular'
+import { Celular, garantir, nativo, type Permissao } from './celular'
 import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarMemoria } from './elo'
 import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
 import type { EventoParaCelular } from '../../src/shared/elo'
+import { avisos as avisosConsulta, definirPerguntaDoPc, retomarConsulta } from './consulta'
 import {
   apagarConversa, apagarTodas, lerAjustes, lerConversa, listarConversas, novaConversa, salvarAjustes, salvarConversa, salvarLista, tituloDe,
   type Ajustes, type Conversa, type Mensagem,
@@ -19,7 +20,7 @@ import {
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.5.0'
+const VERSAO = '0.6.0'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -188,8 +189,41 @@ function eventoDoPc(e: EventoParaCelular): void {
     voz.aoAcao('DO PC', e.texto.slice(0, 80), e.texto.length > 80 ? 'Copiado' : '')
     void navigator.clipboard?.writeText(e.texto).catch(() => {})
     avisar('O PC mandou um texto (copiado).')
+  } else if (e.tipo === 'aviso') {
+    // A FRIDAY do PC precisa de você e você está longe dele (ex.: a consulta que ela está marcando lá)
+    if (e.consulta === 'pergunta') definirPerguntaDoPc(e.texto)
+    else if (e.consulta === 'fim') definirPerguntaDoPc('')
+    void avisoDeConsulta(e.consulta === 'pergunta' ? 'pergunta' : 'fim', e.texto, true, 'pc_responder_consulta')
+  } else if (e.tipo === 'evento') {
+    // Consulta marcada no PC: entra na agenda daqui
+    void (async () => {
+      try {
+        await garantir('agenda')
+        await Celular.criarEvento({ titulo: e.titulo, inicio: new Date(e.inicioIso).getTime(), fim: new Date(e.fimIso).getTime(), local: e.local, descricao: e.descricao, diaInteiro: false })
+        avisar(`"${e.titulo}" na agenda.`)
+      } catch {
+        avisar('O PC marcou uma consulta, mas falta a permissão da agenda para eu anotar.')
+      }
+    })()
   }
 }
+
+// ---------- Consultas pelo WhatsApp ----------
+
+/** A consulta precisa de você (ou terminou): ela fala, na conversa aberta ou em voz alta, e mostra o cartão. */
+async function avisoDeConsulta(tipo: 'pergunta' | 'fim', texto: string, ok: boolean, ferramenta = 'responder_consulta'): Promise<void> {
+  voz.aoAcao(tipo === 'pergunta' ? 'CONSULTA · SUA VEZ' : ok ? 'CONSULTA MARCADA' : 'CONSULTA', texto.slice(0, 90), tipo === 'pergunta' ? 'Responda falando' : '')
+  if (voz.dizer(`(Aviso da consulta pelo WhatsApp. Fale isto para ele agora, em poucas palavras${tipo === 'pergunta' ? `, e quando ele responder chame ${ferramenta}` : ''}: ${texto})`)) return
+  const tratamento = (await lerAvisos()).tratamento || 'Senhor'
+  const frase = tipo === 'pergunta' ? `${tratamento}, sobre a consulta: ${texto}` : texto
+  if (nativo()) void Celular.testarAviso({ texto: frase }).catch(() => {})
+  avisar(texto.slice(0, 120))
+  // Com o app na frente, depois de falar ela já abre a conversa para você responder
+  if (tipo === 'pergunta' && document.visibilityState === 'visible' && ajustes.chave) {
+    window.setTimeout(() => { if (!voz.ativo && document.visibilityState === 'visible') void alternarConversa() }, 2500 + frase.length * 65)
+  }
+}
+avisosConsulta.aoAvisar = (tipo, texto, ok) => void avisoDeConsulta(tipo, texto, ok)
 if (nativo()) escutarPC(eventoDoPc)
 
 voz.aoProjecao = (ativa) => {
@@ -747,3 +781,5 @@ ir(ajustes.chave ? 'voz' : 'ajustes')
 if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente() }).catch(() => {})
 // A memória do celular e a do PC se juntam toda vez que o app abre
 void sincronizarMemoria()
+// Uma consulta pela metade (o app fechou no meio) continua de onde parou
+if (nativo()) void retomarConsulta().catch(() => {})

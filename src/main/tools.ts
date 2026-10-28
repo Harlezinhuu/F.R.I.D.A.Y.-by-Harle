@@ -28,6 +28,8 @@ import { qrSvg } from '../shared/qr'
 import type { EventoParaCelular } from '../shared/elo'
 import { aprender, apagarPessoa, definirSoDono, lerCadastro, salvarPessoa } from './rostos'
 import type { Papel } from '../shared/rostos'
+import { descrever, emAndamento } from '../shared/consulta'
+import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
 /** Roda um comando do Windows sem abrir janela. */
 const rodar = (exe: string, args: string[]): Promise<void> =>
@@ -313,7 +315,8 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     // O que você conversou com ela no celular há pouco entra junto, para ela continuar dali
     const cel = contextoDoCelular()
     const extra = cel ? `\n\nConversa recente com você no celular (continue dali se fizer sentido, sem recitar):\n${cel}` : ''
-    return { ok: true, mensagem: memoriaParaPrompt() + extra }
+    const consulta = perguntaPendente()
+    return { ok: true, mensagem: memoriaParaPrompt() + extra + (consulta ? `\n\n${consulta}` : '') }
   },
 
   // ---------- Rostos (uso interno do HUD; as assinaturas nunca saem do PC) ----------
@@ -380,6 +383,64 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
       case 'cancelar': await rodar('shutdown.exe', ['/a']).catch(() => {}); return { ok: true, mensagem: 'Desligamento cancelado.' }
       default: return falha('Ação de energia desconhecida.')
     }
+  },
+
+  // ---------- Consultas pelo WhatsApp ----------
+
+  async marcar_consulta(a) {
+    const pedido = str(a.o_que)
+    if (!pedido) return falha('Faltou dizer o que marcar (especialidade, médico ou exame).')
+    const l = acharLugar(str(a.onde))
+    if (!l) {
+      const ls = lugares()
+      return falha(ls.length
+        ? `Não tenho "${str(a.onde)}" salvo. Tenho: ${ls.map((x) => x.nome).join(', ')}.`
+        : 'Ainda não sei o WhatsApp de nenhum plano ou clínica. Peça o nome e o número e salve com lugar_de_consulta.')
+    }
+    if ('varios' in l) return falha(`Tenho mais de um: ${l.varios.join(', ')}. Pergunte qual.`)
+    if (emAndamento(consultaAtual())) return falha(`Já estou marcando outra. ${descrever(consultaAtual())}`)
+    const quando = str(a.quando)
+    if (a.confirmado !== true) {
+      return {
+        ok: false,
+        precisaConfirmacao: true,
+        mensagem: `Precisa de confirmação: chamar ${l.nome} no WhatsApp pedindo ${pedido}${quando ? ` (${quando})` : ''}. Diga isso em uma frase e pergunte.`,
+        dados: { pergunta: `Chamar ${l.nome} no WhatsApp para marcar ${pedido}?` }
+      }
+    }
+    iniciarConsulta({ pedido, preferencias: quando, observacoes: str(a.observacoes), lugar: l })
+    return {
+      ok: true,
+      mensagem: `Comecei a conversa com ${l.nome} no WhatsApp, em segundo plano. Antes de escolher horário, confirmar ou passar algum dado, eu pergunto.`,
+      card: { tipo: 'aviso', titulo: 'CONSULTA PELO WHATSAPP', texto: `${pedido}${quando ? ` · ${quando}` : ''} · ${l.nome}` }
+    }
+  },
+
+  async responder_consulta(a) {
+    const r = str(a.resposta)
+    if (!r) return falha('Faltou a resposta.')
+    const e = consultaAtual()
+    const ok = !!e && emAndamento(e)
+    return { ok, mensagem: responderConsulta(r) }
+  },
+
+  async andamento_consulta(a) {
+    if (str(a.acao) === 'cancelar') return { ok: true, mensagem: cancelarConsulta() }
+    return { ok: true, mensagem: descrever(consultaAtual()) }
+  },
+
+  async lugar_de_consulta(a) {
+    const acao = str(a.acao) || 'listar'
+    if (acao === 'listar') {
+      const ls = lugares()
+      return { ok: true, mensagem: ls.length ? ls.map((l) => `${l.nome} (WhatsApp ${l.whatsapp}${l.dados ? '; com dados para passar' : ''})`).join('; ') : 'Nenhum lugar salvo ainda.' }
+    }
+    if (acao === 'remover') {
+      const n = removerLugar(str(a.nome))
+      return n ? { ok: true, mensagem: `${n} removido.` } : falha('Não achei esse lugar.')
+    }
+    const l = salvarLugar(str(a.nome), str(a.whatsapp), str(a.dados))
+    return { ok: true, mensagem: `${l.nome} salvo (WhatsApp ${l.whatsapp})${l.dados ? ', com os dados que posso passar' : ''}. Fica só neste PC.` }
   },
 
   // ---------- Cenas ----------

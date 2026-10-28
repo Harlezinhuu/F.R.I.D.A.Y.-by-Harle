@@ -25,6 +25,8 @@ interface CelularPlugin {
   acordarPC(): Promise<{ enviados: number }>
   mensagensRecentes(o: { soImportantes?: boolean }): Promise<{ mensagens: MensagemRecente[]; ativo: boolean }>
   responderMensagem(o: { remetente: string; texto: string }): Promise<{ para: string }>
+  /** Agente de consultas: acompanha esta conversa do WhatsApp (nome vazio = para) */
+  vigiarConversa(o: { nome: string }): Promise<void>
   resumoAgora(): Promise<void>
   resumoTexto(): Promise<{ texto: string }>
   modoCarro(): Promise<{ ativo: boolean }>

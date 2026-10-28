@@ -18,7 +18,8 @@ const api: FridayApi = {
   aoEloAviso: (cb) => { ipcRenderer.on('elo-aviso', (_e, texto: string, ligacao: boolean) => cb(texto, ligacao)) },
   aoEloFerramenta: (cb) => { ipcRenderer.on('elo-ferramenta', (_e, id: number, nome: string, args: Record<string, unknown>) => cb(id, nome, args)) },
   eloResponder: (id, r) => ipcRenderer.send('elo-resposta', id, r),
-  contexto: (texto) => ipcRenderer.send('contexto', texto)
+  contexto: (texto) => ipcRenderer.send('contexto', texto),
+  aoConsulta: (cb) => { ipcRenderer.on('consulta', (_e, ev) => cb(ev)) }
 }
 
 contextBridge.exposeInMainWorld('friday', api)

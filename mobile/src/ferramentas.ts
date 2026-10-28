@@ -10,6 +10,8 @@ import { buscarNaInternet, paraFala } from '../../src/shared/busca'
 import { lerAjustes, lerAvisos, lerLista, salvarAvisos, salvarLista } from './armazem'
 import { Celular, explicarErro, garantir, nativo } from './celular'
 import { pareado, pedirPC, sincronizarMemoria } from './elo'
+import { descrever, emAndamento } from '../../src/shared/consulta'
+import { acharLugar, andamento, cancelarConsulta, consultaAtual, definirPerguntaDoPc, iniciarConsulta, lugares, removerLugar, responderConsulta, salvarLugar } from './consulta'
 import {
   acharApp, acharContato, botaoSensivel, diasDoAlarme, horaMinuto, normalizar, numeroWhatsapp, pareceNumero, resumirTela,
   type App, type Contato, type Tela
@@ -17,7 +19,8 @@ import {
 
 const NOMES = [
   'criar_lembrete', 'criar_timer', 'listar_lembretes', 'cancelar_lembrete', 'clima', 'buscar_na_internet', 'pesquisar_web', 'abrir_site',
-  'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'explicar'
+  'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'explicar',
+  'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta'
 ]
 
 const S = (description: string, e?: string[]) => ({ type: 'STRING' as const, description, ...(e ? { enum: e } : {}) })
@@ -146,6 +149,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
     '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
     'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
+    'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano e pergunta antes de escolher horário ou confirmar. Quando a consulta te perguntar algo, pergunte a ele e passe a resposta em responder_consulta (ou pc_responder_consulta, se quem está marcando é o PC).',
     extra,
     `Agora é ${data} (horário de Brasília).`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])
@@ -304,6 +308,8 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
       case 'controlar_projecao': return await ctx.controlarProjecao(a)
       case 'encerrar_conversa': ctx.encerrar(); return { ok: true, mensagem: 'A conversa será encerrada depois da despedida.' }
       case 'explicar': return ctx.explicar ? await ctx.explicar(a) : { ok: true, mensagem: 'Explique falando.' }
+      case 'marcar_consulta': case 'responder_consulta': case 'andamento_consulta': case 'lugar_de_consulta':
+        return await consulta(nome, a)
       default:
         if (nome.startsWith('pc_') || nome === 'acordar_pc' || nome === 'sincronizar_com_pc') return await noPc(nome, a)
         if (FERRAMENTAS_TELEFONE.some((t) => t.name === nome) || FERRAMENTAS_MENSAGENS.some((t) => t.name === nome)) return await telefone(nome, a)
@@ -334,12 +340,60 @@ async function noPc(nome: string, a: Record<string, unknown>): Promise<Resultado
   }
   try {
     const r = await pedirPC<{ ok: boolean; mensagem: string; precisaConfirmacao?: boolean }>({ acao: 'ferramenta', nome: nome.slice(3), args: a }, 25_000)
+    if (nome === 'pc_responder_consulta' && r.ok) definirPerguntaDoPc('')
     if (r.precisaConfirmacao) return { ok: false, confirmar: String(r.mensagem).replace(/^Precisa de confirmação: /, ''), mensagem: `${r.mensagem} Se ele confirmar, chame de novo com confirmado=true.` }
     return { ok: r.ok === true, mensagem: String(r.mensagem ?? '') || (r.ok ? 'Feito no PC.' : 'O PC não conseguiu.') }
   } catch (e) {
     const m = explicarErro(e)
     return { ok: false, mensagem: /não respondeu|desligado/.test(m) ? `${m} Posso tentar ligar o PC pela rede (acordar_pc).` : m }
   }
+}
+
+// ---------- Consultas pelo WhatsApp ----------
+
+async function consulta(nome: string, a: Record<string, unknown>): Promise<Resultado> {
+  if (!nativo()) return { ok: false, mensagem: 'Marcar consultas pelo WhatsApp só funciona no app do celular (ou no PC).' }
+  switch (nome) {
+    case 'marcar_consulta': {
+      const pedido = str(a.o_que)
+      if (!pedido) return { ok: false, mensagem: 'Faltou dizer o que marcar (especialidade, médico ou exame).' }
+      const l = await acharLugar(str(a.onde))
+      if (!l) {
+        const ls = await lugares()
+        return { ok: false, mensagem: ls.length ? `Não tenho "${str(a.onde)}" salvo. Tenho: ${ls.map((x) => x.nome).join(', ')}.` : 'Ainda não sei o WhatsApp de nenhum plano ou clínica. Peça o nome e o número e salve com lugar_de_consulta.' }
+      }
+      if ('varios' in l) return { ok: false, mensagem: `Tenho mais de um: ${l.varios.join(', ')}. Pergunte qual.` }
+      if (emAndamento(await consultaAtual())) return { ok: false, mensagem: `Já estou marcando outra. ${descrever(await consultaAtual())}` }
+      const quando = str(a.quando)
+      if (a.confirmado !== true) {
+        return { ok: false, confirmar: `Chamar ${l.nome} no WhatsApp: ${pedido}${quando ? ` (${quando})` : ''}?`, mensagem: `Precisa de confirmação: chamar ${l.nome} no WhatsApp pedindo ${pedido}${quando ? ` (${quando})` : ''}. Diga isso em uma frase e pergunte; se ele confirmar, chame de novo com confirmado=true.` }
+      }
+      if (!(await Celular.avisosAtivos()).ativo) return { ok: false, mensagem: 'Para ler as respostas do WhatsApp preciso do acesso às notificações: Ajustes > Avisos por voz > Ativar.' }
+      await iniciarConsulta({ pedido, preferencias: quando, observacoes: str(a.observacoes), lugar: l })
+      return { ok: true, mensagem: `Comecei a conversa com ${l.nome} no WhatsApp, em segundo plano. Antes de escolher horário, confirmar ou passar algum dado, eu pergunto.` }
+    }
+    case 'responder_consulta': {
+      const r = str(a.resposta)
+      if (!r) return { ok: false, mensagem: 'Faltou a resposta.' }
+      return await responderConsulta(r)
+    }
+    case 'andamento_consulta':
+      return { ok: true, mensagem: str(a.acao) === 'cancelar' ? await cancelarConsulta() : await andamento() }
+    case 'lugar_de_consulta': {
+      const acao = str(a.acao) || 'listar'
+      if (acao === 'listar') {
+        const ls = await lugares()
+        return { ok: true, mensagem: ls.length ? ls.map((l) => `${l.nome} (WhatsApp ${l.whatsapp}${l.dados ? '; com dados para passar' : ''})`).join('; ') : 'Nenhum lugar salvo ainda.' }
+      }
+      if (acao === 'remover') {
+        const n = await removerLugar(str(a.nome))
+        return n ? { ok: true, mensagem: `${n} removido.` } : { ok: false, mensagem: 'Não achei esse lugar.' }
+      }
+      const r = await salvarLugar(str(a.nome), str(a.whatsapp), str(a.dados))
+      return { ok: true, mensagem: `${r.lugar.nome} salvo (WhatsApp ${r.lugar.whatsapp})${r.lugar.dados ? ', com os dados que posso passar' : ''}. Fica só neste celular.${r.contato ? ' Também salvei nos contatos, para eu reconhecer as mensagens deles.' : ' Salve esse número nos contatos com esse mesmo nome, para eu reconhecer as mensagens deles.'}` }
+    }
+  }
+  return { ok: false, mensagem: 'Não entendi o pedido da consulta.' }
 }
 
 async function abrirLink(url: string): Promise<void> {

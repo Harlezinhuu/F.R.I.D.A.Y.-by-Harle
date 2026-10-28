@@ -27,6 +27,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Projeção 3D:** as partículas saem da fita e montam o objeto em holograma, como na cena da máquina do tempo. Formas da ciência, funções matemáticas, moléculas, proteínas, 257 modelos da NASA, STLs da Wikimedia, os seus arquivos e a IA para o resto.
 - **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
+- **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
 - **Visão de Deus:** um globo 3D com aviões, satélites, navios, terremotos, câmeras públicas e radar de chuva ao vivo, aberto e controlado por voz.
 - **Clima de qualquer lugar do mundo** (cidade, bairro, região, estado, país ou ponto turístico), agora e até 16 dias, e **busca na internet** pelo Google para notícias, jogos, preços e qualquer fato atual.
 - **Saudação ao abrir** com o clima e os lembretes do dia, no máximo uma vez a cada 4 horas.
@@ -259,6 +260,35 @@ Pareados, o PC e o celular viram a mesma assistente.
 Tudo que passa entre os dois vai lacrado com AES-256-GCM, com a chave trocada no pareamento; cada mensagem tem hora e número único (não dá para repetir uma mensagem copiada da rede). Fora de casa, funciona pelo [Tailscale](https://tailscale.com) se os dois estiverem nele. "Desparear" no celular, ou parear de novo no PC, troca a chave.
 
 **Também no celular:** câmera no modo de voz (o olho no canto: ela vê o que você mostra e responde "o que é isso?"), foto no chat, responder mensagens pela voz ("responde que já tô indo", sem abrir o WhatsApp), "quem me mandou mensagem?", resumo da manhã quando você desliga o alarme (clima, agenda, lembretes e quem mandou mensagem de noite), modo carro (no Bluetooth do carro ela lê todas as mensagens) e o modo explicação de partículas.
+
+## Consultas pelo WhatsApp
+
+A FRIDAY marca consultas e exames conversando com o WhatsApp do seu plano de saúde ou da clínica, sem custo: é o mesmo WhatsApp que você usa.
+
+**1. Salve o lugar uma vez** (no PC e no celular, cada um guarda o seu):
+> "Friday, salva o WhatsApp do São Cristóvão: 11 9xxxx-xxxx. Se pedirem, pode passar a carteirinha 1234567 e o meu nome completo, Fulano de Tal."
+
+O número e os dados ficam só naquele aparelho (no PC, em `consultas.json` na pasta de configuração). Ela só passa o que você liberou ali ou disse na hora.
+
+**2. Peça:**
+> "Marca uma consulta com ortopedista na semana que vem, de tarde."
+
+Ela diz com quem vai falar e o que vai pedir, e espera você confirmar. Depois conversa sozinha, em segundo plano: responde os menus do robô, pede a especialidade, a unidade e as datas. **Ela sempre para e te pergunta antes de:**
+- escolher dia, horário, médico ou unidade;
+- confirmar o agendamento;
+- mandar um número ou dado que você não liberou (CPF, data de nascimento...).
+
+E nunca passa dados de cartão nem aceita cobrança. Essas travas são código, não só instrução: valem mesmo se a IA errar. Se perguntarem se é uma pessoa, ela diz que é a sua assistente virtual.
+
+Quando ela pergunta, você responde falando ("a de quinta", "pode mandar", "pede outro horário"). Marcado, ela avisa e põe na agenda: no celular, direto na agenda; no PC, um lembrete 2 horas antes e o evento na agenda do celular pareado. "Como está a consulta?" diz em que pé está; "deixa que eu continuo" para tudo e deixa a conversa no WhatsApp para você.
+
+| | PC | Celular |
+|---|---|---|
+| Onde ela conversa | WhatsApp Web numa janela escondida da FRIDAY. Na primeira vez aparece o QR: no celular, WhatsApp › Aparelhos conectados › Conectar um aparelho. Para ver o que ela está fazendo: ícone da bandeja › *Ver o WhatsApp da FRIDAY* | O próprio WhatsApp. Lê as respostas pelas notificações e responde pelo "Responder" delas, até com a tela bloqueada |
+| Precisa de | Nada além do QR | Acesso às notificações (Ajustes › Avisos por voz) e, para a primeira mensagem e botões, o controle da tela |
+| Quando ela pergunta | Fala no PC e já abre o microfone. Longe do PC, vira notificação do Windows e, com o celular pareado, ela pergunta pelo celular ("pc_responder_consulta") | Fala no celular (ou na conversa aberta) e mostra uma notificação |
+
+Se a FRIDAY fechar no meio, ela continua de onde parou quando abrir de novo (até 24 horas). O WhatsApp não gosta de robôs mandando muitas mensagens: use para as suas consultas, não para disparos.
 
 ## Estrutura
 

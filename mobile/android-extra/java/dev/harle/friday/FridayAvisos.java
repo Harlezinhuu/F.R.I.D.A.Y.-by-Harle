@@ -44,6 +44,25 @@ public class FridayAvisos extends NotificationListenerService {
     static volatile boolean modoCarro;
     static volatile FridayAvisos instancia;
 
+    /**
+     * Conversa que o agente de consultas está acompanhando (nome do contato no WhatsApp; vazio = nenhuma).
+     * As mensagens dela são guardadas todas (não só a última) e não são anunciadas em voz alta.
+     */
+    static volatile String vigiado = "";
+    static volatile long vigiadoDesde;
+
+    static void vigiar(String nome) {
+        vigiado = nome == null ? "" : nome.trim();
+        vigiadoDesde = System.currentTimeMillis() - 5_000L;
+    }
+
+    private static boolean ehVigiado(String nome) {
+        String v = vigiado;
+        if (v.isEmpty() || nome == null || nome.isEmpty()) return false;
+        String a = Nomes.normalizar(nome), b = Nomes.normalizar(v);
+        return !a.isEmpty() && !b.isEmpty() && (a.contains(b) || b.contains(a));
+    }
+
     /** Uma mensagem que chegou: guardada só na memória, por 2 horas, para responder por voz. */
     static final class Msg {
         String app;
@@ -131,12 +150,13 @@ public class FridayAvisos extends NotificationListenerService {
     /** Já avisou isso há pouco? */
     private boolean visto(String chave, long janelaMs) {
         long agora = System.currentTimeMillis();
+        // Cada chave guarda até quando vale
         for (Iterator<Map.Entry<String, Long>> it = vistos.entrySet().iterator(); it.hasNext(); ) {
-            if (agora - it.next().getValue() > 10 * 60_000L) it.remove();
+            if (it.next().getValue() < agora) it.remove();
         }
-        Long antes = vistos.get(chave);
-        if (antes != null && agora - antes < janelaMs) return true;
-        vistos.put(chave, agora);
+        Long ate = vistos.get(chave);
+        if (ate != null && ate > agora) return true;
+        vistos.put(chave, agora + janelaMs);
         return false;
     }
 
@@ -278,6 +298,26 @@ public class FridayAvisos extends NotificationListenerService {
         String grupo = null;
         long quando = sbn.getPostTime();
         NotificationCompat.MessagingStyle estilo = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n);
+
+        // Conversa do agente de consultas: guarda todas as mensagens novas, em silêncio
+        if (estilo != null && !estilo.isGroupConversation() && (ehVigiado(titulo) || (estilo.getConversationTitle() != null && ehVigiado(estilo.getConversationTitle().toString())))) {
+            Notification.Action acao = acaoDeResposta(n);
+            for (NotificationCompat.MessagingStyle.Message mm : estilo.getMessages()) {
+                if (mm.getPerson() == null || mm.getTimestamp() < vigiadoDesde) continue; // as suas ficam de fora
+                String t = texto(mm.getText());
+                if (t.isEmpty() || visto("vig:" + mm.getTimestamp() + "|" + t.hashCode(), 6 * 3600_000L)) continue;
+                Msg m = new Msg();
+                m.app = MENSAGENS.get(pacote);
+                m.pacote = pacote;
+                m.remetente = mm.getPerson().getName() != null ? mm.getPerson().getName().toString() : titulo;
+                m.texto = t.length() > 1500 ? t.substring(0, 1500) : t;
+                m.quando = mm.getTimestamp();
+                m.resposta = acao;
+                guardar(m);
+            }
+            return;
+        }
+
         if (estilo != null && !estilo.getMessages().isEmpty()) {
             List<NotificationCompat.MessagingStyle.Message> msgs = estilo.getMessages();
             NotificationCompat.MessagingStyle.Message ultima = msgs.get(msgs.size() - 1);

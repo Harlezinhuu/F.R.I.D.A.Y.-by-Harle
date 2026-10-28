@@ -15,7 +15,11 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
-import { iniciarElo, encerrarElo, registrarContextoPc } from './elo'
+import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registrarContextoPc } from './elo'
+import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
+import { encerrarWhats, mostrarWhats } from './whatsweb'
+import { criarLembrete } from './reminders'
+import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
 
@@ -71,6 +75,41 @@ function atualizarFriday(): void {
   if (!existsSync(bat)) return
   void shell.openPath(bat)
   setTimeout(() => app.quit(), 800)
+}
+
+// ---------- Consultas pelo WhatsApp ----------
+
+/** O agente de consultas precisa de você: fala no PC se você estiver nele; senão, notificação e celular. */
+function avisoDaConsulta(e: EventoConsulta): void {
+  log('consulta', `${e.tipo}: ${e.texto}`)
+  const noPc = !!win && !silenciada && powerMonitor.getSystemIdleState(120) === 'active'
+  if (e.tipo === 'qr') {
+    win?.webContents.send('consulta', e)
+    new Notification({ title: 'F.R.I.D.A.Y · conectar o WhatsApp', body: e.texto }).show()
+    return
+  }
+  if (noPc) { win?.webContents.send('consulta', e); return }
+  new Notification({ title: e.tipo === 'pergunta' ? 'F.R.I.D.A.Y · consulta: sua vez' : 'F.R.I.D.A.Y · consulta', body: e.texto }).show()
+  if (aparelhosPareados().length) {
+    enviarParaCelular({ tipo: 'aviso', consulta: e.tipo === 'pergunta' ? 'pergunta' : 'fim', texto: e.tipo === 'pergunta' ? `Sobre a consulta que estou marcando no PC: ${e.texto} Pode me responder por aqui.` : e.texto })
+  }
+}
+
+/** Consulta marcada: lembrete no PC 2 horas antes e o evento na agenda do celular pareado. */
+function consultaMarcada(e: EstadoConsulta): void {
+  const ev = e.evento
+  if (!ev) return
+  const inicio = new Date(ev.inicioIso)
+  if (Number.isNaN(inicio.getTime())) return
+  const hora = inicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const antes = new Date(inicio.getTime() - 2 * 3600_000)
+  if (antes.getTime() > Date.now()) {
+    try { criarLembrete(`${ev.titulo} às ${hora}${ev.local ? `, ${ev.local}` : ''}`, antes.toISOString()) } catch (erro) { log('consulta', `lembrete: ${(erro as Error).message}`) }
+  }
+  if (aparelhosPareados().length) {
+    const fim = ev.fimIso || new Date(inicio.getTime() + 3600_000).toISOString()
+    enviarParaCelular({ tipo: 'evento', titulo: ev.titulo, inicioIso: ev.inicioIso, fimIso: fim, local: ev.local, descricao: e.resumo })
+  }
 }
 
 async function mostrarPareamento(): Promise<void> {
@@ -146,6 +185,7 @@ function atualizarBandeja(): void {
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
       { label: 'Editar projetos de programação', click: () => shell.openPath(caminhoProjetos()) },
       { label: 'Parear celular', click: () => void mostrarPareamento() },
+      { label: 'Ver o WhatsApp da FRIDAY (consultas)', click: () => mostrarWhats() },
       { label: 'Iniciar com o Windows', type: 'checkbox', checked: iniciaComWindows(), click: (item) => definirInicio(item.checked) },
       ...(!app.isPackaged && existsSync(join(app.getAppPath(), 'atualizar.bat')) ? [{ label: 'Atualizar a FRIDAY', click: atualizarFriday }] : []),
       { label: 'Abrir pasta de modelos 3D', click: () => { listarArquivos(); shell.openPath(pastaModelos()) } },
@@ -265,6 +305,9 @@ app.whenReady().then(() => {
     memoria: (fatos, esquecidos) => sincronizar(fatos, esquecidos),
     pareou: (aparelho) => avisarEmSegundoPlano(`${aparelho} pareado. Agora a FRIDAY do PC e a do celular são uma só.`, true)
   })
+  configurarConsultas({ avisar: avisoDaConsulta, marcou: consultaMarcada, log: (t) => log('consulta', t) })
+  // Uma consulta pela metade (a FRIDAY fechou no meio) continua de onde parou
+  setTimeout(() => { if (retomarConsulta()) log('consulta', 'retomando a consulta em andamento') }, 15_000)
   visao.configurarVisao({ log: (t) => log('main', t), avisar: avisarEmSegundoPlano })
   iniciarTarefas((t: Tarefa) => {
     win?.webContents.send('tarefa', t)
@@ -289,5 +332,6 @@ app.on('will-quit', () => {
   winctl.encerrar()
   visao.encerrar()
   encerrarElo()
+  encerrarWhats()
 })
 app.on('window-all-closed', () => app.quit())

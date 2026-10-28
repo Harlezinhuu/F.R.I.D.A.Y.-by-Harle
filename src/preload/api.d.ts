@@ -26,6 +26,8 @@ export interface FridayApi {
   eloResponder(id: number, r: { ok: boolean; mensagem: string; precisaConfirmacao?: boolean }): void
   /** Uma troca da conversa, para o celular continuar dali */
   contexto(texto: string): void
+  /** O agente de consultas pelo WhatsApp precisa de você (pergunta), terminou, ou pede o QR */
+  aoConsulta(cb: (e: { tipo: 'pergunta' | 'fim' | 'qr'; texto: string; ok?: boolean }) => void): void
 }
 
 declare global {

@@ -941,6 +941,28 @@ async function iniciar(): Promise<void> {
     void avisar(texto)
   })
 
+  // Consulta pelo WhatsApp: ela pergunta (e já abre o microfone para a resposta) ou conta como terminou
+  window.friday.aoConsulta((e) => {
+    sons.alerta()
+    const titulo = e.tipo === 'pergunta' ? 'CONSULTA · SUA VEZ' : e.tipo === 'qr' ? 'CONECTAR O WHATSAPP' : e.ok ? 'CONSULTA MARCADA' : 'CONSULTA'
+    hud.cartao({ tipo: 'aviso', titulo, texto: e.texto }, e.tipo === 'pergunta' ? 60_000 : 20_000)
+    if (conversando && live.aberta) {
+      live.dizer(`(Aviso da consulta que você está marcando pelo WhatsApp. Fale isto para ele agora, em poucas palavras${e.tipo === 'pergunta' ? ', e quando ele responder chame responder_consulta' : ''}: ${e.texto})`)
+      return
+    }
+    const vocativo = cfg.nome ? `${cfg.nome}, ` : ''
+    void avisar(e.tipo === 'pergunta' ? `${vocativo}sobre a consulta: ${e.texto}` : e.texto)
+    if (e.tipo !== 'pergunta' || hud.emFoco) return
+    // Terminou de falar: abre a conversa para você responder sem precisar dizer "Friday"
+    const inicio = performance.now()
+    const vigia = window.setInterval(() => {
+      if (conversando || performance.now() - inicio > 45_000) { clearInterval(vigia); return }
+      if (performance.now() - inicio < 1500 || avisoFalando || falandoAgora() || speechSynthesis.speaking) return
+      clearInterval(vigia)
+      void iniciarConversa()
+    }, 300)
+  })
+
   // O celular pediu uma ação do HUD (projetar, rotina, foco...)
   window.friday.aoEloFerramenta((id, nome, args) => {
     void executarUma(nome, args, true)

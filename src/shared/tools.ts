@@ -23,7 +23,8 @@ export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'control
 export const TOOLS_REMOTAS = [
   'listar_apps', 'abrir_app', 'fechar_app', 'volume', 'midia', 'pesquisar_web', 'abrir_site', 'status_sistema', 'capturar_tela',
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
-  'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel'
+  'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
+  'responder_consulta', 'andamento_consulta'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -375,6 +376,47 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       required: ['o_que']
     }
   },
+  {
+    name: 'marcar_consulta',
+    description:
+      'Marca consulta ou exame pelo WhatsApp do plano de saúde ou da clínica: você conversa com o robô ou a atendente por ele, em segundo plano, e pergunta antes de escolher horário, confirmar ou passar algum dado. Antes de começar, diga em uma frase com quem vai falar e o que vai pedir; só chame com confirmado=true depois que ele confirmar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        o_que: { type: 'STRING', description: 'O que marcar, como ele falou ("consulta com ortopedista", "retorno com a Dra. Ana", "ressonância do joelho").' },
+        quando: { type: 'STRING', description: 'Preferências de dia, horário e unidade ("semana que vem à tarde", "unidade Mooca"). Vazio = qualquer.' },
+        onde: { type: 'STRING', description: 'Com quem falar: um dos lugares salvos em lugar_de_consulta. Vazio = o primeiro salvo.' },
+        observacoes: { type: 'STRING', description: 'Outros detalhes ("primeira consulta", "é retorno").' },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que ele confirmou.' }
+      },
+      required: ['o_que']
+    }
+  },
+  {
+    name: 'responder_consulta',
+    description: 'Passa para a consulta que você está marcando a resposta dele ao que você perguntou ("a de quinta", "pode mandar", "pede outro horário"). Serve também para uma instrução nova no meio da conversa.',
+    parameters: { type: 'OBJECT', properties: { resposta: { type: 'STRING', description: 'O que ele respondeu, com as palavras dele.' } }, required: ['resposta'] }
+  },
+  {
+    name: 'andamento_consulta',
+    description: 'Diz como está a consulta que você está marcando pelo WhatsApp, ou para a conversa ("como está a consulta?", "deixa que eu continuo").',
+    parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'O que fazer. Padrão: ver.', enum: ['ver', 'cancelar'] } } }
+  },
+  {
+    name: 'lugar_de_consulta',
+    description:
+      'Planos de saúde e clínicas com quem você marca pelo WhatsApp: salvar (nome e número do WhatsApp), listar ou remover. "dados" são as informações que ele liberou para você passar quando pedirem (carteirinha, nome completo...). Ficam só neste aparelho.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['salvar', 'listar', 'remover'] },
+        nome: { type: 'STRING', description: 'Nome do lugar ("São Cristóvão", "Clínica do joelho").' },
+        whatsapp: { type: 'STRING', description: 'Número do WhatsApp com DDD.' },
+        dados: { type: 'STRING', description: 'O que pode passar a eles quando pedirem, como ele ditou.' }
+      },
+      required: ['acao']
+    }
+  },
   { name: 'listar_projetos', description: 'Lista os projetos de programação configurados para tarefas.' },
   {
     name: 'tarefa_programacao',
@@ -494,6 +536,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'Reconhecimento facial é opcional: "cadastra meu rosto" usa cadastrar_rosto (peça o consentimento antes). Se o começo da conversa disser quem está falando, trate a pessoa pelo nome e respeite o que é só do dono.',
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
+    'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])

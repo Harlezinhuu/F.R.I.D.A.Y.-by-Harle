@@ -209,6 +209,17 @@ public class CelularPlugin extends Plugin {
         call.resolve(o);
     }
 
+    /** O agente de consultas passa a acompanhar (ou larga, com nome vazio) uma conversa do WhatsApp. */
+    @PluginMethod
+    public void vigiarConversa(PluginCall call) {
+        try {
+            FridayAvisos.vigiar(call.getString("nome", ""));
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
     @PluginMethod
     public void responderMensagem(PluginCall call) {
         try {

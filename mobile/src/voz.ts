@@ -12,6 +12,7 @@ import { FERRAMENTAS_CELULAR, executar, instrucoes, memoriaParaPrompt, type Cont
 import { novaConversa, salvarConversa, tituloDe, type Ajustes, type Conversa } from './armazem'
 import { Celular, nativo } from './celular'
 import { contextoDoPc, enviarContexto } from './elo'
+import { perguntaParaPrompt } from './consulta'
 import type { Explicacao, DadosExplicacao } from '../../src/renderer/src/explicacao/explicacao'
 
 const MODELO_VOZ = 'gemini-2.5-flash-native-audio-preview-12-2025'
@@ -79,8 +80,8 @@ export class ModoVoz {
       throw new Error('Preciso do microfone. Libere a permissão nas configurações do Android.')
     }
     // O que você conversou no PC há pouco entra junto: ela continua de onde parou
-    const [memoria, doPc] = await Promise.all([memoriaParaPrompt(), contextoDoPc()])
-    const extraPc = doPc ? `\nConversa recente com você no PC (continue dali se fizer sentido, sem recitar):\n${doPc}` : ''
+    const [memoria, doPc, consulta] = await Promise.all([memoriaParaPrompt(), contextoDoPc(), perguntaParaPrompt().catch(() => '')])
+    const extraPc = (doPc ? `\nConversa recente com você no PC (continue dali se fizer sentido, sem recitar):\n${doPc}` : '') + (consulta ? `\n${consulta}` : '')
     this.live = new SessaoLive(
       { apiKey: aj.chave, modelo: MODELO_VOZ, voz: aj.voz, nome: aj.nome, silencioFimFalaMs: 550 },
       {
@@ -131,6 +132,14 @@ export class ModoVoz {
     if (this.conversa?.mensagens.length) await salvarConversa(this.conversa)
     this.conversa = null
     this.aoFim()
+  }
+
+  /** Um aviso no meio da conversa (ex.: a consulta pelo WhatsApp precisa de uma resposta): ela fala. */
+  dizer(texto: string): boolean {
+    if (!this.ativo || !this.live?.aberta) return false
+    this.live.dizer(texto)
+    this.atividade()
+    return true
   }
 
   private nivelMic = 0

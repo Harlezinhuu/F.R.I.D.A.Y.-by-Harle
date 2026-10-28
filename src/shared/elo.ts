@@ -123,3 +123,7 @@ export type EventoParaCelular =
   | { tipo: 'projetar'; args: Record<string, unknown>; nome: string }
   | { tipo: 'link'; url: string }
   | { tipo: 'texto'; texto: string }
+  /** A FRIDAY do PC precisa de você e você não está no PC (ex.: pergunta da consulta) */
+  | { tipo: 'aviso'; texto: string; consulta?: 'pergunta' | 'fim' }
+  /** Consulta marcada no PC: entra na agenda do celular */
+  | { tipo: 'evento'; titulo: string; inicioIso: string; fimIso: string; local: string; descricao: string }
