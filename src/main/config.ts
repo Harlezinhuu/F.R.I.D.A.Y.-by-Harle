@@ -55,6 +55,9 @@ export function caminhosEnv(): string[] {
   return [...new Set([join(app.getPath('userData'), '.env'), join(app.getAppPath(), '.env'), join(process.cwd(), '.env')])]
 }
 
+/** Uma configuração do .env (vazia se não tiver). */
+export const variavel = (nome: string): string => lerTudo()[nome.toUpperCase()] ?? ''
+
 function lerTudo(): Record<string, string> {
   const env: Record<string, string> = {}
   // Os primeiros caminhos têm prioridade; valores vazios nunca apagam um valor preenchido

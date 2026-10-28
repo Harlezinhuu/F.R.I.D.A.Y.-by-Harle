@@ -364,6 +364,10 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'ligar_de_fora',
+    description: 'Deixa o PC pronto para ser ligado de fora de casa pelo celular, mesmo desligado ("prepara para ligar o PC de fora"): ajusta a placa de rede e o Windows (o Windows pede autorização), abre a porta no roteador e confere se a operadora deixa. Depois diga o que ficou faltando (a BIOS sempre é com ele).'
+  },
+  {
     name: 'mandar_para_celular',
     description: 'Manda algo para o app FRIDAY no celular: a projeção 3D que está na tela, um link ou um texto ("joga isso pro celular", "manda esse site pro celular").',
     parameters: {
@@ -536,6 +540,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'Reconhecimento facial é opcional: "cadastra meu rosto" usa cadastrar_rosto (peça o consentimento antes). Se o começo da conversa disser quem está falando, trate a pessoa pelo nome e respeite o que é só do dono.',
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
+    'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,

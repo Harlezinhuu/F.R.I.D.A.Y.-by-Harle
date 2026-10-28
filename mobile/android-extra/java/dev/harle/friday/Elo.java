@@ -112,8 +112,12 @@ final class Elo {
         return dentro(Lacre.abrir(k, r)).getString("pareamento");
     }
 
-    /** Liga o PC pela rede (Wake-on-LAN). Devolve quantos pacotes saíram. */
-    static int acordar(Context c) throws Exception {
+    /**
+     * Liga o PC pela rede (Wake-on-LAN). Devolve quantos pacotes saíram.
+     * `casa` (endereço da internet de casa, opcional) leva o pacote pela internet até o roteador, que
+     * repassa para o PC: assim funciona também fora de casa, no 4G.
+     */
+    static int acordar(Context c, String casa, int portaCasa) throws Exception {
         JSONObject cfg = config(c);
         if (cfg == null) throw new IllegalStateException("O celular não está pareado com o PC.");
         JSONArray macs = cfg.optJSONArray("macs");
@@ -127,6 +131,10 @@ final class Elo {
             destinos.add(ip.substring(0, ip.lastIndexOf('.')) + ".255");
         }
         int enviados = 0;
+        InetAddress deFora = null;
+        if (casa != null && !casa.trim().isEmpty() && portaCasa > 0) {
+            try { deFora = InetAddress.getByName(casa.trim()); } catch (Exception ignorado) { /* sem internet ou nome errado */ }
+        }
         try (DatagramSocket s = new DatagramSocket()) {
             s.setBroadcast(true);
             for (int i = 0; i < macs.length(); i++) {
@@ -138,6 +146,17 @@ final class Elo {
                 byte[] p = new byte[6 + 16 * 6];
                 for (int k = 0; k < 6; k++) p[k] = (byte) 0xff;
                 for (int k = 6; k < p.length; k += 6) System.arraycopy(mac, 0, p, k, 6);
+                if (deFora != null) {
+                    // Pela internet: três vezes, porque UDP pode se perder no caminho
+                    for (int vez = 0; vez < 3; vez++) {
+                        try {
+                            s.send(new DatagramPacket(p, p.length, deFora, portaCasa));
+                            enviados++;
+                        } catch (Exception ignorado) {
+                            // sem rede agora
+                        }
+                    }
+                }
                 for (String d : destinos) {
                     for (int portaWol : new int[] { 9, 7 }) {
                         try {

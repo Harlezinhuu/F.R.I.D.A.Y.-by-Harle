@@ -9,7 +9,7 @@ import { responder } from './chat'
 import { markdown } from './markdown'
 import { lerMemoria } from './ferramentas'
 import { Celular, garantir, nativo, type Permissao } from './celular'
-import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarMemoria } from './elo'
+import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarCasa, sincronizarMemoria } from './elo'
 import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
 import type { EventoParaCelular } from '../../src/shared/elo'
 import { avisos as avisosConsulta, definirPerguntaDoPc, retomarConsulta } from './consulta'
@@ -20,7 +20,7 @@ import {
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.6.0'
+const VERSAO = '0.6.1'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -779,7 +779,8 @@ if (nativo()) {
 mostrarConversa()
 ir(ajustes.chave ? 'voz' : 'ajustes')
 if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente() }).catch(() => {})
-// A memória do celular e a do PC se juntam toda vez que o app abre
+// A memória do celular e a do PC se juntam toda vez que o app abre (e ele pega o endereço de casa)
 void sincronizarMemoria()
+void sincronizarCasa()
 // Uma consulta pela metade (o app fechou no meio) continua de onde parou
 if (nativo()) void retomarConsulta().catch(() => {})

@@ -191,7 +191,7 @@ public class CelularPlugin extends Plugin {
         REDE.execute(() -> {
             try {
                 JSObject o = new JSObject();
-                o.put("enviados", Elo.acordar(ctx()));
+                o.put("enviados", Elo.acordar(ctx(), call.getString("casa", ""), call.getData().optInt("porta", 0)));
                 call.resolve(o);
             } catch (Exception e) {
                 falhou(call, e);

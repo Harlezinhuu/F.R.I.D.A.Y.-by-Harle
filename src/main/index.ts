@@ -19,6 +19,7 @@ import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registra
 import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
 import { encerrarWhats, mostrarWhats } from './whatsweb'
 import { criarLembrete } from './reminders'
+import { manterCasa } from './ligar-de-fora'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -305,6 +306,8 @@ app.whenReady().then(() => {
     memoria: (fatos, esquecidos) => sincronizar(fatos, esquecidos),
     pareou: (aparelho) => avisarEmSegundoPlano(`${aparelho} pareado. Agora a FRIDAY do PC e a do celular são uma só.`, true)
   })
+  // Porta do roteador e endereço de casa sempre em dia (para o celular ligar o PC de fora)
+  manterCasa((t) => log('casa', t))
   configurarConsultas({ avisar: avisoDaConsulta, marcou: consultaMarcada, log: (t) => log('consulta', t) })
   // Uma consulta pela metade (a FRIDAY fechou no meio) continua de onde parou
   setTimeout(() => { if (retomarConsulta()) log('consulta', 'retomando a consulta em andamento') }, 15_000)

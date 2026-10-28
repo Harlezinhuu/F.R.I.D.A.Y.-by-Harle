@@ -251,11 +251,19 @@ Pareados, o PC e o celular viram a mesma assistente.
 |---|---|
 | Ligação ou mensagem importante no celular enquanto você usa o PC | Quem avisa é o PC ("Senhor, a Mãe está te ligando"); o celular fica quieto. Longe do PC, o celular fala. |
 | Mandar no PC pelo celular | "Abre o Spotify no PC", "bloqueia o PC", "desliga o PC" (confirma antes), "projeta o Saturn V no PC", "executa a rotina trabalho", "tarefa no projeto site: ..." |
-| Ligar o PC pelo celular | "Liga o PC" (Wake-on-LAN: ative "Wake on LAN" na BIOS e nas propriedades da placa de rede) |
+| Ligar o PC pelo celular | "Liga o PC", mesmo com ele desligado. Em casa vai pelo Wi-Fi; fora de casa (no 4G, chegando), pela internet, depois de preparar uma vez (abaixo) |
 | Continuar a conversa | O que você falou com ela no celular nos últimos 15 minutos entra no começo da conversa no PC, e o contrário também |
 | Memória | Uma só: o que ela aprende num aparelho vale no outro, e o que você manda esquecer some dos dois |
 | Hologramas | No celular, arraste a projeção para cima e ela se monta no PC. No PC, com o app do celular aberto, o tapa com a mão (ou "joga isso pro celular") manda a projeção para o celular |
 | Links e textos | "Manda esse site pro celular", "manda esse texto pro celular" |
+
+**Ligar o PC de fora de casa.** Com o PC ligado, diga uma vez: "Friday, prepara para ligar o PC de fora". Ela:
+- ajusta a placa de rede para acordar com o "pacote mágico" e desliga a inicialização rápida do Windows (o Windows pede autorização);
+- abre sozinha a porta UDP 40009 no roteador, pelo UPnP, apontando para o PC;
+- confere se a operadora usa CGNAT (aí a internet de casa não recebe nada de fora e ela avisa);
+- guarda o endereço de casa, que o celular pega sozinho quando fala com o PC.
+
+Fica com você: na BIOS, ligar "Wake on LAN" (ou "Power On By PCI-E") e desligar o "ErP"; deixar o PC no **cabo de rede** (desligado, Wi-Fi quase nunca acorda). Se ele não ligar depois de alguns minutos desligado, ative no roteador o vínculo de IP e MAC para o IP do PC. Se a operadora trocar o IP de casa com frequência, crie um nome grátis no [DuckDNS](https://www.duckdns.org) e coloque `FRIDAY_DUCKDNS=nome:token` no `.env`: o PC mantém o nome em dia.
 
 Tudo que passa entre os dois vai lacrado com AES-256-GCM, com a chave trocada no pareamento; cada mensagem tem hora e número único (não dá para repetir uma mensagem copiada da rede). Fora de casa, funciona pelo [Tailscale](https://tailscale.com) se os dois estiverem nele. "Desparear" no celular, ou parear de novo no PC, troca a chave.
 

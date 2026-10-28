@@ -45,6 +45,7 @@ export async function parearCom(texto: string): Promise<string> {
     throw new Error(`Li o QR, mas o PC não respondeu. Confira se os dois estão na mesma rede e se o Windows liberou a FRIDAY no firewall. (${(e as Error).message})`)
   }
   void sincronizarMemoria()
+  void sincronizarCasa()
   return p.nome
 }
 
@@ -59,6 +60,24 @@ export async function parearPorCodigo(ip: string, codigo: string): Promise<strin
 
 export async function desparear(): Promise<void> {
   await Preferences.remove({ key: 'elo' })
+}
+
+// ---------- Casa (ligar o PC de fora) ----------
+
+export interface Casa { endereco: string; porta: number; macs: string[]; atualizadaEm: string }
+
+export async function lerCasa(): Promise<Casa | null> {
+  const { value } = await Preferences.get({ key: 'casa' })
+  try { return value ? (JSON.parse(value) as Casa) : null } catch { return null }
+}
+
+/** Pega com o PC o endereço de casa (feito em "prepara para ligar o PC de fora"). O IP pode mudar, então pega sempre. */
+export async function sincronizarCasa(): Promise<void> {
+  if (!(await pareado())) return
+  try {
+    const r = await pedirPC<{ casa: Casa | null }>({ acao: 'casa' }, 5000)
+    if (r.casa?.endereco) await Preferences.set({ key: 'casa', value: JSON.stringify(r.casa) })
+  } catch { /* PC desligado ou longe: fica o último endereço */ }
 }
 
 // ---------- Memória e contexto ----------

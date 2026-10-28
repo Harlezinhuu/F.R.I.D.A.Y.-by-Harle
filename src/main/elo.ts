@@ -8,6 +8,7 @@ import { networkInterfaces, hostname } from 'node:os'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
+import { lerCasa } from './ligar-de-fora'
 import {
   PORTA_ELO, abrir, chaveDoCodigo, chaveElo, lacrar, novoCodigo, novoSegredo, textoDoPareamento,
   type EventoParaCelular, type Pareamento, type PedidoElo
@@ -163,6 +164,8 @@ async function tratar(p: PedidoElo): Promise<unknown> {
       return { ok: true }
     case 'contexto_pc':
       return { texto: recentes(contextoPc) }
+    case 'casa':
+      return { casa: lerCasa() }
     case 'escutar': {
       ultimaEscuta = Date.now()
       if (fila.length) return { eventos: fila.splice(0) }

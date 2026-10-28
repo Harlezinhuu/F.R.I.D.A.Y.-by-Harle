@@ -29,6 +29,7 @@ import type { EventoParaCelular } from '../shared/elo'
 import { aprender, apagarPessoa, definirSoDono, lerCadastro, salvarPessoa } from './rostos'
 import type { Papel } from '../shared/rostos'
 import { descrever, emAndamento } from '../shared/consulta'
+import { prepararLigarDeFora } from './ligar-de-fora'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
 /** Roda um comando do Windows sem abrir janela. */
@@ -383,6 +384,11 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
       case 'cancelar': await rodar('shutdown.exe', ['/a']).catch(() => {}); return { ok: true, mensagem: 'Desligamento cancelado.' }
       default: return falha('Ação de energia desconhecida.')
     }
+  },
+
+  async ligar_de_fora() {
+    const r = await prepararLigarDeFora()
+    return { ok: r.ok, mensagem: r.mensagem, card: { tipo: 'aviso', titulo: 'LIGAR O PC DE FORA', texto: r.ok ? 'Pronto do lado do PC. Falta a BIOS.' : 'Ficou faltando algo: veja o que ela disse.' } }
   },
 
   // ---------- Consultas pelo WhatsApp ----------

@@ -22,7 +22,7 @@ interface CelularPlugin {
   eloParearCodigo(o: { ip: string; porta: number; codigo: string }): Promise<{ pareamento: string }>
   nomeDoAparelho(): Promise<{ nome: string }>
   lerQR(): Promise<{ texto: string }>
-  acordarPC(): Promise<{ enviados: number }>
+  acordarPC(o?: { casa?: string; porta?: number }): Promise<{ enviados: number }>
   mensagensRecentes(o: { soImportantes?: boolean }): Promise<{ mensagens: MensagemRecente[]; ativo: boolean }>
   responderMensagem(o: { remetente: string; texto: string }): Promise<{ para: string }>
   /** Agente de consultas: acompanha esta conversa do WhatsApp (nome vazio = para) */

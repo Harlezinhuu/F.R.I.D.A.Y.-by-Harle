@@ -116,6 +116,8 @@ export type PedidoElo =
   | { acao: 'contexto'; texto: string }
   | { acao: 'contexto_pc' }
   | { acao: 'escutar' }
+  /** Endereço de casa para ligar o PC de fora (Wake-on-LAN pela internet) */
+  | { acao: 'casa' }
   | { acao: 'parear'; aparelho: string }
 
 /** O que o PC manda para o celular pela escuta. */

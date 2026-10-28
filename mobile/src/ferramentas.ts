@@ -9,7 +9,7 @@ import { acharLocal, buscarPrevisao, resumir, type Local } from '../../src/share
 import { buscarNaInternet, paraFala } from '../../src/shared/busca'
 import { lerAjustes, lerAvisos, lerLista, salvarAvisos, salvarLista } from './armazem'
 import { Celular, explicarErro, garantir, nativo } from './celular'
-import { pareado, pedirPC, sincronizarMemoria } from './elo'
+import { lerCasa, pareado, pedirPC, sincronizarMemoria } from './elo'
 import { descrever, emAndamento } from '../../src/shared/consulta'
 import { acharLugar, andamento, cancelarConsulta, consultaAtual, definirPerguntaDoPc, iniciarConsulta, lugares, removerLugar, responderConsulta, salvarLugar } from './consulta'
 import {
@@ -106,7 +106,7 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
 /** A FRIDAY do PC, pelo elo: as ferramentas do PC que o celular pode pedir, com "pc_" na frente. */
 const FERRAMENTAS_PC: ToolDeclaration[] = [
   ...TOOL_DECLARATIONS.filter((t) => TOOLS_REMOTAS.includes(t.name)).map((t) => ({ ...t, name: `pc_${t.name}`, description: `No PC (pela FRIDAY do PC): ${t.description}` })),
-  { name: 'acordar_pc', description: 'Liga o PC pela rede (Wake-on-LAN), quando ele está desligado ou dormindo. Precisa estar na mesma rede de casa.' },
+  { name: 'acordar_pc', description: 'Liga o PC pela rede (Wake-on-LAN), mesmo desligado ou dormindo: em casa pelo Wi-Fi e, se ele preparou "ligar de fora" no PC, de qualquer lugar pela internet ("liga o PC", "liga o computador que eu tô chegando").' },
   { name: 'sincronizar_com_pc', description: 'Junta a memória do celular com a do PC agora ("sincroniza com o PC").' }
 ]
 
@@ -331,8 +331,14 @@ async function esquecidos(textos: string[]): Promise<void> {
 async function noPc(nome: string, a: Record<string, unknown>): Promise<Resultado> {
   if (!(await pareado())) return { ok: false, mensagem: 'O celular ainda não está pareado com o PC. No PC, diga "Friday, pareia o celular"; aqui, Ajustes > FRIDAY do PC > Parear.' }
   if (nome === 'acordar_pc') {
-    const r = await Celular.acordarPC()
-    return { ok: true, mensagem: `Mandei o sinal para ligar o PC (${r.enviados} pacotes). Se o PC estiver configurado para ligar pela rede, ele liga em alguns segundos.` }
+    const casa = await lerCasa()
+    const r = await Celular.acordarPC(casa ? { casa: casa.endereco, porta: casa.porta } : {})
+    return {
+      ok: true,
+      mensagem: casa
+        ? `Mandei o sinal pela rede de casa e pela internet (${r.enviados} pacotes). Ele liga em uns 30 segundos.`
+        : `Mandei o sinal pela rede de casa (${r.enviados} pacotes). Se você estiver fora de casa, não vai chegar: no PC, diga "prepara para ligar o PC de fora" uma vez.`
+    }
   }
   if (nome === 'sincronizar_com_pc') {
     const n = await sincronizarMemoria()
