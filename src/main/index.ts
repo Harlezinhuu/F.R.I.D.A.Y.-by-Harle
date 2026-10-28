@@ -34,6 +34,45 @@ function ferramentaNoHud(nome: string, args: Record<string, unknown>): Promise<R
   })
 }
 
+// ---------- Iniciar com o Windows ----------
+
+const arquivoInicio = (): string => join(app.getPath('userData'), 'inicio.json')
+/** Fora do instalador, quem abre é o electron.exe do projeto apontando para a pasta da FRIDAY. */
+const opcaoInicio = (): { path?: string; args?: string[] } => (app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath()] })
+const versaoMontada = (): boolean => app.isPackaged || existsSync(join(app.getAppPath(), 'out', 'renderer', 'index.html'))
+
+function iniciaComWindows(): boolean {
+  try { return app.getLoginItemSettings(opcaoInicio()).openAtLogin } catch { return false }
+}
+
+function definirInicio(ligar: boolean, avisar = true): void {
+  if (ligar && !versaoMontada()) {
+    new Notification({ title: 'F.R.I.D.A.Y', body: 'Para abrir com o Windows, monte a FRIDAY uma vez: rode "npm run build" (ou o instalar.bat).' }).show()
+    atualizarBandeja()
+    return
+  }
+  app.setLoginItemSettings({ openAtLogin: ligar, ...opcaoInicio() })
+  try { writeFileSync(arquivoInicio(), JSON.stringify({ escolhido: true, ligar })) } catch { /* sem disco */ }
+  log('main', `iniciar com o Windows: ${ligar ? 'ligado' : 'desligado'}`)
+  if (avisar) new Notification({ title: 'F.R.I.D.A.Y', body: ligar ? 'Ela abre sozinha quando o Windows ligar.' : 'Ela não abre mais sozinha com o Windows.' }).show()
+  atualizarBandeja()
+}
+
+/** Primeira vez rodando a versão montada (não o "npm run dev"): já liga o início com o Windows. */
+function inicioNaPrimeiraVez(): void {
+  if (process.env.ELECTRON_RENDERER_URL || existsSync(arquivoInicio())) return
+  definirInicio(true, false)
+  new Notification({ title: 'F.R.I.D.A.Y', body: 'Pronto: ela vai abrir sozinha quando o Windows ligar. Dá para desligar no ícone da bandeja.' }).show()
+}
+
+/** Puxa a versão nova do GitHub, monta e abre de novo (atualizar.bat, numa janela à parte). */
+function atualizarFriday(): void {
+  const bat = join(app.getAppPath(), 'atualizar.bat')
+  if (!existsSync(bat)) return
+  void shell.openPath(bat)
+  setTimeout(() => app.quit(), 800)
+}
+
 async function mostrarPareamento(): Promise<void> {
   const r = await executarFerramenta('parear_celular', {})
   if (r.card) win?.webContents.send('cartao', r.card, 300_000)
@@ -107,6 +146,8 @@ function atualizarBandeja(): void {
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
       { label: 'Editar projetos de programação', click: () => shell.openPath(caminhoProjetos()) },
       { label: 'Parear celular', click: () => void mostrarPareamento() },
+      { label: 'Iniciar com o Windows', type: 'checkbox', checked: iniciaComWindows(), click: (item) => definirInicio(item.checked) },
+      ...(!app.isPackaged && existsSync(join(app.getAppPath(), 'atualizar.bat')) ? [{ label: 'Atualizar a FRIDAY', click: atualizarFriday }] : []),
       { label: 'Abrir pasta de modelos 3D', click: () => { listarArquivos(); shell.openPath(pastaModelos()) } },
       { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
       { type: 'separator' },
@@ -189,6 +230,7 @@ app.whenReady().then(() => {
   registrarIpc()
   criarJanela()
   criarBandeja()
+  inicioNaPrimeiraVez()
   winctl.aquecer()
 
   if (!globalShortcut.register('Control+Alt+Space', alternarSilencio)) {

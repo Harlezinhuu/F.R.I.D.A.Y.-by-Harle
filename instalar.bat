@@ -51,9 +51,19 @@ goto chave
 
 :rodar
 echo.
-echo Iniciando a FRIDAY... Diga "Friday" para chamar.
-echo Ctrl+Alt+Espaco silencia. Para fechar, use o icone na bandeja ou feche esta janela.
-call npm run dev
+echo Montando a FRIDAY (pode levar um minuto)...
+call npm run build || goto erro
+
+echo.
+echo Criando o atalho "F.R.I.D.A.Y" no Menu Iniciar...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Programs')+'\F.R.I.D.A.Y.lnk'); $s.TargetPath='%PASTA%\node_modules\electron\dist\electron.exe'; $s.Arguments='\"%PASTA%\"'; $s.WorkingDirectory='%PASTA%'; $s.IconLocation='%PASTA%\resources\icon.ico'; $s.Description='F.R.I.D.A.Y'; $s.Save()" >nul 2>nul
+
+echo.
+echo Abrindo a FRIDAY... Diga "Friday" para chamar.
+echo A partir de agora ela abre sozinha quando o Windows ligar (da para desligar no icone da bandeja).
+echo Para atualizar depois: icone da bandeja ^> Atualizar a FRIDAY.
+start "" "%PASTA%\node_modules\electron\dist\electron.exe" "%PASTA%"
+timeout /t 5 >nul
 goto fim
 
 :semnode
