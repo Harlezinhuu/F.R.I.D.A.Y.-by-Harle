@@ -44,9 +44,15 @@ export interface Avisos {
   tratamento: string
   /** Nomes como estão salvos nos contatos */
   importantes: string[]
+  /** Resumo falado quando você desliga o alarme */
+  resumoManha: boolean
+  /** Lê todas as mensagens no Bluetooth do carro */
+  modoCarro: boolean
+  /** Nome do Bluetooth do carro (vazio = qualquer som de carro) */
+  carroNome: string
 }
 
-const AVISOS_PADRAO: Avisos = { ligacoes: true, soImportantes: false, mensagens: true, lerTexto: false, tratamento: 'Senhor', importantes: [] }
+const AVISOS_PADRAO: Avisos = { ligacoes: true, soImportantes: false, mensagens: true, lerTexto: false, tratamento: 'Senhor', importantes: [], resumoManha: true, modoCarro: false, carroNome: '' }
 
 export async function lerAvisos(): Promise<Avisos> {
   const { value } = await Preferences.get({ key: 'avisos' })

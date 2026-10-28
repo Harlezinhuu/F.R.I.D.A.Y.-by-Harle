@@ -232,6 +232,11 @@ body.explicando .cards { right: auto; left: 32px; bottom: 330px }
 .explic-carimbo.bater { animation: carimbo .6s cubic-bezier(.3, 1.4, .5, 1) forwards, flick 5s 1s infinite }
 @keyframes carimbo { from { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(2.5); filter: blur(10px) } 70% { opacity: 1; filter: blur(0) } to { opacity: 1; transform: translate(-50%, -50%) rotate(-11deg) scale(1) } }
 
+/* Pareamento com o celular */
+.card .qr { width: 210px; max-width: 100%; aspect-ratio: 1; margin: 2px auto 0; padding: 6px; background: #fff; border-radius: 6px }
+.card .qr svg { display: block; width: 100%; height: 100% }
+.card .codigo { font-family: var(--f-data); font-size: 30px; letter-spacing: .12em }
+
 @media (prefers-reduced-motion: reduce) {
   .panel, .card, .core, .cards, .veu { transition: none; animation: none }
   .eq span { animation: none }

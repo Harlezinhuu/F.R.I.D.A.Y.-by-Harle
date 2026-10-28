@@ -24,11 +24,12 @@ const permissoes = [
   'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'CAMERA', 'ACCESS_COARSE_LOCATION', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'WAKE_LOCK',
   // Controle do celular
   'READ_CONTACTS', 'WRITE_CONTACTS', 'CALL_PHONE', 'SEND_SMS', 'READ_CALENDAR', 'WRITE_CALENDAR', 'ACCESS_NOTIFICATION_POLICY',
-  'FOREGROUND_SERVICE', 'FOREGROUND_SERVICE_MICROPHONE'
+  'FOREGROUND_SERVICE', 'FOREGROUND_SERVICE_MICROPHONE', 'BLUETOOTH_CONNECT'
 ]
 const linhas = [
   ...permissoes.filter((p) => !m.includes(`android.permission.${p}"`)).map((p) => `    <uses-permission android:name="android.permission.${p}" />`),
   '    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />',
+  '    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />',
   '    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />',
   // Sem câmera ou telefone o app ainda instala (tablets)
   '    <uses-feature android:name="android.hardware.telephony" android:required="false" />',
@@ -71,6 +72,14 @@ if (!m.includes('FridayAcessibilidade')) {
             android:foregroundServiceType="microphone" />
     </application>`)
 }
+// Elo com o PC: o servidor da FRIDAY no PC fala HTTP na rede de casa (o conteúdo vai lacrado com AES-GCM)
+if (!m.includes('usesCleartextTraffic')) m = m.replace('<application', '<application android:usesCleartextTraffic="true"')
+// Leitor de QR do Google Play Services (sem pedir a câmera ao app): baixa o módulo junto com o app
+if (!m.includes('com.google.mlkit.vision.DEPENDENCIES')) {
+  m = m.replace('</application>', `    <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />
+    </application>`)
+}
+
 // Avisos por voz: lê as notificações de ligação e de mensagem (só com o acesso liberado pelo usuário)
 if (!m.includes('FridayAvisos')) {
   m = m.replace('</application>', `    <service
@@ -95,9 +104,12 @@ writeFileSync(join(drawable, 'ic_stat_friday.xml'), `<vector xmlns:android="http
 </vector>
 `)
 
-// Versão e assinatura
+// Versão, dependências e assinatura
 const gradle = join(app, 'build.gradle')
 let g = readFileSync(gradle, 'utf8')
+if (!g.includes('play-services-code-scanner')) {
+  g = g.replace(/dependencies\s*\{/, (d) => `${d}\n    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'`)
+}
 const codigo = Number(process.env.GITHUB_RUN_NUMBER || 1)
 g = g.replace(/versionCode\s+\d+/, `versionCode ${codigo}`).replace(/versionName\s+"[^"]*"/, `versionName "${pacote.version}"`)
 if (existsSync(join(app, 'friday.keystore')) && !g.includes('signingConfigs')) {

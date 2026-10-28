@@ -112,6 +112,12 @@ export class SessaoLive {
     this.sessao.sendRealtimeInput({ audio: { data: b64, mimeType: 'audio/pcm;rate=16000' } })
   }
 
+  /** Um quadro da câmera (JPEG em base64): com isso o Gemini vê o que você mostra. */
+  enviarImagem(b64: string): void {
+    if (!this.aberta || !this.sessao) return
+    this.sessao.sendRealtimeInput({ video: { data: b64, mimeType: 'image/jpeg' } })
+  }
+
   responderFerramentas(respostas: { id?: string; name?: string; response: Record<string, unknown> }[]): void {
     if (!this.aberta || !this.sessao) return
     this.sessao.sendToolResponse({ functionResponses: respostas })

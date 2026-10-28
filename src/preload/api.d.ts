@@ -1,5 +1,5 @@
 // F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
-import type { FridayConfig, Lembrete, TarefaResumo, ToolResult } from '../shared/types'
+import type { Card, FridayConfig, Lembrete, TarefaResumo, ToolResult } from '../shared/types'
 
 /** O que o HUD consegue pedir ao processo principal. */
 export interface FridayApi {
@@ -17,6 +17,15 @@ export interface FridayApi {
   fishFalar(id: number, texto: string): Promise<{ ok: boolean; erro?: string }>
   fishCancelar(): void
   aoFishAudio(cb: (id: number, b64: string, taxa: number) => void): void
+  /** Cartão mandado pelo processo principal (pareamento, ação pedida pelo celular) */
+  aoCartao(cb: (card: Card, ms: number) => void): void
+  /** Ligação ou mensagem que chegou no celular, para o PC falar */
+  aoEloAviso(cb: (texto: string, ligacao: boolean) => void): void
+  /** Ferramenta do HUD pedida pelo celular */
+  aoEloFerramenta(cb: (id: number, nome: string, args: Record<string, unknown>) => void): void
+  eloResponder(id: number, r: { ok: boolean; mensagem: string; precisaConfirmacao?: boolean }): void
+  /** Uma troca da conversa, para o celular continuar dali */
+  contexto(texto: string): void
 }
 
 declare global {

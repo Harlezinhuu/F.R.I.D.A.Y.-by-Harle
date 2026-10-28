@@ -62,3 +62,16 @@ export function paraPrompt(fatos: Fato[], limite = 3000): string {
   }
   return linhas.join('\n')
 }
+
+/**
+ * Junta a memória do PC com a do celular. Fatos esquecidos em qualquer um dos dois (pelo texto
+ * normalizado) não voltam; repetidos ficam uma vez só (o mais antigo); no máximo MAX_FATOS.
+ */
+export function mesclarMemoria(a: Fato[], b: Fato[], esquecidos: string[] = []): Fato[] {
+  const fora = new Set(esquecidos.map(normalizar))
+  const todos = [...a, ...b].filter((f) => f && typeof f.texto === 'string' && !fora.has(normalizar(f.texto)))
+    .sort((x, y) => x.criadoEm.localeCompare(y.criadoEm))
+  const saida: Fato[] = []
+  for (const f of todos) if (!ehRepetido(f.texto, saida) && !saida.some((s) => s.id === f.id)) saida.push(f)
+  return saida.slice(-MAX_FATOS)
+}

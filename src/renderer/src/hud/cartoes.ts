@@ -92,6 +92,13 @@ function conteudo(c: Card): string {
     case 'cena':
       return `${c.imagem && c.imagem.startsWith('data:image/') ? `<img class="cena-img" src="${c.imagem}" alt="${esc(c.titulo)}">` : ''}
         <h2 class="label">CENA</h2><p class="song">${esc(c.titulo)}</p>${c.descricao ? `<p class="meta quebra-texto">${esc(c.descricao)}</p>` : ''}`
+    case 'pareamento':
+      // O SVG do QR é gerado pela própria FRIDAY (só quadrados), sem nada vindo de fora
+      return `<h2 class="label">PAREAR O CELULAR</h2>
+        <div class="qr" aria-label="QR Code de pareamento">${c.svg.startsWith('<svg') ? c.svg : ''}</div>
+        <p class="what">No app: Ajustes › FRIDAY do PC › Parear</p>
+        <div class="row"><span class="big codigo">${esc(c.codigo)}</span></div>
+        <span class="meta">${esc(c.nome)} · ${c.ips.map(esc).join(' · ')}</span>`
     case 'tarefa':
       return `<h2 class="label">TAREFA ${c.id} <span class="ex">${esc(c.estado)}</span></h2>
         <p class="song">${esc(c.projeto)}</p><p class="what quebra-texto">${esc(c.pedido.length > 120 ? `${c.pedido.slice(0, 117)}…` : c.pedido)}</p>

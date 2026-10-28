@@ -11,6 +11,8 @@ import type { AcaoProjecao } from '../../src/renderer/src/hud/projecao'
 import { FERRAMENTAS_CELULAR, executar, instrucoes, memoriaParaPrompt, type Contexto, type Resultado } from './ferramentas'
 import { novaConversa, salvarConversa, tituloDe, type Ajustes, type Conversa } from './armazem'
 import { Celular, nativo } from './celular'
+import { contextoDoPc, enviarContexto } from './elo'
+import type { Explicacao, DadosExplicacao } from '../../src/renderer/src/explicacao/explicacao'
 
 const MODELO_VOZ = 'gemini-2.5-flash-native-audio-preview-12-2025'
 const SILENCIO_MS = 25_000
@@ -34,6 +36,15 @@ export class ModoVoz {
   aoProjecao: (ativa: boolean) => void = () => {}
   /** Cartão holográfico de uma ação (lembrete criado, clima, busca...) */
   aoAcao: (rotulo: string, titulo: string, detalhe: string) => void = () => {}
+  /** Arrastou o holograma para cima: ele vai para o PC */
+  aoArremessar: (args: Record<string, unknown>) => void = () => {}
+  /** Câmera ligada ou desligada (mostra a prévia) */
+  aoOlhos: (video: HTMLVideoElement | null) => void = () => {}
+  /** Modo explicação (palavras de partículas), criado pela tela */
+  explicacao: Explicacao | null = null
+  /** Busca foto da Wikipédia para os cartões da explicação */
+  buscarImagem: (termo: string) => Promise<{ titulo: string; descricao: string; imagem: string } | null> = async () => null
+  private ultimaProjecao: Record<string, unknown> | null = null
 
   constructor(private mundo: Mundo, toque: HTMLElement, private ajustes: () => Ajustes) {
     this.ligarToque(toque)
@@ -67,21 +78,23 @@ export class ModoVoz {
       this.estado('semMic', 'SEM MICROFONE')
       throw new Error('Preciso do microfone. Libere a permissão nas configurações do Android.')
     }
-    const memoria = await memoriaParaPrompt()
+    // O que você conversou no PC há pouco entra junto: ela continua de onde parou
+    const [memoria, doPc] = await Promise.all([memoriaParaPrompt(), contextoDoPc()])
+    const extraPc = doPc ? `\nConversa recente com você no PC (continue dali se fizer sentido, sem recitar):\n${doPc}` : ''
     this.live = new SessaoLive(
       { apiKey: aj.chave, modelo: MODELO_VOZ, voz: aj.voz, nome: aj.nome, silencioFimFalaMs: 550 },
       {
         aoAudio: (b64) => { this.alto?.enfileirar(b64); this.estado('falando', 'FALANDO'); this.atividade() },
-        aoTextoUsuario: (t) => { this.textoUsuario += t; this.aoLegenda('VOCÊ', this.textoUsuario.trim()); this.atividade() },
-        aoTextoFriday: (t) => { this.textoFriday += t; this.aoLegenda('FRIDAY', this.textoFriday.trim()) },
-        aoInterrompido: () => { this.alto?.limpar(); this.fecharTurno() },
-        aoFimDoTurno: () => this.fecharTurno(),
+        aoTextoUsuario: (t) => { this.textoUsuario += t; this.aoLegenda('VOCÊ', this.textoUsuario.trim()); this.atividade(); this.explicacao?.usuarioFalou() },
+        aoTextoFriday: (t) => { this.textoFriday += t; this.aoLegenda('FRIDAY', this.textoFriday.trim()); this.explicacao?.falou(t, this.alto?.restante ?? 0) },
+        aoInterrompido: () => { this.alto?.limpar(); this.explicacao?.interrompido(); this.fecharTurno() },
+        aoFimDoTurno: () => { this.explicacao?.fimDoTurno(this.alto?.restante ?? 0); this.fecharTurno() },
         aoFerramentas: (c) => void this.ferramentas(c),
         aoAtividade: () => this.atividade(),
         aoAvisoDeFim: () => {},
         aoFechar: (inesperado, motivo) => { if (this.ativo && inesperado) { this.aoLegenda('SISTEMA', `A conexão caiu (${motivo}).`); void this.parar() } }
       },
-      { ferramentas: FERRAMENTAS_CELULAR, instrucoes: (m) => instrucoes(aj.nome, m, 'Aqui é o modo de voz: respostas curtas, de uma ou duas frases.') }
+      { ferramentas: FERRAMENTAS_CELULAR, instrucoes: (m) => instrucoes(aj.nome, m + extraPc, 'Aqui é o modo de voz: respostas curtas, de uma ou duas frases (explicações podem ser mais longas). Se a câmera estiver ligada, você vê o que ele mostra.') }
     )
     try {
       await this.live.conectar(memoria)
@@ -111,6 +124,8 @@ export class ModoVoz {
     this.mic.parar()
     this.alto?.limpar()
     if (nativo()) void Celular.servicoVoz({ ligar: false }).catch(() => {})
+    this.olhos(false)
+    this.explicacao?.fechar()
     this.vibrar()
     this.estado('repouso', 'TOQUE NA FITA PARA FALAR')
     if (this.conversa?.mensagens.length) await salvarConversa(this.conversa)
@@ -136,6 +151,8 @@ export class ModoVoz {
     const c = this.conversa
     if (!c) return
     const hora = new Date().toISOString()
+    // A troca vai para o PC: se você sentar lá, ela continua dali
+    if (this.textoFriday.trim()) enviarContexto(`${this.textoUsuario.trim() ? `Você: ${this.textoUsuario.trim()}\n` : ''}FRIDAY: ${this.textoFriday.trim()}`)
     if (this.textoUsuario.trim()) c.mensagens.push({ papel: 'user', texto: this.textoUsuario.trim(), hora, voz: true })
     if (this.textoFriday.trim()) c.mensagens.push({ papel: 'model', texto: this.textoFriday.trim(), hora, voz: true })
     if (c.mensagens.length && c.titulo === 'Nova conversa') c.titulo = `🎙 ${tituloDe(c.mensagens.find((m) => m.papel === 'user')?.texto ?? 'Conversa por voz')}`
@@ -175,6 +192,7 @@ export class ModoVoz {
 
   readonly contexto: Contexto = {
     projetar: async (a) => this.projetar(a),
+    explicar: async (a) => this.explicar(a),
     controlarProjecao: async (a) => this.controlar(String(a.acao ?? '')),
     encerrar: () => { this.encerrarDepois = true }
   }
@@ -188,6 +206,7 @@ export class ModoVoz {
         return FORMAS[id].criar()
       })()
       this.mundo.projecao.mostrar(m, () => this.aoProjecao(false))
+      this.ultimaProjecao = { ...a }
       for (const acao of m.acoesIniciais ?? []) this.mundo.projecao.comando(acao as AcaoProjecao)
       this.aoProjecao(true)
       return { ok: true, mensagem: `Projetando ${m.nome}. ${m.detalhes.join('; ')}.` }
@@ -202,6 +221,62 @@ export class ModoVoz {
     return { ok: true, mensagem: this.mundo.projecao.comando(acao as AcaoProjecao) }
   }
 
+  // ---------- Modo explicação ----------
+
+  private explicar(a: Record<string, unknown>): Resultado {
+    if (!this.ativo || !this.explicacao) return { ok: true, mensagem: 'Explique por escrito, em poucos parágrafos.' }
+    if (this.mundo.projecao.ativa) return { ok: false, mensagem: 'Tem uma projeção na tela. Explique só falando.' }
+    const lista = (v: unknown, max: number) => (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, max)
+    const d: DadosExplicacao = {
+      tema: String(a.tema ?? '').slice(0, 80),
+      palavras: lista(a.palavras, 20),
+      alertas: lista(a.alertas, 20),
+      imagens: lista(a.imagens, 3),
+      fatos: lista(a.fatos, 3).map((f) => f.slice(0, 110)),
+      veredito: String(a.veredito ?? '').trim().split(/\s+/)[0]?.slice(0, 14) ?? ''
+    }
+    this.explicacao.iniciar(d)
+    for (const termo of d.imagens) {
+      void this.buscarImagem(termo).then((r) => this.explicacao?.imagemChegou(r ? { termo, ...r } : null)).catch(() => this.explicacao?.imagemChegou(null))
+    }
+    return { ok: true, mensagem: 'A explicação está na tela. Agora explique falando, com calma, em 5 a 9 frases, dizendo as palavras-chave na ordem em que as passou. Não comente a tela.' }
+  }
+
+  // ---------- Olhos: a câmera no modo de voz ----------
+
+  private camera: MediaStream | null = null
+  private relogioCamera = 0
+  get olhosLigados(): boolean { return !!this.camera }
+
+  /** Liga a câmera de trás: um quadro por segundo vai para o Gemini, que passa a ver o que você mostra. */
+  async olhos(ligar: boolean): Promise<void> {
+    clearInterval(this.relogioCamera)
+    if (!ligar) {
+      this.camera?.getTracks().forEach((t) => t.stop())
+      this.camera = null
+      this.aoOlhos(null)
+      return
+    }
+    if (this.camera) return
+    this.camera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 960 }, height: { ideal: 720 } }, audio: false })
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.srcObject = this.camera
+    await video.play()
+    this.aoOlhos(video)
+    const tela = document.createElement('canvas')
+    this.relogioCamera = window.setInterval(() => {
+      if (!this.live?.aberta || !video.videoWidth) return
+      const escala = Math.min(1, 768 / Math.max(video.videoWidth, video.videoHeight))
+      tela.width = Math.round(video.videoWidth * escala)
+      tela.height = Math.round(video.videoHeight * escala)
+      tela.getContext('2d')?.drawImage(video, 0, 0, tela.width, tela.height)
+      this.live.enviarImagem(tela.toDataURL('image/jpeg', 0.6).split(',')[1])
+      this.atividade()
+    }, 1000)
+  }
+
   /** O último toque foi um arrasto (girar o holograma), não um toque para falar. */
   arrastou = false
 
@@ -209,7 +284,11 @@ export class ModoVoz {
   private ligarToque(el: HTMLElement): void {
     const toques = new Map<number, { x: number; y: number }>()
     let distAnt = 0, andou = 0
-    el.addEventListener('pointerdown', (e) => { toques.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (toques.size === 1) { andou = 0; this.arrastou = false } })
+    let inicio = { x: 0, y: 0, t: 0 }
+    el.addEventListener('pointerdown', (e) => {
+      toques.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (toques.size === 1) { andou = 0; this.arrastou = false; inicio = { x: e.clientX, y: e.clientY, t: performance.now() } }
+    })
     el.addEventListener('pointermove', (e) => {
       const ant = toques.get(e.pointerId)
       if (!ant || !this.mundo.projecao.ativa) return
@@ -225,7 +304,16 @@ export class ModoVoz {
       }
       toques.set(e.pointerId, { x: e.clientX, y: e.clientY })
     })
-    const soltar = (e: PointerEvent) => { toques.delete(e.pointerId); distAnt = 0 }
+    const soltar = (e: PointerEvent) => {
+      // Arrastar rápido para cima com um dedo: o holograma é arremessado para o PC
+      const dy = e.clientY - inicio.y, dx = e.clientX - inicio.x, dt = performance.now() - inicio.t
+      if (toques.size === 1 && this.mundo.projecao.ativa && this.ultimaProjecao && dy < -140 && Math.abs(dx) < 110 && dt < 450) {
+        this.arrastou = true
+        this.aoArremessar(this.ultimaProjecao)
+      }
+      toques.delete(e.pointerId)
+      distAnt = 0
+    }
     el.addEventListener('pointerup', soltar)
     el.addEventListener('pointercancel', soltar)
   }

@@ -9,6 +9,9 @@ import { responder } from './chat'
 import { markdown } from './markdown'
 import { lerMemoria } from './ferramentas'
 import { Celular, nativo, type Permissao } from './celular'
+import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarMemoria } from './elo'
+import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
+import type { EventoParaCelular } from '../../src/shared/elo'
 import {
   apagarConversa, apagarTodas, lerAjustes, lerConversa, listarConversas, novaConversa, salvarAjustes, salvarConversa, salvarLista, tituloDe,
   type Ajustes, type Conversa, type Mensagem,
@@ -16,7 +19,7 @@ import {
 } from './armazem'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const VERSAO = '0.4.1'
+const VERSAO = '0.5.0'
 const VOZES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Charon', 'Puck']
 
 let ajustes: Ajustes = await lerAjustes()
@@ -118,6 +121,77 @@ voz.aoAcao = (rotulo, titulo, detalhe) => {
   clearTimeout(cartaoTempo)
   cartaoTempo = window.setTimeout(() => { c.hidden = true }, 7000)
 }
+// ---------- Modo explicação (as palavras de partículas do PC, agora no celular) ----------
+
+const explicacao = new Explicacao($<HTMLCanvasElement>('palco'), () => {
+  const r = $('fita').getBoundingClientRect()
+  return r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null
+})
+voz.explicacao = explicacao
+voz.buscarImagem = async (termo) => {
+  for (const idioma of ['pt', 'en']) {
+    try {
+      const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(termo.replace(/ /g, '_'))}?redirect=true`, { signal: AbortSignal.timeout(5000) })
+      if (!r.ok) continue
+      const d = (await r.json()) as { title?: string; extract?: string; type?: string; thumbnail?: { source?: string } }
+      const img = d.thumbnail?.source
+      if (!d.title || d.type === 'disambiguation' || !img || !img.startsWith('https://upload.wikimedia.org/')) continue
+      return { titulo: d.title, descricao: (d.extract ?? '').split(/(?<=[.!?])\s/)[0]?.slice(0, 200) ?? '', imagem: img }
+    } catch { /* tenta o próximo idioma */ }
+  }
+  return null
+}
+
+// ---------- Olhos: a câmera no modo de voz ----------
+
+voz.aoOlhos = (video) => {
+  const previa = $('olhosPrevia')
+  previa.querySelector('video')?.remove()
+  previa.hidden = !video
+  $('olhos').setAttribute('aria-pressed', String(!!video))
+  if (video) previa.prepend(video)
+}
+$('olhos').addEventListener('click', async () => {
+  try {
+    if (voz.olhosLigados) { await voz.olhos(false); return }
+    if (!voz.ativo) await alternarConversa()
+    if (voz.ativo) { await voz.olhos(true); avisar('Câmera ligada: mostre e pergunte "o que é isso?".') }
+  } catch {
+    avisar('Não consegui abrir a câmera. Libere a permissão da câmera para a FRIDAY.')
+  }
+})
+
+// ---------- Arremessar o holograma para o PC ----------
+
+voz.aoArremessar = async (args) => {
+  if (!(await lerElo())) { avisar('Pareie com o PC (Ajustes › FRIDAY do PC) para jogar hologramas na tela grande.'); return }
+  mundo.projecao.comando('fechar')
+  voz.aoAcao('PARA O PC', mundo.projecao.nome || 'Projeção', 'Montando na tela grande…')
+  try {
+    const r = await pedirPC<{ ok: boolean; mensagem: string }>({ acao: 'ferramenta', nome: 'projetar', args }, 25_000)
+    voz.aoAcao('NO PC', r.ok ? 'Projeção na tela grande' : 'O PC não conseguiu', r.ok ? '' : String(r.mensagem ?? '').slice(0, 90))
+  } catch (e) {
+    voz.aoAcao('PC FORA DO AR', 'Não alcancei o PC', (e as Error).message.slice(0, 90))
+  }
+}
+
+// ---------- O que o PC manda (holograma, link, texto) ----------
+
+function eventoDoPc(e: EventoParaCelular): void {
+  if (e.tipo === 'projetar') {
+    if (telaAtual !== 'voz') ir('voz')
+    const r = voz.projetar(e.args)
+    voz.aoAcao(r.ok ? 'DO PC' : 'DO PC', r.ok ? e.nome || 'Projeção' : 'Não deu para projetar aqui', r.ok ? 'Arraste para cima para devolver' : r.mensagem.slice(0, 90))
+  } else if (e.tipo === 'link') {
+    void Celular.abrirLink({ url: e.url }).catch(() => avisar('Não consegui abrir o link.'))
+  } else if (e.tipo === 'texto') {
+    voz.aoAcao('DO PC', e.texto.slice(0, 80), e.texto.length > 80 ? 'Copiado' : '')
+    void navigator.clipboard?.writeText(e.texto).catch(() => {})
+    avisar('O PC mandou um texto (copiado).')
+  }
+}
+if (nativo()) escutarPC(eventoDoPc)
+
 voz.aoProjecao = (ativa) => {
   $('proj').hidden = !ativa
   document.body.classList.toggle('projetando', ativa)
@@ -156,6 +230,7 @@ function elementoMensagem(m: Mensagem): HTMLElement {
   const el = document.createElement('div')
   el.className = `msg ${m.papel}`
   if (m.voz) { const v = document.createElement('span'); v.className = 'por-voz'; v.textContent = 'POR VOZ'; el.append(v) }
+  if (m.imagem?.startsWith('data:image/')) { const i = document.createElement('img'); i.className = 'foto-msg'; i.src = m.imagem; i.alt = 'Foto enviada'; el.append(i) }
   if (m.papel === 'model') { const corpo = document.createElement('div'); corpo.innerHTML = markdown(m.texto); el.append(corpo) }
   else el.append(document.createTextNode(m.texto))
   return el
@@ -182,11 +257,41 @@ function mostrarConversa(): void {
   rolarFim()
 }
 
+// ---------- Foto no chat ("o que é isso?") ----------
+
+let anexo: string | null = null
+async function reduzirFoto(arquivo: File): Promise<string> {
+  const bmp = await createImageBitmap(arquivo)
+  const escala = Math.min(1, 1280 / Math.max(bmp.width, bmp.height))
+  const c = document.createElement('canvas')
+  c.width = Math.round(bmp.width * escala)
+  c.height = Math.round(bmp.height * escala)
+  c.getContext('2d')?.drawImage(bmp, 0, 0, c.width, c.height)
+  bmp.close()
+  return c.toDataURL('image/jpeg', 0.82)
+}
+function mostrarAnexo(): void {
+  $('anexo').hidden = !anexo
+  if (anexo) $<HTMLImageElement>('anexoImg').src = anexo
+}
+$('foto').addEventListener('click', () => $<HTMLInputElement>('arquivoFoto').click())
+$('arquivoFoto').addEventListener('change', async (e) => {
+  const campo = e.target as HTMLInputElement
+  const f = campo.files?.[0]
+  campo.value = ''
+  if (!f) return
+  try { anexo = await reduzirFoto(f); mostrarAnexo(); entrada.focus() } catch { avisar('Não consegui abrir essa foto.') }
+})
+$('tirarAnexo').addEventListener('click', () => { anexo = null; mostrarAnexo() })
+
 async function enviar(texto: string): Promise<void> {
   texto = texto.trim()
+  if (!texto && anexo) texto = 'O que é isso?'
   if (!texto || respondendo) return
   if (!ajustes.chave) { ir('ajustes'); return }
-  conversa.mensagens.push({ papel: 'user', texto, hora: new Date().toISOString() })
+  conversa.mensagens.push({ papel: 'user', texto, hora: new Date().toISOString(), ...(anexo ? { imagem: anexo } : {}) })
+  anexo = null
+  mostrarAnexo()
   if (conversa.titulo === 'Nova conversa') conversa.titulo = tituloDe(texto)
   mostrarConversa()
   const resposta = document.createElement('div')
@@ -378,6 +483,7 @@ async function mostrarAjustes(): Promise<void> {
   $('versao').textContent = `v${VERSAO}`
   void mostrarControle()
   void mostrarAvisos()
+  void mostrarPc()
   const fatos = await lerMemoria()
   $('memoriaResumo').textContent = fatos.length ? `${fatos.length} ${fatos.length === 1 ? 'coisa' : 'coisas'} que ela sabe sobre você` : 'Nada ainda'
 }
@@ -462,6 +568,10 @@ async function mostrarAvisos(): Promise<void> {
   $<HTMLInputElement>('avMensagens').checked = avisos.mensagens
   $<HTMLInputElement>('avLerTexto').checked = avisos.lerTexto
   $<HTMLInputElement>('avTratamento').value = avisos.tratamento
+  $<HTMLInputElement>('avResumo').checked = avisos.resumoManha
+  $<HTMLInputElement>('avCarro').checked = avisos.modoCarro
+  $<HTMLInputElement>('avCarroNome').value = avisos.carroNome
+  $('avCarroCampo').hidden = !avisos.modoCarro
   desenharImportantes()
   try {
     const { ativo } = await Celular.avisosAtivos()
@@ -474,12 +584,26 @@ async function mostrarAvisos(): Promise<void> {
     }
   } catch { /* versão antiga do app, sem o código nativo */ }
 }
-const opcaoAviso = (id: string, campo: 'ligacoes' | 'soImportantes' | 'mensagens' | 'lerTexto') =>
+const opcaoAviso = (id: string, campo: 'ligacoes' | 'soImportantes' | 'mensagens' | 'lerTexto' | 'resumoManha') =>
   $(id).addEventListener('change', (e) => { if (!avisos) return; avisos[campo] = (e.target as HTMLInputElement).checked; void guardarAvisos() })
 opcaoAviso('avLigacoes', 'ligacoes')
 opcaoAviso('avSoImportantes', 'soImportantes')
 opcaoAviso('avMensagens', 'mensagens')
 opcaoAviso('avLerTexto', 'lerTexto')
+opcaoAviso('avResumo', 'resumoManha')
+$('avCarro').addEventListener('change', async (e) => {
+  if (!avisos) return
+  avisos.modoCarro = (e.target as HTMLInputElement).checked
+  $('avCarroCampo').hidden = !avisos.modoCarro
+  await guardarAvisos()
+  if (avisos.modoCarro) {
+    // Para saber quando o celular conecta no carro, o Android pede a permissão de Bluetooth
+    try { await Celular.requestPermissions({ permissions: ['bluetooth'] }) } catch { /* Android antigo não pede */ }
+    void Celular.religarAvisos().catch(() => {})
+  }
+})
+$('avCarroNome').addEventListener('change', (e) => { if (!avisos) return; avisos.carroNome = (e.target as HTMLInputElement).value.trim(); void guardarAvisos() })
+$('avTestarResumo').addEventListener('click', () => { avisar('Montando o resumo…'); void Celular.resumoAgora().catch(() => avisar('Não consegui montar o resumo.')) })
 $('avTratamento').addEventListener('change', (e) => { if (!avisos) return; avisos.tratamento = (e.target as HTMLInputElement).value.trim(); void guardarAvisos() })
 $('avAdicionar').addEventListener('click', () => {
   const campo = $<HTMLInputElement>('avNovo')
@@ -497,6 +621,63 @@ $('avAtivar').addEventListener('click', () => {
 $('avTestar').addEventListener('click', () => {
   const t = avisos?.tratamento.trim()
   void Celular.testarAviso({ texto: `${t ? `${t}, ` : ''}${avisos?.importantes[0] ?? 'a Mãe'} está te ligando.` })
+})
+
+// FRIDAY do PC: pareamento, ligar o PC, memória
+async function mostrarPc(): Promise<void> {
+  if (!nativo()) { $('secaoPc').hidden = true; return }
+  const elo = await lerElo()
+  $('pcAcoes').hidden = !elo
+  $('pcParear').textContent = elo ? 'Parear de novo' : 'Parear'
+  if (!elo) { $('pcEstado').textContent = 'Não pareado'; return }
+  $('pcEstado').textContent = `${elo.nome} · conferindo…`
+  try {
+    await pedirPC({ acao: 'ping' }, 2500)
+    $('pcEstado').textContent = `${elo.nome} · conectado`
+  } catch {
+    $('pcEstado').textContent = `${elo.nome} · fora do alcance (desligado ou em outra rede)`
+  }
+}
+$('pcParear').addEventListener('click', () => { $('folhaParear').hidden = false })
+$('fecharParear').addEventListener('click', () => { $('folhaParear').hidden = true })
+async function aposParear(nome: Promise<string>): Promise<void> {
+  try {
+    const n = await nome
+    $('folhaParear').hidden = true
+    avisar(`Pareado com ${n}. Agora vocês são uma FRIDAY só.`)
+    escutarPC(eventoDoPc)
+  } catch (e) {
+    avisar((e as Error).message)
+  }
+  void mostrarPc()
+}
+$('lerQR').addEventListener('click', async () => {
+  try {
+    const { texto } = await Celular.lerQR()
+    await aposParear(parearCom(texto))
+  } catch (e) {
+    avisar((e as Error).message)
+  }
+})
+$('parearCodigo').addEventListener('click', () => void aposParear(parearPorCodigo($<HTMLInputElement>('pcIp').value, $<HTMLInputElement>('pcCodigo').value)))
+$('pcAcordar').addEventListener('click', async () => {
+  try {
+    await Celular.acordarPC()
+    avisar('Sinal enviado. Se o PC estiver configurado para ligar pela rede, ele liga em alguns segundos.')
+  } catch (e) {
+    avisar((e as Error).message)
+  }
+})
+$('pcSincronizar').addEventListener('click', async () => {
+  const n = await sincronizarMemoria()
+  avisar(n === null ? 'O PC não respondeu.' : `Memória sincronizada: ${n} coisas.`)
+  void mostrarAjustes()
+})
+$('pcDesparear').addEventListener('click', async () => {
+  if (!confirm('Desparear deste PC? Para voltar, é só parear de novo.')) return
+  await desparear()
+  pararEscuta()
+  void mostrarPc()
 })
 
 async function mostrarMemoria(): Promise<void> {
@@ -527,6 +708,7 @@ $('apagarHistorico').addEventListener('click', async () => {
 
 void App.addListener('backButton', () => {
   if (!$('folhaMemoria').hidden) { $('folhaMemoria').hidden = true; return }
+  if (!$('folhaParear').hidden) { $('folhaParear').hidden = true; return }
   if (voz.ativo) { void voz.parar(); return }
   if (telaAtual === 'ajustes') { ir(telaAntesDosAjustes); return }
   if (telaAtual !== 'voz') { ir('voz'); return }
@@ -535,7 +717,12 @@ void App.addListener('backButton', () => {
 })
 // Saiu do app no meio da conversa: ela continua ouvindo (para mexer em outros apps), com a
 // notificação fixa "FRIDAY está ouvindo" e o botão Encerrar; o silêncio encerra sozinho.
-void App.addListener('resume', () => { if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos() } })
+void App.addListener('resume', () => {
+  if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos(); void mostrarPc() }
+  if (nativo()) escutarPC(eventoDoPc)
+})
+// Fora do app, a escuta do PC para (a não ser no meio de uma conversa por voz)
+void App.addListener('pause', () => { if (!voz.ativo) pararEscuta() })
 
 // ---------- Assistente padrão ----------
 
@@ -550,6 +737,7 @@ if (nativo()) {
   void Celular.addListener('encerrarVoz', () => { if (voz.ativo) void voz.parar() })
   // Ligação ou mensagem importante com a conversa aberta: aparece na tela em vez de falar por cima
   void Celular.addListener('aviso', (d) => voz.aoAcao('AVISO', d.texto, ''))
+  void Celular.addListener('carro', (d) => avisar(d.ativo ? 'Modo carro ligado.' : 'Modo carro desligado.'))
 }
 
 // ---------- Início ----------
@@ -557,3 +745,5 @@ if (nativo()) {
 mostrarConversa()
 ir(ajustes.chave ? 'voz' : 'ajustes')
 if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chamadaPeloAssistente() }).catch(() => {})
+// A memória do celular e a do PC se juntam toda vez que o app abre
+void sincronizarMemoria()

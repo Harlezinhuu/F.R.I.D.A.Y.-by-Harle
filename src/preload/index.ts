@@ -13,7 +13,12 @@ const api: FridayApi = {
   aoAviso: (cb) => { ipcRenderer.on('aviso', (_e, texto: string, ok: boolean) => cb(texto, ok)) },
   fishFalar: (id, texto) => ipcRenderer.invoke('fish-falar', id, texto),
   fishCancelar: () => ipcRenderer.send('fish-cancelar'),
-  aoFishAudio: (cb) => { ipcRenderer.on('fish-audio', (_e, id: number, b64: string, taxa: number) => cb(id, b64, taxa)) }
+  aoFishAudio: (cb) => { ipcRenderer.on('fish-audio', (_e, id: number, b64: string, taxa: number) => cb(id, b64, taxa)) },
+  aoCartao: (cb) => { ipcRenderer.on('cartao', (_e, card, ms: number) => cb(card, ms)) },
+  aoEloAviso: (cb) => { ipcRenderer.on('elo-aviso', (_e, texto: string, ligacao: boolean) => cb(texto, ligacao)) },
+  aoEloFerramenta: (cb) => { ipcRenderer.on('elo-ferramenta', (_e, id: number, nome: string, args: Record<string, unknown>) => cb(id, nome, args)) },
+  eloResponder: (id, r) => ipcRenderer.send('elo-resposta', id, r),
+  contexto: (texto) => ipcRenderer.send('contexto', texto)
 }
 
 contextBridge.exposeInMainWorld('friday', api)

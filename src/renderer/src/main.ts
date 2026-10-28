@@ -200,6 +200,8 @@ async function iniciar(): Promise<void> {
       if (!alertaPendente) hud.setEstado('ouvindo')
     },
     aoFimDoTurno() {
+      // A troca vai para o elo: se você pegar o celular, ela continua dali
+      if (textoFriday.trim()) window.friday.contexto(`${textoUsuario.trim() ? `Você: ${textoUsuario.trim()}\n` : ''}FRIDAY: ${textoFriday.trim()}`)
       fala?.finalizar()
       hud.explicacao.fimDoTurno(alto.restante)
       primeiroAudioDoTurno = true
@@ -357,6 +359,81 @@ async function iniciar(): Promise<void> {
 
   // ---------- Ferramentas ----------
 
+  /** Executa uma ferramenta (pedida pela conversa ou pelo celular pareado) e devolve a resposta para a IA. */
+  async function executarUma(nome: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    let resposta: Record<string, unknown>
+
+    if (nome === 'mostrar_painel') {
+      hud.painel(String(args.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar')
+      resposta = { ok: true, resultado: 'Pronto.' }
+    } else if (nome === 'projetar') {
+      resposta = await projetar(args)
+    } else if (nome === 'controlar_projecao') {
+      resposta = await controlarProjecao(args)
+    } else if (nome === 'gestos') {
+      resposta = await alternarGestos(args.ligar !== false)
+    } else if (nome === 'minimizar') {
+      // Volta ao modo compacto de quando abre: o HUD encolhe na hora e ela volta ao repouso depois de responder
+      maos.desligar()
+      hud.mira(null)
+      hud.compactar()
+      encerrarAoTerminar = true
+      resposta = { ok: true, resultado: 'HUD minimizado. Responda só "Ok." ou uma palavra curta.' }
+    } else if (nome === 'encerrar_conversa') {
+      encerrarAoTerminar = true
+      resposta = { ok: true, resultado: 'A conversa será encerrada depois da sua despedida.' }
+    } else if (nome === 'modo_foco') {
+      const m = iniciarFoco(Number(args.minutos))
+      hud.cartao({ tipo: 'foco', minutos: m })
+      sons.feito()
+      hud.registrarAcao(`Foco de ${m} min`)
+      encerrarAoTerminar = true
+      resposta = { ok: true, resultado: `Modo foco de ${m} minutos ligado. Os lembretes ficam guardados até o fim. Despeça-se em uma frase curta.` }
+    } else if (nome === 'encerrar_foco') {
+      const estava = hud.emFoco
+      hud.encerrarFoco()
+      soltarAvisos()
+      resposta = { ok: true, resultado: estava ? 'Modo foco encerrado.' : 'O modo foco não estava ligado.' }
+    } else if (nome === 'diagnostico') {
+      resposta = await diagnostico()
+    } else if (nome === 'executar_rotina') {
+      resposta = await executarRotina(String(args.nome ?? ''))
+    } else if (nome === 'explicar') {
+      resposta = explicar(args)
+    } else if (nome === 'mandar_para_celular') {
+      resposta = await mandarParaCelular(args)
+    } else if (nome === 'mostrar_cena') {
+      // Responde na hora para a fala não esperar; a foto aparece quando chegar
+      const termo = String(args.termo ?? '').trim()
+      if (cfg.cenas && termo && !hud.projecaoAtiva && !hud.explicacao.ativa) {
+        void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cena(r.card) })
+      }
+      resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
+    } else {
+      const inicio = performance.now()
+      const r = await Promise.race([
+        window.friday.ferramenta(nome, args),
+        esperar(20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
+      ])
+      console.log(`[ferramenta] ${nome} ${r.ok ? 'ok' : r.precisaConfirmacao ? 'pediu confirmação' : 'falhou'} em ${Math.round(performance.now() - inicio)} ms: ${r.mensagem.slice(0, 160)}`)
+      if (r.precisaConfirmacao) {
+        alertaPendente = true
+        turnosDesdeAlerta = 0
+        sons.alerta()
+        hud.setEstado('alerta')
+        hud.confirmacao((r.dados as { pergunta?: string } | undefined)?.pergunta ?? 'Confirma essa ação?')
+      } else if (alertaPendente) {
+        limparAlerta()
+      }
+      if (r.card) hud.cartao(r.card)
+      // Guardar na memória acontece em silêncio, sem som de "feito"
+      const silenciosa = nome === 'memorizar'
+      if (r.ok) { if (!silenciosa) { sons.feito(); hud.registrarAcao(r.mensagem) } } else if (!r.precisaConfirmacao && !silenciosa) sons.erro()
+      resposta = { ok: r.ok, resultado: r.mensagem, ...(r.precisaConfirmacao ? { precisa_confirmacao: true } : {}) }
+    }
+    return resposta
+  }
+
   async function executarFerramentas(chamadas: ChamadaFerramenta[]): Promise<void> {
     hud.setEstado('pensando')
     sons.entendi()
@@ -365,76 +442,7 @@ async function iniciar(): Promise<void> {
 
     for (const c of chamadas) {
       const nome = c.name ?? ''
-      const args = c.args ?? {}
-      let resposta: Record<string, unknown>
-
-      if (nome === 'mostrar_painel') {
-        hud.painel(String(args.painel ?? 'tudo') as 'sistema' | 'modulos' | 'tudo' | 'fechar')
-        resposta = { ok: true, resultado: 'Pronto.' }
-      } else if (nome === 'projetar') {
-        resposta = await projetar(args)
-      } else if (nome === 'controlar_projecao') {
-        resposta = await controlarProjecao(args)
-      } else if (nome === 'gestos') {
-        resposta = await alternarGestos(args.ligar !== false)
-      } else if (nome === 'minimizar') {
-        // Volta ao modo compacto de quando abre: o HUD encolhe na hora e ela volta ao repouso depois de responder
-        maos.desligar()
-        hud.mira(null)
-        hud.compactar()
-        encerrarAoTerminar = true
-        resposta = { ok: true, resultado: 'HUD minimizado. Responda só "Ok." ou uma palavra curta.' }
-      } else if (nome === 'encerrar_conversa') {
-        encerrarAoTerminar = true
-        resposta = { ok: true, resultado: 'A conversa será encerrada depois da sua despedida.' }
-      } else if (nome === 'modo_foco') {
-        const m = iniciarFoco(Number(args.minutos))
-        hud.cartao({ tipo: 'foco', minutos: m })
-        sons.feito()
-        hud.registrarAcao(`Foco de ${m} min`)
-        encerrarAoTerminar = true
-        resposta = { ok: true, resultado: `Modo foco de ${m} minutos ligado. Os lembretes ficam guardados até o fim. Despeça-se em uma frase curta.` }
-      } else if (nome === 'encerrar_foco') {
-        const estava = hud.emFoco
-        hud.encerrarFoco()
-        soltarAvisos()
-        resposta = { ok: true, resultado: estava ? 'Modo foco encerrado.' : 'O modo foco não estava ligado.' }
-      } else if (nome === 'diagnostico') {
-        resposta = await diagnostico()
-      } else if (nome === 'executar_rotina') {
-        resposta = await executarRotina(String(args.nome ?? ''))
-      } else if (nome === 'explicar') {
-        resposta = explicar(args)
-      } else if (nome === 'mostrar_cena') {
-        // Responde na hora para a fala não esperar; a foto aparece quando chegar
-        const termo = String(args.termo ?? '').trim()
-        if (cfg.cenas && termo && !hud.projecaoAtiva && !hud.explicacao.ativa) {
-          void window.friday.ferramenta('buscar_cena', { termo }).then((r) => { if (r.ok && r.card && conversando) hud.cena(r.card) })
-        }
-        resposta = { ok: true, resultado: cfg.cenas ? 'Mostrando na tela. Continue a resposta normalmente.' : 'As cenas estão desligadas.' }
-      } else {
-        const inicio = performance.now()
-        const r = await Promise.race([
-          window.friday.ferramenta(nome, args),
-          esperar(20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
-        ])
-        console.log(`[ferramenta] ${nome} ${r.ok ? 'ok' : r.precisaConfirmacao ? 'pediu confirmação' : 'falhou'} em ${Math.round(performance.now() - inicio)} ms: ${r.mensagem.slice(0, 160)}`)
-        if (r.precisaConfirmacao) {
-          alertaPendente = true
-          turnosDesdeAlerta = 0
-          sons.alerta()
-          hud.setEstado('alerta')
-          hud.confirmacao((r.dados as { pergunta?: string } | undefined)?.pergunta ?? 'Confirma essa ação?')
-        } else if (alertaPendente) {
-          limparAlerta()
-        }
-        if (r.card) hud.cartao(r.card)
-        // Guardar na memória acontece em silêncio, sem som de "feito"
-        const silenciosa = nome === 'memorizar'
-        if (r.ok) { if (!silenciosa) { sons.feito(); hud.registrarAcao(r.mensagem) } } else if (!r.precisaConfirmacao && !silenciosa) sons.erro()
-        resposta = { ok: r.ok, resultado: r.mensagem, ...(r.precisaConfirmacao ? { precisa_confirmacao: true } : {}) }
-      }
-      respostas.push({ id: c.id, name: nome, response: resposta })
+      respostas.push({ id: c.id, name: nome, response: await executarUma(nome, c.args ?? {}) })
     }
     live.responderFerramentas(respostas)
     // Se o Gemini ficar mudo depois da ação, dá um cutucão; se continuar mudo, avisa e volta a ouvir
@@ -466,8 +474,37 @@ async function iniciar(): Promise<void> {
   const descreverModelo = (m: Modelo3D): string =>
     `Projetando ${m.nome} (fonte: ${m.fonte}${m.credito ? `; ${m.credito}` : ''}). ${m.detalhes.join('; ')}.${m.partes.length > 1 ? ` Peças: ${m.partes.slice(0, 12).map((p) => p.nome).filter(Boolean).join(', ')}.` : ''} Comente em uma frase curta.`
 
+  /** O que está projetado agora (para jogar a mesma projeção para o celular). */
+  let ultimaProjecao: { args: Record<string, unknown>; nome: string } | null = null
+
+  async function mandarParaCelular(a: Record<string, unknown>, soSeAberto = false): Promise<Record<string, unknown>> {
+    const oQue = String(a.o_que ?? 'projecao')
+    let evento: Record<string, unknown>
+    if (oQue === 'projecao') {
+      if (!hud.projecaoAtiva || !ultimaProjecao) return { ok: false, resultado: 'Não tem projeção na tela para mandar.' }
+      evento = { tipo: 'projetar', args: ultimaProjecao.args, nome: ultimaProjecao.nome }
+    } else if (oQue === 'link') {
+      const url = String(a.url ?? '').trim()
+      if (!/^https:\/\/\S+$/.test(url)) return { ok: false, resultado: 'Faltou um link https.' }
+      evento = { tipo: 'link', url }
+    } else {
+      const texto = String(a.texto ?? '').trim()
+      if (!texto) return { ok: false, resultado: 'Faltou o texto.' }
+      evento = { tipo: 'texto', texto: texto.slice(0, 2000) }
+    }
+    const r = await window.friday.ferramenta('fila_celular', { evento, so_se_escutando: soSeAberto })
+    if (r.ok && oQue === 'projecao') {
+      // O holograma sai do PC: as partículas voltam para a fita enquanto ele aparece no celular
+      hud.comandoProjecao('fechar')
+      sons.despedida()
+      hud.legenda('SISTEMA', 'Projeção enviada para o celular.')
+    }
+    return { ok: r.ok, resultado: r.mensagem }
+  }
+
   async function projetar(args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const oQue = String(args.o_que ?? '').trim()
+    ultimaProjecao = { args: { ...args }, nome: oQue }
     const ingles = String(args.termo_ingles ?? '').trim()
     const fonte = String(args.fonte ?? 'auto')
     const formula = String(args.formula ?? '').trim()
@@ -544,6 +581,12 @@ async function iniciar(): Promise<void> {
         case 'explodir': if (!p.explodida) { hud.comandoProjecao('explodir'); sons.entendi() } break
         case 'juntar': if (p.explodida) { hud.comandoProjecao('juntar'); sons.entendi() } break
         case 'arremessar':
+          // Com o app do celular aberto, o holograma vai para o celular; senão, sai da tela
+          if (ultimaProjecao && (ultimaProjecao.args.fonte === 'forma' || ultimaProjecao.args.fonte === 'funcao' || acharForma(String(ultimaProjecao.args.o_que ?? '')) || ultimaProjecao.args.formula)) {
+            void mandarParaCelular({ o_que: 'projecao' }, true).then((r) => { if (!r.ok) { hud.comandoProjecao('fechar'); sons.despedida() } })
+            hud.mira(null)
+            break
+          }
           // Como o Tony jogando o holograma fora
           p.selecionar(-1)
           hud.comandoProjecao('fechar')
@@ -755,6 +798,25 @@ async function iniciar(): Promise<void> {
       ? `A tarefa ${t.id} do projeto ${t.projeto} está pronta. ${primeira}`
       : t.estado === 'sem mudanças' ? `A tarefa ${t.id} terminou sem mudar nenhum arquivo.` : `A tarefa ${t.id} falhou. ${primeira}`
     void avisar(fala)
+  })
+
+  // ---------- Elo com o celular ----------
+
+  // Cartões mandados pelo processo principal (QR do pareamento, ações pedidas pelo celular)
+  window.friday.aoCartao((card, ms) => hud.cartao(card, ms))
+
+  // Ligação ou mensagem no celular enquanto você está no PC: quem avisa é o PC
+  window.friday.aoEloAviso((texto, ligacao) => {
+    sons.alerta()
+    hud.cartao({ tipo: 'aviso', titulo: ligacao ? 'LIGAÇÃO NO CELULAR' : 'NO CELULAR', texto }, ligacao ? 20000 : 12000)
+    void avisar(texto)
+  })
+
+  // O celular pediu uma ação do HUD (projetar, rotina, foco...)
+  window.friday.aoEloFerramenta((id, nome, args) => {
+    void executarUma(nome, args)
+      .then((r) => window.friday.eloResponder(id, { ok: r.ok === true, mensagem: String(r.resultado ?? ''), ...(r.precisa_confirmacao ? { precisaConfirmacao: true } : {}) }))
+      .catch((e) => window.friday.eloResponder(id, { ok: false, mensagem: (e as Error).message }))
   })
 
   // Ação em segundo plano terminou (ex.: a Visão de Deus acabou de instalar)

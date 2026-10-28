@@ -42,6 +42,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -55,7 +57,8 @@ import java.util.TimeZone;
         @Permission(alias = "contatos", strings = { Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS }),
         @Permission(alias = "telefone", strings = { Manifest.permission.CALL_PHONE }),
         @Permission(alias = "sms", strings = { Manifest.permission.SEND_SMS }),
-        @Permission(alias = "agenda", strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR })
+        @Permission(alias = "agenda", strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR }),
+        @Permission(alias = "bluetooth", strings = { Manifest.permission.BLUETOOTH_CONNECT })
     }
 )
 public class CelularPlugin extends Plugin {
@@ -116,6 +119,140 @@ public class CelularPlugin extends Plugin {
         notifyListeners("encerrarVoz", new JSObject());
     }
 
+    void avisarCarro(boolean ligado) {
+        JSObject o = new JSObject();
+        o.put("ativo", ligado);
+        notifyListeners("carro", o);
+    }
+
+    // ---------- Elo com o PC ----------
+
+    /** Rede em threads próprias: a escuta do PC segura a conexão por até 30 s e não pode travar as outras funções. */
+    private static final java.util.concurrent.ExecutorService REDE = java.util.concurrent.Executors.newCachedThreadPool();
+
+    @PluginMethod
+    public void eloPedir(PluginCall call) {
+        JSObject dados = call.getObject("dados", new JSObject());
+        int limite = call.getInt("limite", 8000);
+        REDE.execute(() -> {
+            try {
+                JSONObject r = Elo.pedir(ctx(), dados, limite);
+                JSObject o = new JSObject();
+                o.put("resposta", r);
+                call.resolve(o);
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void eloParearCodigo(PluginCall call) {
+        REDE.execute(() -> {
+            try {
+                String p = Elo.parearCodigo(call.getString("ip", ""), call.getInt("porta", 47923), call.getString("codigo", ""), Build.MANUFACTURER + " " + Build.MODEL);
+                JSObject o = new JSObject();
+                o.put("pareamento", p);
+                call.resolve(o);
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void nomeDoAparelho(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("nome", Build.MANUFACTURER.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + Build.MANUFACTURER.substring(1) + " " + Build.MODEL);
+        call.resolve(o);
+    }
+
+    @PluginMethod
+    public void lerQR(PluginCall call) {
+        try {
+            com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions op = new com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+                .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE)
+                .build();
+            com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(getActivity(), op).startScan()
+                .addOnSuccessListener(b -> {
+                    JSObject o = new JSObject();
+                    o.put("texto", b.getRawValue() == null ? "" : b.getRawValue());
+                    call.resolve(o);
+                })
+                .addOnCanceledListener(() -> call.reject("Leitura cancelada."))
+                .addOnFailureListener(e -> call.reject("Não consegui abrir o leitor de QR (" + e.getMessage() + "). Use o código de 8 dígitos."));
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    @PluginMethod
+    public void acordarPC(PluginCall call) {
+        REDE.execute(() -> {
+            try {
+                JSObject o = new JSObject();
+                o.put("enviados", Elo.acordar(ctx()));
+                call.resolve(o);
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    // ---------- Mensagens recentes, resumo da manhã e modo carro ----------
+
+    @PluginMethod
+    public void mensagensRecentes(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("mensagens", FridayAvisos.recentes(Boolean.TRUE.equals(call.getBoolean("soImportantes", false))));
+        o.put("ativo", FridayAvisos.conectado);
+        call.resolve(o);
+    }
+
+    @PluginMethod
+    public void responderMensagem(PluginCall call) {
+        try {
+            JSObject o = new JSObject();
+            o.put("para", FridayAvisos.responder(ctx(), call.getString("remetente", ""), call.getString("texto", "")));
+            call.resolve(o);
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    @PluginMethod
+    public void resumoTexto(PluginCall call) {
+        REDE.execute(() -> {
+            try {
+                JSObject o = new JSObject();
+                o.put("texto", Resumo.montar(ctx()));
+                call.resolve(o);
+            } catch (Exception e) {
+                falhou(call, e);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void resumoAgora(PluginCall call) {
+        Resumo.falar(ctx());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void modoCarro(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("ativo", FridayAvisos.modoCarro);
+        call.resolve(o);
+    }
+
+    @PluginMethod
+    public void religarAvisos(PluginCall call) {
+        FridayAvisos a = FridayAvisos.instancia;
+        if (a != null) a.ligarBluetooth();
+        call.resolve();
+    }
+
     void avisarAviso(String frase) {
         JSObject o = new JSObject();
         o.put("texto", frase);
@@ -159,7 +296,7 @@ public class CelularPlugin extends Plugin {
     @PluginMethod
     public void testarAviso(PluginCall call) {
         try {
-            Locutor.falar(ctx(), call.getString("texto", "Avisos por voz funcionando."), false);
+            Locutor.falar(ctx(), call.getString("texto", "Avisos por voz funcionando."), false, false);
             call.resolve();
         } catch (Exception e) {
             falhou(call, e);

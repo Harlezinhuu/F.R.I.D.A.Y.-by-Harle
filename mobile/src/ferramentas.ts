@@ -3,12 +3,13 @@
 // parâmetros); o que muda é como cada uma é executada aqui.
 
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { TOOL_DECLARATIONS, type ToolDeclaration } from '../../src/shared/tools'
+import { TOOL_DECLARATIONS, TOOLS_REMOTAS, type ToolDeclaration } from '../../src/shared/tools'
 import { checarFato, ehRepetido, encontrarPorTrecho, paraPrompt, CATEGORIAS, type Categoria, type Fato } from '../../src/main/logica/memoria'
 import { acharLocal, buscarPrevisao, resumir, type Local } from '../../src/shared/tempo'
 import { buscarNaInternet, paraFala } from '../../src/shared/busca'
 import { lerAjustes, lerAvisos, lerLista, salvarAvisos, salvarLista } from './armazem'
 import { Celular, explicarErro, garantir, nativo } from './celular'
+import { pareado, pedirPC, sincronizarMemoria } from './elo'
 import {
   acharApp, acharContato, botaoSensivel, diasDoAlarme, horaMinuto, normalizar, numeroWhatsapp, pareceNumero, resumirTela,
   type App, type Contato, type Tela
@@ -16,7 +17,7 @@ import {
 
 const NOMES = [
   'criar_lembrete', 'criar_timer', 'listar_lembretes', 'cancelar_lembrete', 'clima', 'buscar_na_internet', 'pesquisar_web', 'abrir_site',
-  'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa'
+  'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'explicar'
 ]
 
 const S = (description: string, e?: string[]) => ({ type: 'STRING' as const, description, ...(e ? { enum: e } : {}) })
@@ -99,8 +100,31 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
   }
 ]
 
+/** A FRIDAY do PC, pelo elo: as ferramentas do PC que o celular pode pedir, com "pc_" na frente. */
+const FERRAMENTAS_PC: ToolDeclaration[] = [
+  ...TOOL_DECLARATIONS.filter((t) => TOOLS_REMOTAS.includes(t.name)).map((t) => ({ ...t, name: `pc_${t.name}`, description: `No PC (pela FRIDAY do PC): ${t.description}` })),
+  { name: 'acordar_pc', description: 'Liga o PC pela rede (Wake-on-LAN), quando ele está desligado ou dormindo. Precisa estar na mesma rede de casa.' },
+  { name: 'sincronizar_com_pc', description: 'Junta a memória do celular com a do PC agora ("sincroniza com o PC").' }
+]
+
+const FERRAMENTAS_MENSAGENS: ToolDeclaration[] = [
+  {
+    name: 'responder_mensagem',
+    description: 'Responde uma mensagem que acabou de chegar (WhatsApp, SMS, Telegram...) pelo botão Responder da notificação, sem abrir o app. Sem contato = a última mensagem que você avisou. Leia a resposta para ele e só chame com confirmado=true depois que ele confirmar.',
+    parameters: { type: 'OBJECT', properties: { contato: S('Quem mandou (ou o grupo). Vazio = a última avisada.'), texto: S('A resposta, do jeito que vai sair.'), confirmado: CONFIRMADO }, required: ['texto'] }
+  },
+  {
+    name: 'mensagens_recentes',
+    description: 'Lê as mensagens que chegaram nas últimas 2 horas ("quem me mandou mensagem?", "o que a Mãe disse?", "o que rolou no grupo?").',
+    parameters: { type: 'OBJECT', properties: { so_importantes: B('Só dos contatos importantes.'), de: S('Só de quem (ou de qual grupo).') } }
+  },
+  { name: 'resumo_da_manha', description: 'Fala agora o resumo do dia: clima, agenda, lembretes e mensagens da noite ("me dá o resumo do dia").' }
+]
+
 /** Ferramentas do celular (as do PC que fazem sentido aqui, mais o controle do próprio celular). */
 export const FERRAMENTAS_CELULAR: ToolDeclaration[] = [
+  ...FERRAMENTAS_PC,
+  ...FERRAMENTAS_MENSAGENS,
   ...TOOL_DECLARATIONS.filter((t) => NOMES.includes(t.name))
     // No celular, projeção só de formas e funções (desenhadas na hora)
     .map((t) => t.name === 'projetar' ? { ...t, description: 'Projeta um holograma 3D na tela de voz: formas da ciência (Möbius, toro, DNA, átomo, tesseract, sistema solar, Lorenz, galáxia, buraco negro, sólidos, onda, sela) ou funções z = f(x, y, t).' } : t),
@@ -119,7 +143,9 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Para fazer algo dentro de um app: abrir_app e depois tocar_tela, escrever_tela e rolar_tela usando os números (#) da tela. Cada ação já devolve a tela nova; use ler_tela só se precisar. No máximo 15 passos por pedido; se travar, diga onde parou.',
     'Ligações, mensagens e botões de pagar, comprar, enviar ou apagar: diga em uma frase o que vai fazer, espere ele confirmar e só então chame com confirmado=true.',
     'Nunca escreva senhas, códigos de verificação ou dados de cartão. Apps de banco e pagamento são protegidos: se pedirem, diga que essa parte é com ele.',
-    'Programas e arquivos do PC ainda não: o celular não está ligado ao PC.',
+    'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
+    '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
+    'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
     extra,
     `Agora é ${data} (horário de Brasília).`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])
@@ -129,6 +155,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
 export interface Resultado { ok: boolean; mensagem: string; /** Ação que espera o "confirma" do usuário */ confirmar?: string }
 export interface Contexto {
   projetar(args: Record<string, unknown>): Promise<Resultado>
+  explicar?(args: Record<string, unknown>): Promise<Resultado>
   controlarProjecao(args: Record<string, unknown>): Promise<Resultado>
   encerrar(): void
 }
@@ -250,6 +277,7 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
         if (ehRepetido(c.texto, fatos)) return { ok: true, mensagem: 'Já sabia.' }
         const categoria = (CATEGORIAS as string[]).includes(str(a.categoria)) ? (str(a.categoria) as Categoria) : 'outro'
         await salvarLista('memoria', [...fatos, { id: crypto.randomUUID(), texto: c.texto, categoria, criadoEm: new Date().toISOString() }].slice(-300))
+        void sincronizarMemoria()
         return { ok: true, mensagem: 'Guardado.' }
       }
       case 'o_que_sabe': {
@@ -263,22 +291,54 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
         if (a.tudo === true) {
           if (a.confirmado !== true) return { ok: false, mensagem: `Precisa de confirmação: apagar as ${fatos.length} coisas que sei sobre ele. Pergunte antes.` }
           await salvarLista('memoria', [])
+          await esquecidos(fatos.map((f) => f.texto))
           return { ok: true, mensagem: 'Memória apagada.' }
         }
         const achados = encontrarPorTrecho(str(a.trecho), fatos)
         if (!achados.length) return { ok: false, mensagem: 'Não achei isso na memória.' }
         await salvarLista('memoria', fatos.filter((f) => !achados.includes(f)))
+        await esquecidos(achados.map((f) => f.texto))
         return { ok: true, mensagem: `Esqueci: ${achados.map((f) => f.texto).join('; ')}.` }
       }
       case 'projetar': return await ctx.projetar(a)
       case 'controlar_projecao': return await ctx.controlarProjecao(a)
       case 'encerrar_conversa': ctx.encerrar(); return { ok: true, mensagem: 'A conversa será encerrada depois da despedida.' }
+      case 'explicar': return ctx.explicar ? await ctx.explicar(a) : { ok: true, mensagem: 'Explique falando.' }
       default:
-        if (FERRAMENTAS_TELEFONE.some((t) => t.name === nome)) return await telefone(nome, a)
+        if (nome.startsWith('pc_') || nome === 'acordar_pc' || nome === 'sincronizar_com_pc') return await noPc(nome, a)
+        if (FERRAMENTAS_TELEFONE.some((t) => t.name === nome) || FERRAMENTAS_MENSAGENS.some((t) => t.name === nome)) return await telefone(nome, a)
         return { ok: false, mensagem: `Isso eu ainda não faço no celular (${nome}).` }
     }
   } catch (e) {
     return { ok: false, mensagem: explicarErro(e) || 'Algo deu errado.' }
+  }
+}
+
+/** Fatos apagados no celular não voltam quando a memória do PC for juntada. */
+async function esquecidos(textos: string[]): Promise<void> {
+  await salvarLista('memoria_esquecida', [...(await lerLista<string>('memoria_esquecida')), ...textos].slice(-500))
+  void sincronizarMemoria()
+}
+
+// ---------- A FRIDAY do PC, pelo elo ----------
+
+async function noPc(nome: string, a: Record<string, unknown>): Promise<Resultado> {
+  if (!(await pareado())) return { ok: false, mensagem: 'O celular ainda não está pareado com o PC. No PC, diga "Friday, pareia o celular"; aqui, Ajustes > FRIDAY do PC > Parear.' }
+  if (nome === 'acordar_pc') {
+    const r = await Celular.acordarPC()
+    return { ok: true, mensagem: `Mandei o sinal para ligar o PC (${r.enviados} pacotes). Se o PC estiver configurado para ligar pela rede, ele liga em alguns segundos.` }
+  }
+  if (nome === 'sincronizar_com_pc') {
+    const n = await sincronizarMemoria()
+    return n === null ? { ok: false, mensagem: 'O PC não respondeu.' } : { ok: true, mensagem: `Memória sincronizada: ${n} coisas que sei sobre você, iguais no PC e aqui.` }
+  }
+  try {
+    const r = await pedirPC<{ ok: boolean; mensagem: string; precisaConfirmacao?: boolean }>({ acao: 'ferramenta', nome: nome.slice(3), args: a }, 25_000)
+    if (r.precisaConfirmacao) return { ok: false, confirmar: String(r.mensagem).replace(/^Precisa de confirmação: /, ''), mensagem: `${r.mensagem} Se ele confirmar, chame de novo com confirmado=true.` }
+    return { ok: r.ok === true, mensagem: String(r.mensagem ?? '') || (r.ok ? 'Feito no PC.' : 'O PC não conseguiu.') }
+  } catch (e) {
+    const m = explicarErro(e)
+    return { ok: false, mensagem: /não respondeu|desligado/.test(m) ? `${m} Posso tentar ligar o PC pela rede (acordar_pc).` : m }
   }
 }
 
@@ -445,6 +505,27 @@ async function telefone(nome: string, a: Record<string, unknown>): Promise<Resul
       return { ok: true, mensagem: eventos.map((e) => `${e.titulo} (${e.diaInteiro ? new Date(e.inicio).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' }) + ', dia inteiro' : fmtEvento(new Date(e.inicio))}${e.local ? `, ${e.local}` : ''})`).join('; ') }
     }
 
+    case 'responder_mensagem': {
+      const texto = str(a.texto)
+      if (!texto) return { ok: false, mensagem: 'Faltou o texto da resposta.' }
+      const contato = str(a.contato)
+      if (a.confirmado !== true) return { ok: false, confirmar: `Responder${contato ? ` para ${contato}` : ''}: "${texto}"`, mensagem: `Precisa de confirmação: responder${contato ? ` para ${contato}` : ' a última mensagem'} dizendo "${texto}". Leia para ele e, se confirmar, chame de novo com confirmado=true.` }
+      const r = await Celular.responderMensagem({ remetente: contato, texto })
+      return { ok: true, mensagem: `Respondido para ${r.para}.` }
+    }
+    case 'mensagens_recentes': {
+      const r = await Celular.mensagensRecentes({ soImportantes: a.so_importantes === true })
+      if (!r.ativo) return { ok: false, mensagem: 'Preciso do acesso às notificações para ver as mensagens. Ajustes > Avisos por voz > Ativar.' }
+      const de = normalizar(str(a.de))
+      const lista = r.mensagens.filter((m) => !de || normalizar(m.remetente).includes(de) || normalizar(m.grupo).includes(de)).slice(-25)
+      if (!lista.length) return { ok: true, mensagem: de ? `Nada de ${str(a.de)} nas últimas 2 horas.` : 'Nenhuma mensagem nas últimas 2 horas.' }
+      const hora = (t: number) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      return { ok: true, mensagem: lista.map((m) => `${hora(m.quando)} ${m.remetente}${m.grupo && m.grupo !== m.remetente ? ` (${m.grupo})` : ''} no ${m.app}: ${m.texto}`).join('\n') }
+    }
+    case 'resumo_da_manha': {
+      const r = await Celular.resumoTexto()
+      return { ok: true, mensagem: `Fale este resumo com a sua voz, natural e sem pressa: ${r.texto}` }
+    }
     case 'contato_importante': {
       const av = await lerAvisos()
       const acao = str(a.acao) || 'listar'

@@ -5,9 +5,10 @@ import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { checarFato, ehRepetido, encontrarPorTrecho, paraPrompt, MAX_FATOS, CATEGORIAS, type Categoria, type Fato } from './logica/memoria'
+import { checarFato, ehRepetido, encontrarPorTrecho, mesclarMemoria, paraPrompt, MAX_FATOS, CATEGORIAS, type Categoria, type Fato } from './logica/memoria'
 
-interface Arquivo { ativa: boolean; fatos: Fato[] }
+/** `esquecidos`: textos apagados, para não voltarem quando a memória do celular for juntada. */
+interface Arquivo { ativa: boolean; fatos: Fato[]; esquecidos?: string[] }
 
 const caminho = (): string => join(app.getPath('userData'), 'memoria.json')
 
@@ -16,7 +17,7 @@ function ler(): Arquivo {
     if (!existsSync(caminho())) return { ativa: true, fatos: [] }
     const d = JSON.parse(readFileSync(caminho(), 'utf8')) as Partial<Arquivo>
     const fatos = Array.isArray(d.fatos) ? d.fatos.filter((f) => f && typeof f.texto === 'string' && typeof f.id === 'string') : []
-    return { ativa: d.ativa !== false, fatos }
+    return { ativa: d.ativa !== false, fatos, esquecidos: Array.isArray(d.esquecidos) ? d.esquecidos.map(String).slice(-500) : [] }
   } catch {
     return { ativa: true, fatos: [] }
   }
@@ -58,14 +59,26 @@ export function esquecer(trecho: string): Fato[] {
   const d = ler()
   const alvo = encontrarPorTrecho(trecho, d.fatos)
   if (!alvo.length) return []
-  salvar({ ...d, fatos: d.fatos.filter((f) => !alvo.includes(f)) })
+  salvar({ ...d, fatos: d.fatos.filter((f) => !alvo.includes(f)), esquecidos: [...(d.esquecidos ?? []), ...alvo.map((f) => f.texto)].slice(-500) })
   return alvo
 }
 
 export function esquecerTudo(): number {
   const d = ler()
-  salvar({ ...d, fatos: [] })
+  salvar({ ...d, fatos: [], esquecidos: [...(d.esquecidos ?? []), ...d.fatos.map((f) => f.texto)].slice(-500) })
   return d.fatos.length
 }
 
 export const memoriaParaPrompt = (): string => (ler().ativa ? paraPrompt(ler().fatos) : '')
+
+/** Junta a memória do celular com a do PC (pelo elo) e devolve a memória inteira, para os dois ficarem iguais. */
+export function sincronizar(fatos: unknown[], esquecidos: string[]): { fatos: Fato[]; esquecidos: string[] } {
+  const d = ler()
+  const todosEsquecidos = [...new Set([...(d.esquecidos ?? []), ...esquecidos])].slice(-500)
+  const validos = fatos.filter((f): f is Fato => !!f && typeof (f as Fato).texto === 'string' && typeof (f as Fato).id === 'string' && typeof (f as Fato).criadoEm === 'string')
+    .map((f) => ({ id: f.id, texto: f.texto.slice(0, 200), categoria: (CATEGORIAS as string[]).includes(f.categoria) ? f.categoria : 'outro', criadoEm: f.criadoEm }) as Fato)
+    .filter((f) => checarFato(f.texto).ok)
+  const juntos = d.ativa ? mesclarMemoria(d.fatos, validos, todosEsquecidos) : d.fatos
+  salvar({ ...d, fatos: juntos, esquecidos: todosEsquecidos })
+  return { fatos: juntos, esquecidos: todosEsquecidos }
+}

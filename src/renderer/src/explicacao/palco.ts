@@ -126,6 +126,7 @@ export class Palco {
   private alfa = 0
   private alfaAlvo = 0
   private raf = 0
+  private retrato = false
   private agora = 0
   private ultimo = 0
   private quadros = 0
@@ -242,7 +243,14 @@ export class Palco {
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
     // Em telas estreitas a câmera recua para a palavra caber
-    this.camera.position.z = 11 * Math.max(1, 1.6 / this.camera.aspect)
+    // Tela em pé (celular): palavra mais de frente, mais alta e ocupando a largura
+    this.retrato = this.camera.aspect < 1
+    this.camera.position.z = this.retrato ? 11 : 11 * Math.max(1, 1.6 / this.camera.aspect)
+    this.plano.compose(
+      this.retrato ? new THREE.Vector3(0, 1.4, 0.6) : new THREE.Vector3(-0.35, 0.5, 0.6),
+      new THREE.Quaternion().setFromEuler(this.retrato ? new THREE.Euler(-0.05, -0.22, 0.02) : new THREE.Euler(-0.06, -0.42, 0.035)),
+      new THREE.Vector3(1, 1, 1)
+    )
     this.camera.updateProjectionMatrix()
     this.uPontos.uPixel.value = pr * (h / 1080) * 1.25
   }
@@ -306,7 +314,8 @@ export class Palco {
     const { pts, largura } = amostrarTexto(texto, 3600)
     const total = Math.min(pts.length / 2, MAX_NA_PALAVRA)
     // Escala: cabe na largura do palco e não fica alta demais
-    const larguraMax = 7.2 * Math.min(1, this.camera.aspect / 1.6)
+    const larguraVisivel = 2 * this.camera.position.z * Math.tan((this.camera.fov * Math.PI) / 360) * this.camera.aspect
+    const larguraMax = this.retrato ? larguraVisivel * 0.9 : 7.2 * Math.min(1, this.camera.aspect / 1.6)
     const altura = Math.min(2.6, larguraMax / Math.max(largura, 0.1))
     const linhas = pts.length / 2
     const ordem = Array.from({ length: linhas }, (_, k) => k)
@@ -387,7 +396,8 @@ export class Palco {
     // Câmera balançando devagar: dá volume ao palco
     this.camera.position.x = Math.sin(t * 0.13) * 0.55
     this.camera.position.y = Math.sin(t * 0.09) * 0.3
-    this.camera.lookAt(0.4, 0.25, -3)
+    if (this.retrato) this.camera.lookAt(0, 0.9, -3)
+    else this.camera.lookAt(0.4, 0.25, -3)
 
     const tmp = new Float32Array(3)
     const varrer = (t - this.tPalavra) * 0.9 - 0.3 // brilho que passa pela palavra depois que ela monta

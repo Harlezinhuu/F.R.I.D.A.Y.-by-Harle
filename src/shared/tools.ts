@@ -17,7 +17,14 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular'] as const
+
+/** Ferramentas do PC que o celular pareado pode pedir pelo elo (o resto fica só no PC). */
+export const TOOLS_REMOTAS = [
+  'listar_apps', 'abrir_app', 'fechar_app', 'volume', 'midia', 'pesquisar_web', 'abrir_site', 'status_sistema', 'capturar_tela',
+  'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
+  'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel'
+]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
 
@@ -312,6 +319,35 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       required: ['tema', 'palavras']
     }
   },
+  {
+    name: 'parear_celular',
+    description: 'Mostra na tela o QR Code e o código para parear o app FRIDAY do celular com este PC ("pareia o celular", "conecta o celular").'
+  },
+  {
+    name: 'energia_pc',
+    description: 'Bloqueia, suspende, desliga ou reinicia o PC. Desligar e reiniciar pedem confirmação antes; "cancelar" desfaz um desligamento agendado.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['bloquear', 'suspender', 'desligar', 'reiniciar', 'cancelar'] },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que o usuário confirmou.' }
+      },
+      required: ['acao']
+    }
+  },
+  {
+    name: 'mandar_para_celular',
+    description: 'Manda algo para o app FRIDAY no celular: a projeção 3D que está na tela, um link ou um texto ("joga isso pro celular", "manda esse site pro celular").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        o_que: { type: 'STRING', description: 'O que mandar.', enum: ['projecao', 'link', 'texto'] },
+        url: { type: 'STRING', description: 'O link (https), quando for link.' },
+        texto: { type: 'STRING', description: 'O texto, quando for texto.' }
+      },
+      required: ['o_que']
+    }
+  },
   { name: 'listar_projetos', description: 'Lista os projetos de programação configurados para tarefas.' },
   {
     name: 'tarefa_programacao',
@@ -429,6 +465,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Para qualquer coisa atual (notícias, jogos, preços, cotações, eventos) ou que você não tenha certeza, use buscar_na_internet e diga de onde veio em poucas palavras. Para clima, use clima (qualquer lugar do mundo, até 16 dias).',
     'Com uma projeção 3D na tela, não chame mostrar_cena nem explicar. Pedidos como "gira", "explode", "inverte", "renderiza", "aproxima", "corta", "salva" ou "fecha" se referem à projeção: use controlar_projecao.',
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
+    'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])

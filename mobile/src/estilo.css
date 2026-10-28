@@ -221,8 +221,8 @@ body[data-tela="chat"] .dock { height: calc(96px + var(--base)) }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
 
 /* Controle do celular */
-.dica { margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: var(--apagado) }
-.dica b { color: var(--ink); font-weight: 500 }
+.cartao .dica { margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: var(--apagado) }
+.cartao .dica b { color: var(--ink); font-weight: 500 }
 .link-texto { padding: 0; background: none; border: 0; font: inherit; color: var(--ciano); text-decoration: underline; text-underline-offset: 2px }
 .importantes { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
 .importantes li { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; border: 1px solid var(--borda); font-size: 13px }
@@ -231,3 +231,52 @@ body[data-tela="chat"] .dock { height: calc(96px + var(--base)) }
 .importantes svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2 }
 .adicionar { display: flex; gap: 8px; align-items: center }
 .adicionar input { flex: 1; min-width: 0 }
+
+/* Elo com o PC */
+.pc-acoes { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px }
+.pc-acoes .botao { flex: 1; min-width: 140px }
+.dica-folha { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; color: var(--apagado) }
+.dica-folha b { color: var(--ink); font-weight: 500 }
+.folha-painel .campo { margin-bottom: 10px }
+.folha-painel .botao, .folha-painel > .vidro { width: 100%; min-height: 48px; margin-bottom: 14px }
+
+/* Olhos: câmera no modo de voz */
+.olhos { position: absolute; right: 16px; top: calc(64px + env(safe-area-inset-top)); z-index: 3 }
+.olhos[aria-pressed="true"] { border-color: var(--ciano); color: var(--ciano); box-shadow: 0 0 18px rgba(95, 225, 242, .35) }
+.olhos-previa { position: absolute; left: 16px; top: calc(64px + env(safe-area-inset-top)); z-index: 3; width: 34vw; max-width: 160px; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden; border: 1px solid var(--ciano); box-shadow: 0 0 24px rgba(95, 225, 242, .25); background: #000 }
+.olhos-previa video { width: 100%; height: 100%; object-fit: cover; display: block }
+.olhos-previa span { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; font-family: var(--f-mono); font-size: 9px; letter-spacing: .18em; color: var(--ciano); background: linear-gradient(transparent, rgba(0, 0, 0, .8)) }
+
+/* Foto no chat */
+.anexo { position: relative; flex: none; width: 44px; height: 44px; border-radius: 10px; overflow: hidden; border: 1px solid var(--borda) }
+.anexo img { width: 100%; height: 100%; object-fit: cover; display: block }
+.anexo button { position: absolute; right: 0; top: 0; width: 18px; height: 18px; border: 0; border-radius: 0 0 0 8px; background: rgba(0, 0, 0, .7); color: #fff; font-size: 13px; line-height: 1 }
+.msg .foto-msg { display: block; max-width: 220px; max-height: 260px; border-radius: 12px; margin-bottom: 6px }
+
+/* Modo explicação no celular (o palco e as palavras vêm do PC) */
+.palco { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 1 }
+.explic { position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0; transition: opacity .7s ease }
+.explic.visivel { opacity: 1 }
+body.explicando .saudacao, body.explicando .legenda { opacity: .15 }
+.explic-topo { position: absolute; left: 16px; right: 16px; top: calc(110px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 6px }
+.explic-rotulo { font-family: var(--f-mono); font-size: 10px; letter-spacing: .28em; color: var(--ciano) }
+.explic-rotulo b { font-weight: 500; color: var(--ink); margin-left: 8px }
+.explic-topo h2 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .06em; line-height: 1.1; text-transform: uppercase; text-shadow: 0 0 16px rgba(95, 225, 242, .6) }
+.explic-barra { width: 160px; height: 2px; background: rgba(255, 255, 255, .12) }
+.explic-barra i { display: block; width: 0; height: 100%; background: var(--ciano); transition: width .5s ease }
+.explic-trilha { display: none }
+.explic-cartoes { position: absolute; left: 16px; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom)); display: flex; flex-direction: column }
+.ecard { position: relative; padding: 10px; border-radius: 14px; background: rgba(8, 12, 30, .82); border: 1px solid rgba(95, 225, 242, .3); display: flex; flex-direction: column; gap: 6px; opacity: 0; transform: translateY(24px) scale(.96); transition: opacity .6s ease, transform .7s cubic-bezier(.2, .8, .2, 1) }
+.ecard.dentro { opacity: 1; transform: none }
+.ecard.saindo, .ecard:nth-child(n+2) { display: none }
+.ecard header { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 9px; letter-spacing: .22em; color: var(--ciano) }
+.ecard-foto { aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: #050b1a }
+.ecard-foto img { width: 100%; height: 100%; object-fit: cover; display: block }
+.ecard h3 { margin: 0; font-family: var(--f-display); font-size: 14px; letter-spacing: .08em; text-transform: uppercase }
+.ecard p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--apagado); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
+.ecard.fato p { font-size: 14px; color: var(--ink); border-left: 2px solid var(--ciano); padding-left: 10px }
+.ecard.fato.alerta p { border-color: #FF3347 }
+.explic-carimbo { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) rotate(-11deg); font-family: var(--f-display); font-weight: 700; font-size: 56px; letter-spacing: .1em; padding: .06em .3em .02em; color: #FF3347; border: .07em solid currentColor; border-radius: .06em; text-shadow: 0 0 20px rgba(255, 51, 71, .55); opacity: 0 }
+.explic-carimbo.bom { color: #5BE3A8; text-shadow: 0 0 20px rgba(91, 227, 168, .55) }
+.explic-carimbo.bater { animation: carimbo .6s cubic-bezier(.3, 1.4, .5, 1) forwards }
+@keyframes carimbo { from { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(2.4) } to { opacity: 1; transform: translate(-50%, -50%) rotate(-11deg) scale(1) } }

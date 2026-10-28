@@ -4,8 +4,10 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import type { App, Contato, Tela } from './celular-logica'
 
-export type Permissao = 'contatos' | 'telefone' | 'sms' | 'agenda'
+export type Permissao = 'contatos' | 'telefone' | 'sms' | 'agenda' | 'bluetooth'
 type Estado = 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
+
+export interface MensagemRecente { app: string; remetente: string; grupo: string; texto: string; quando: number; responder: boolean }
 
 export interface Evento { titulo: string; inicio: number; fim: number; diaInteiro: boolean; local: string }
 
@@ -14,6 +16,19 @@ interface CelularPlugin {
   requestPermissions(o?: { permissions: Permissao[] }): Promise<Record<Permissao, Estado>>
   addListener(evento: 'assistente' | 'encerrarVoz', cb: () => void): Promise<PluginListenerHandle>
   addListener(evento: 'aviso', cb: (d: { texto: string }) => void): Promise<PluginListenerHandle>
+  addListener(evento: 'carro', cb: (d: { ativo: boolean }) => void): Promise<PluginListenerHandle>
+
+  eloPedir(o: { dados: Record<string, unknown>; limite?: number }): Promise<{ resposta: Record<string, unknown> }>
+  eloParearCodigo(o: { ip: string; porta: number; codigo: string }): Promise<{ pareamento: string }>
+  nomeDoAparelho(): Promise<{ nome: string }>
+  lerQR(): Promise<{ texto: string }>
+  acordarPC(): Promise<{ enviados: number }>
+  mensagensRecentes(o: { soImportantes?: boolean }): Promise<{ mensagens: MensagemRecente[]; ativo: boolean }>
+  responderMensagem(o: { remetente: string; texto: string }): Promise<{ para: string }>
+  resumoAgora(): Promise<void>
+  resumoTexto(): Promise<{ texto: string }>
+  modoCarro(): Promise<{ ativo: boolean }>
+  religarAvisos(): Promise<void>
 
   avisosAtivos(): Promise<{ ativo: boolean }>
   abrirAvisos(): Promise<void>
@@ -60,7 +75,7 @@ export const Celular = registerPlugin<CelularPlugin>('FridayCelular')
 /** Só dá para mexer no celular dentro do app Android (no navegador do PC, não). */
 export const nativo = (): boolean => Capacitor.isNativePlatform()
 
-const NOMES: Record<Permissao, string> = { contatos: 'contatos', telefone: 'ligações', sms: 'SMS', agenda: 'agenda' }
+const NOMES: Record<Permissao, string> = { contatos: 'contatos', telefone: 'ligações', sms: 'SMS', agenda: 'agenda', bluetooth: 'Bluetooth' }
 
 /** Pede a permissão se ainda não tiver; falha com uma frase clara se ele negar. */
 export async function garantir(p: Permissao): Promise<void> {

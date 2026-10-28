@@ -43,6 +43,7 @@ export type Card =
   | { tipo: 'memoria'; titulo: string; itens: string[] }
   | { tipo: 'cena'; titulo: string; descricao: string; imagem: string | null }
   | { tipo: 'tarefa'; id: number; projeto: string; pedido: string; estado: string; detalhe: string }
+  | { tipo: 'pareamento'; svg: string; codigo: string; ips: string[]; nome: string }
 
 export interface ToolResult {
   ok: boolean

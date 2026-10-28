@@ -2,7 +2,7 @@
 // Processo principal: janela do HUD sobreposta à área de trabalho, ícone na bandeja,
 // atalho de emergência e a ponte entre a IA e o Windows.
 
-import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, nativeImage, net, protocol, screen, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, Notification, Tray, globalShortcut, ipcMain, nativeImage, net, powerMonitor, protocol, screen, session, shell } from 'electron'
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { extname, join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -15,6 +15,30 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
+import { iniciarElo, encerrarElo, registrarContextoPc } from './elo'
+import { sincronizar } from './memoria'
+import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
+
+type RespostaRemota = { ok: boolean; mensagem: string; precisaConfirmacao?: boolean }
+const pendentesHud = new Map<number, (r: RespostaRemota) => void>()
+let proximoPedido = 1
+
+/** Ferramenta do HUD pedida pelo celular: o HUD executa e devolve o resultado. */
+function ferramentaNoHud(nome: string, args: Record<string, unknown>): Promise<RespostaRemota> {
+  if (!win) return Promise.resolve({ ok: false, mensagem: 'A FRIDAY do PC não está aberta.' })
+  const id = proximoPedido++
+  return new Promise((ok) => {
+    pendentesHud.set(id, ok)
+    win?.webContents.send('elo-ferramenta', id, nome, args)
+    setTimeout(() => { if (pendentesHud.delete(id)) ok({ ok: false, mensagem: 'O PC demorou demais para responder.' }) }, 20_000)
+  })
+}
+
+async function mostrarPareamento(): Promise<void> {
+  const r = await executarFerramenta('parear_celular', {})
+  if (r.card) win?.webContents.send('cartao', r.card, 300_000)
+  else new Notification({ title: 'F.R.I.D.A.Y', body: r.mensagem }).show()
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'friday-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
@@ -82,6 +106,7 @@ function atualizarBandeja(): void {
       { label: silenciada ? 'Voltar a ouvir (Ctrl+Alt+Espaço)' : 'Silenciar (Ctrl+Alt+Espaço)', click: alternarSilencio },
       { label: 'Editar programas permitidos', click: () => { carregarApps(); shell.openPath(arquivoApps()) } },
       { label: 'Editar projetos de programação', click: () => shell.openPath(caminhoProjetos()) },
+      { label: 'Parear celular', click: () => void mostrarPareamento() },
       { label: 'Abrir pasta de modelos 3D', click: () => { listarArquivos(); shell.openPath(pastaModelos()) } },
       { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
       { type: 'separator' },
@@ -134,6 +159,11 @@ function registrarIpc(): void {
   })
   ipcMain.handle('ferramenta', (_e, nome: string, args: Record<string, unknown>) => executarFerramenta(nome, args))
   ipcMain.on('silencio-local', (_e, valor: boolean) => { silenciada = valor; atualizarBandeja() })
+  ipcMain.on('elo-resposta', (_e, id: number, r: RespostaRemota) => {
+    const f = pendentesHud.get(id)
+    if (f) { pendentesHud.delete(id); f(r) }
+  })
+  ipcMain.on('contexto', (_e, texto: string) => registrarContextoPc(String(texto)))
 
   // Voz pelo Fish Audio: o áudio volta em pedaços para o HUD tocar enquanto ainda está sendo gerado
   ipcMain.handle('fish-falar', async (e, id: number, texto: string) => {
@@ -172,6 +202,27 @@ app.whenReady().then(() => {
     if (!ok) new Notification({ title: 'F.R.I.D.A.Y', body: texto }).show()
   }
   configurarFerramentas({ janela: () => win, avisar: avisarEmSegundoPlano })
+
+  // Elo com o celular: avisos, ações pedidas pelo celular, memória e contexto compartilhados
+  void iniciarElo({
+    log: (t) => log('elo', t),
+    async aviso(texto, ligacao) {
+      // Só fala aqui se você estiver usando o PC agora; senão o celular fala
+      if (!win || silenciada || powerMonitor.getSystemIdleState(90) !== 'active') return false
+      win.webContents.send('elo-aviso', texto, ligacao)
+      return true
+    },
+    async ferramenta(nome, args) {
+      if (!(TOOLS_REMOTAS as readonly string[]).includes(nome)) return { ok: false, mensagem: `O celular não pode pedir "${nome}" ao PC.` }
+      log('elo', `o celular pediu: ${nome}`)
+      if ((TOOLS_DO_HUD as readonly string[]).includes(nome)) return ferramentaNoHud(nome, args)
+      const r = await executarFerramenta(nome, args)
+      if (r.card) win?.webContents.send('cartao', r.card, 8000)
+      return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true } : {}) }
+    },
+    memoria: (fatos, esquecidos) => sincronizar(fatos, esquecidos),
+    pareou: (aparelho) => avisarEmSegundoPlano(`${aparelho} pareado. Agora a FRIDAY do PC e a do celular são uma só.`, true)
+  })
   visao.configurarVisao({ log: (t) => log('main', t), avisar: avisarEmSegundoPlano })
   iniciarTarefas((t: Tarefa) => {
     win?.webContents.send('tarefa', t)
@@ -195,5 +246,6 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   winctl.encerrar()
   visao.encerrar()
+  encerrarElo()
 })
 app.on('window-all-closed', () => app.quit())

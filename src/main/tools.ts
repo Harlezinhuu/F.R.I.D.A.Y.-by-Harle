@@ -22,6 +22,14 @@ import { pedirTarefa, statusTarefas, cancelarTarefaAtual, lerProjetos } from './
 import * as visao from './visao'
 import { buscarModelo, listarArquivos, pastaModelos, salvarImagem, type Fonte } from './modelos3d'
 import { CAMADAS, lerCamadas, lerEstilo, type Vista } from './logica/visao'
+import { execFile } from 'node:child_process'
+import { aparelhosPareados, celularEscutando, contextoDoCelular, enviarParaCelular, iniciarPareamento } from './elo'
+import { qrSvg } from '../shared/qr'
+import type { EventoParaCelular } from '../shared/elo'
+
+/** Roda um comando do Windows sem abrir janela. */
+const rodar = (exe: string, args: string[]): Promise<void> =>
+  new Promise((ok, erro) => execFile(exe, args, { windowsHide: true }, (e) => (e ? erro(e) : ok())))
 
 /** Espera a promessa por até `ms`; se demorar mais, ela segue sozinha em segundo plano. */
 async function noMaximo<T>(p: Promise<T>, ms: number): Promise<{ pronto: true; valor: T } | { pronto: false }> {
@@ -300,7 +308,54 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
 
   /** Uso interno: o que sei, para o começo de cada conversa. */
   async memoria_para_prompt() {
-    return { ok: true, mensagem: memoriaParaPrompt() }
+    // O que você conversou com ela no celular há pouco entra junto, para ela continuar dali
+    const cel = contextoDoCelular()
+    const extra = cel ? `\n\nConversa recente com você no celular (continue dali se fizer sentido, sem recitar):\n${cel}` : ''
+    return { ok: true, mensagem: memoriaParaPrompt() + extra }
+  },
+
+  // ---------- Celular ----------
+
+  async parear_celular() {
+    const p = await iniciarPareamento()
+    if (!p.ips.length) return falha('O PC não está em nenhuma rede. Conecte na mesma rede do celular e tente de novo.')
+    const ja = aparelhosPareados()
+    return {
+      ok: true,
+      mensagem: `QR Code na tela. No celular: Ajustes > FRIDAY do PC > Parear > Ler QR. Ou digite o código ${p.codigo} com o endereço ${p.ips[0]}. Vale por 5 minutos.${ja.length ? ` Já pareado com: ${ja.join(', ')}.` : ''}`,
+      card: { tipo: 'pareamento', svg: qrSvg(p.texto), codigo: p.codigo, ips: p.ips, nome: p.nome }
+    }
+  },
+
+  /** Uso interno do HUD: põe algo na fila do celular (a projeção, um link ou um texto). */
+  async fila_celular(a) {
+    const evento = a.evento as EventoParaCelular | undefined
+    if (!evento || !['projetar', 'link', 'texto'].includes(evento.tipo)) return falha('Nada para mandar.')
+    if (!aparelhosPareados().length) return falha('Nenhum celular pareado. Diga "pareia o celular".')
+    if (a.so_se_escutando === true && !celularEscutando()) return falha('O app do celular não está aberto.')
+    const aberto = enviarParaCelular(evento)
+    return { ok: true, mensagem: aberto ? 'Mandei para o celular.' : 'Mandei: aparece quando você abrir o app no celular.' }
+  },
+
+  async energia_pc(a) {
+    const acao = str(a.acao)
+    if ((acao === 'desligar' || acao === 'reiniciar') && a.confirmado !== true) {
+      return {
+        ok: false,
+        precisaConfirmacao: true,
+        mensagem: `Precisa de confirmação: ${acao} o PC fecha tudo o que estiver aberto. Pergunte antes.`,
+        dados: { pergunta: `${acao === 'desligar' ? 'Desligar' : 'Reiniciar'} o PC? O que não estiver salvo pode ser perdido.` }
+      }
+    }
+    switch (acao) {
+      case 'bloquear': await rodar('rundll32.exe', ['user32.dll,LockWorkStation']); return { ok: true, mensagem: 'PC bloqueado.' }
+      case 'suspender': setTimeout(() => void rodar('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0']).catch(() => {}), 1500); return { ok: true, mensagem: 'Suspendendo o PC.' }
+      // 20 segundos de folga para a FRIDAY responder (e para dar tempo de cancelar)
+      case 'desligar': await rodar('shutdown.exe', ['/s', '/t', '20']); return { ok: true, mensagem: 'O PC desliga em 20 segundos. Diga "cancela o desligamento" para parar.' }
+      case 'reiniciar': await rodar('shutdown.exe', ['/r', '/t', '20']); return { ok: true, mensagem: 'O PC reinicia em 20 segundos.' }
+      case 'cancelar': await rodar('shutdown.exe', ['/a']).catch(() => {}); return { ok: true, mensagem: 'Desligamento cancelado.' }
+      default: return falha('Ação de energia desconhecida.')
+    }
   },
 
   // ---------- Cenas ----------

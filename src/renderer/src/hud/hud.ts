@@ -265,7 +265,7 @@ export class Hud {
   cartao(c: Card, duracaoMs?: number): void {
     // Cartão e painel da direita ocupam o mesmo lugar
     $('pMods').classList.remove('open')
-    this.cartoes.mostrar(c, duracaoMs)
+    this.cartoes.mostrar(c, duracaoMs ?? (c.tipo === 'pareamento' ? 300_000 : undefined))
   }
 
   painel(qual: 'sistema' | 'modulos' | 'tudo' | 'fechar'): void {

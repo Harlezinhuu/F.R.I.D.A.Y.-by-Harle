@@ -63,8 +63,24 @@ final class Locutor {
 
     /** Fala a frase na fila (um aviso de cada vez). `ligacao`: deixa o toque mudo enquanto fala. */
     static void falar(Context contexto, String frase, boolean ligacao) {
+        falar(contexto, frase, ligacao, true);
+    }
+
+    /**
+     * `tentarPc`: com o celular pareado, pergunta antes se você está usando o PC; se estiver, quem
+     * fala é o PC e o celular fica quieto.
+     */
+    static void falar(Context contexto, String frase, boolean ligacao, boolean tentarPc) {
         final Context c = contexto.getApplicationContext();
         FILA.execute(() -> {
+            if (tentarPc && Elo.pareado(c)) {
+                try {
+                    JSONObject r = Elo.pedir(c, new JSONObject().put("acao", "aviso").put("texto", frase).put("ligacao", ligacao), 2000);
+                    if (r.optBoolean("falou", false)) return;
+                } catch (Exception ignorado) {
+                    // PC desligado ou longe: o celular fala
+                }
+            }
             AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
             boolean mutei = false;
             Object foco = null;

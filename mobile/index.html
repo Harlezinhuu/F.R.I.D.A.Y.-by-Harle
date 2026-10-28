@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="theme-color" content="#05060B" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://nominatim.openstreetmap.org https://ipwho.is" />
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://upload.wikimedia.org; media-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://nominatim.openstreetmap.org https://ipwho.is https://pt.wikipedia.org https://en.wikipedia.org" />
   <title>F.R.I.D.A.Y</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
@@ -15,6 +15,19 @@
   <div class="fundo" aria-hidden="true"></div>
   <!-- O mundo 3D: a fita de Möbius fica atrás de todas as telas -->
   <div class="mundo" id="mundo" aria-hidden="true"></div>
+
+  <!-- Modo explicação: palavras de partículas sincronizadas com a voz (o mesmo do PC) -->
+  <canvas class="palco" id="palco" aria-hidden="true" hidden></canvas>
+  <section class="explic" id="explic" aria-live="polite" hidden>
+    <div class="explic-topo">
+      <span class="explic-rotulo">EXPLICAÇÃO <b id="explicContador">00</b></span>
+      <h2 id="explicTema"></h2>
+      <div class="explic-barra"><i id="explicBarra"></i></div>
+    </div>
+    <ol class="explic-trilha" id="explicTrilha"></ol>
+    <div class="explic-cartoes" id="explicCartoes"></div>
+    <div class="explic-carimbo" id="explicCarimbo" hidden></div>
+  </section>
 
   <!-- ================= VOZ ================= -->
   <main class="tela" id="telaVoz" aria-label="Conversa por voz">
@@ -48,8 +61,14 @@
     </div>
 
     <div class="proj" id="proj" hidden>
-      <span>PROJEÇÃO</span><b id="projNome"></b><small>Arraste para girar · pince para aproximar</small>
+      <span>PROJEÇÃO</span><b id="projNome"></b><small>Arraste para girar · pince para aproximar · arraste para cima para jogar no PC</small>
     </div>
+
+    <!-- Olhos: prévia da câmera que a FRIDAY está vendo -->
+    <div class="olhos-previa" id="olhosPrevia" hidden><span>ELA ESTÁ VENDO</span></div>
+    <button type="button" class="vidro icone olhos" id="olhos" aria-label="Ligar a câmera para ela ver" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
 
     <div class="voz-rodape">
       <div class="repouso-info">
@@ -85,7 +104,9 @@
       </div>
     </div>
     <form class="composer" id="composer">
-      <button type="button" class="icone" id="foto" aria-label="Mandar foto (em breve)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+      <button type="button" class="icone" id="foto" aria-label="Mandar foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+      <input type="file" id="arquivoFoto" accept="image/*" hidden />
+      <span class="anexo" id="anexo" hidden><img id="anexoImg" alt="Foto anexada" /><button type="button" id="tirarAnexo" aria-label="Tirar a foto">×</button></span>
       <label class="entrada"><span class="sr">Mensagem</span><textarea id="entrada" rows="1" placeholder="Mensagem para a FRIDAY"></textarea></label>
       <button type="button" class="icone ciano" data-ir="voz" aria-label="Falar por voz"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c2.5-6 5.5-6 9 0s6.5 6 9 0"/></svg></button>
       <button type="submit" class="enviar" id="enviar" aria-label="Enviar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
@@ -165,17 +186,46 @@
           </div>
         </div>
         <p class="dica">Ela fica quieta no modo silencioso e durante ligações; no Não perturbe, só avisa dos importantes. Com a conversa por voz aberta, o aviso aparece na tela. Se o Android chamar de <b>configuração restrita</b>, libere como no controle da tela.</p>
-        <button type="button" class="botao" id="avTestar">Testar aviso</button>
+        <label class="linha-opcao"><span>Resumo da manhã<small>Quando você desliga o alarme: clima, agenda, lembretes e mensagens da noite</small></span><input type="checkbox" id="avResumo" /></label>
+        <label class="linha-opcao"><span>Modo carro<small>No Bluetooth do carro, ela lê todas as mensagens e você responde falando</small></span><input type="checkbox" id="avCarro" /></label>
+        <label class="campo" id="avCarroCampo">Nome do Bluetooth do carro (opcional)<input id="avCarroNome" type="text" placeholder="Vazio = qualquer som de carro" /></label>
+        <div class="pc-acoes">
+          <button type="button" class="botao" id="avTestar">Testar aviso</button>
+          <button type="button" class="vidro pequeno" id="avTestarResumo">Ouvir o resumo</button>
+        </div>
+      </section>
+
+      <section class="cartao" id="secaoPc">
+        <h2>FRIDAY DO PC</h2>
+        <div class="linha-opcao"><span>PC<small id="pcEstado">Não pareado</small></span><button type="button" class="vidro pequeno" id="pcParear">Parear</button></div>
+        <div class="pc-acoes" id="pcAcoes" hidden>
+          <button type="button" class="vidro pequeno" id="pcAcordar">Ligar o PC</button>
+          <button type="button" class="vidro pequeno" id="pcSincronizar">Sincronizar memória</button>
+          <button type="button" class="vidro pequeno" id="pcDesparear">Desparear</button>
+        </div>
+        <p class="dica">Pareado, os dois viram uma FRIDAY só: avisos do celular saem no PC quando você está nele, ela mexe no PC pelo celular, continua a conversa de um no outro e você arrasta hologramas de uma tela para a outra.</p>
       </section>
 
       <section class="cartao">
-        <h2>LIGAÇÕES</h2>
-        <div class="linha-opcao"><span>FRIDAY do PC<small>Parear com o PC chega na próxima versão</small></span><button type="button" class="vidro pequeno" disabled>Em breve</button></div>
+        <h2>MEMÓRIA</h2>
         <button type="button" class="linha-opcao link" id="abrirMemoria"><span>Memória<small id="memoriaResumo">Nada ainda</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       </section>
 
       <button type="button" class="botao perigo" id="apagarHistorico">Apagar todas as conversas</button>
       <p class="rodape">F.R.I.D.A.Y Mobile · by Harle · <span id="versao"></span></p>
+    </div>
+
+    <div class="folha" id="folhaParear" hidden>
+      <div class="folha-fundo" id="fecharParear"></div>
+      <section class="folha-painel" aria-label="Parear com o PC">
+        <h2>PAREAR COM O PC</h2>
+        <p class="dica-folha">No PC, diga <b>"Friday, pareia o celular"</b> (ou use o ícone da bandeja › Parear celular). Um QR Code aparece na tela.</p>
+        <button type="button" class="botao" id="lerQR">Ler o QR Code</button>
+        <p class="dica-folha">Ou digite o código e o endereço que aparecem embaixo do QR:</p>
+        <label class="campo">Endereço do PC<input id="pcIp" type="text" inputmode="decimal" placeholder="192.168.0.10" autocomplete="off" /></label>
+        <label class="campo">Código<input id="pcCodigo" type="text" inputmode="numeric" placeholder="4829-1735" autocomplete="off" /></label>
+        <button type="button" class="vidro" id="parearCodigo">Parear com o código</button>
+      </section>
     </div>
 
     <div class="folha" id="folhaMemoria" hidden>
