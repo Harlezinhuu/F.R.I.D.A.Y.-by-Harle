@@ -274,9 +274,7 @@ mobile/        app do celular (Vite + Capacitor), APK gerado pelo GitHub Actions
 
 ## Próximos passos
 
-- [ ] Modo jogo: detectar jogos em tela cheia e ficar só no modo compacto
 - [ ] Núcleo reagindo por faixas de frequência (graves, médios e agudos)
-- [ ] Controle por gestos com a câmera
 - [ ] Palavra de ativação treinada com sotaque brasileiro
 
 ## Licença e autoria
