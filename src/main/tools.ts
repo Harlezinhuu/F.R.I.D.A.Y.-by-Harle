@@ -33,6 +33,7 @@ import { prepararLigarDeFora } from './ligar-de-fora'
 import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCerebro } from './cerebro'
 import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
 import { normalizar } from '../shared/consulta'
+import { anotarBug, explicarCodigo, instalarRevisora, pedidoComIssue, revisarCodigo, rodarTestes } from './programacao'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
 /** Roda um comando do Windows sem abrir janela. */
@@ -440,6 +441,29 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     }
   },
 
+  // ---------- Dupla de programação ----------
+
+  async rodar_testes(a) {
+    return await rodarTestes(str(a.projeto), str(a.comando), (texto, ok) => avisoVisao(texto, ok))
+  },
+
+  async revisar_codigo(a) {
+    if (str(a.acao) === 'instalar') return await instalarRevisora(str(a.projeto))
+    const r = await revisarCodigo(str(a.projeto), a.geral === true)
+    return { ...r, card: { tipo: 'aviso', titulo: r.ok ? 'REVISÃO ANTES DO PUSH' : 'NÃO FAÇA O PUSH', texto: r.mensagem.split('\n').slice(0, 2).join(' ').slice(0, 220) } }
+  },
+
+  async explicar_codigo(a) {
+    return await explicarCodigo(str(a.projeto), str(a.arquivo), str(a.parte))
+  },
+
+  async anotar_bug(a) {
+    const titulo = str(a.titulo)
+    if (!titulo) return falha('Faltou o título do bug.')
+    const r = await anotarBug(str(a.projeto), titulo, str(a.detalhes), a.confirmado === true)
+    return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true, dados: { pergunta: r.pergunta } } : {}) }
+  },
+
   // ---------- Pesquisa profunda ----------
 
   async pesquisa_profunda(a) {
@@ -643,7 +667,7 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
   },
 
   async tarefa_programacao(a) {
-    const r = await pedirTarefa(str(a.projeto), str(a.pedido))
+    const r = await pedirTarefa(str(a.projeto), await pedidoComIssue(str(a.projeto), str(a.pedido)))
     if (!r.ok) return falha(r.motivo)
     const t = r.tarefa
     return {

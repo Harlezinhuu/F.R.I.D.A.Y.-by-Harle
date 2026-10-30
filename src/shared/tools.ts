@@ -25,7 +25,7 @@ export const TOOLS_REMOTAS = [
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
   'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro',
-  'pesquisa_profunda', 'pesquisas'
+  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -405,6 +405,55 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'O que fazer. Padrão: estado.', enum: ['estado', 'atualizar'] } } }
   },
   {
+    name: 'rodar_testes',
+    description: 'Roda os testes (ou o typecheck) de um projeto de programação e explica o que quebrou: qual teste, em que linha e por quê ("roda os testes", "roda os testes do Harle Bot"). Sem projeto, usa o que está aberto no VS Code.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        projeto: { type: 'STRING', description: 'Nome do projeto (opcional).' },
+        comando: { type: 'STRING', description: 'Comando liberado no projeto, se ele disser qual (ex.: "npm run typecheck"). Vazio = o de testes.' }
+      }
+    }
+  },
+  {
+    name: 'revisar_codigo',
+    description: 'Revisora antes do push: confere o que ainda não foi para o GitHub (chave de API, senha, .env, conflito de merge, console.log esquecido). acao=instalar coloca um gancho no git que bloqueia sozinho o push com chave ou .env.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        projeto: { type: 'STRING', description: 'Nome do projeto (opcional; padrão: o aberto no VS Code).' },
+        acao: { type: 'STRING', description: 'O que fazer. Padrão: revisar.', enum: ['revisar', 'instalar'] },
+        geral: { type: 'BOOLEAN', description: 'true para também receber as mudanças e comentar o código (revisão geral).' }
+      }
+    }
+  },
+  {
+    name: 'explicar_codigo',
+    description: 'Explica um arquivo de código, parte por parte ("explica esse código", "o que esse arquivo faz?", "explica a função tocarMusica"). Sem arquivo, usa o que está aberto no VS Code.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        arquivo: { type: 'STRING', description: 'Nome ou caminho do arquivo (opcional).' },
+        parte: { type: 'STRING', description: 'Função ou trecho para focar (opcional).' },
+        projeto: { type: 'STRING', description: 'Nome do projeto (opcional).' }
+      }
+    }
+  },
+  {
+    name: 'anotar_bug',
+    description: 'Anota um bug como issue no GitHub do projeto ("anota um bug no Harle Bot: a fila trava quando está vazia"). Leia o título para ele e só chame com confirmado=true depois que ele confirmar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        titulo: { type: 'STRING', description: 'Título curto do bug.' },
+        detalhes: { type: 'STRING', description: 'O que acontece, como reproduzir, o que era esperado (com as palavras dele).' },
+        projeto: { type: 'STRING', description: 'Nome do projeto (opcional).' },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que ele confirmou.' }
+      },
+      required: ['titulo']
+    }
+  },
+  {
     name: 'pesquisa_profunda',
     description:
       'Pesquisa a fundo, sozinha e em segundo plano, e entrega um relatório com fontes (leva alguns minutos): "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo", "faz uma pesquisa completa sobre X". Ela também olha o que ele já tem nos arquivos dele. Para perguntas rápidas, use buscar_na_internet.',
@@ -590,6 +639,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Reconhecimento facial é opcional: "cadastra meu rosto" usa cadastrar_rosto (peça o consentimento antes). Se o começo da conversa disser quem está falando, trate a pessoa pelo nome e respeite o que é só do dono.',
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
+    'Programação por voz: "roda os testes" usa rodar_testes; "posso dar push?" ou "revisa antes de eu mandar" usa revisar_codigo; "explica esse código" usa explicar_codigo; "anota um bug" usa anotar_bug (confirme antes). Para corrigir algo, ofereça tarefa_programacao.',
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',

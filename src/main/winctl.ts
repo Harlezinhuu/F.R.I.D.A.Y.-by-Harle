@@ -47,6 +47,19 @@ public static class FridayAudio {
     get { bool mute; Marshal.ThrowExceptionForHR(Vol().GetMute(out mute)); return mute; }
     set { Marshal.ThrowExceptionForHR(Vol().SetMute(value, Guid.Empty)); }
   }
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+  /** Título e processo da janela em primeiro plano (ex.: o arquivo aberto no VS Code) */
+  public static string[] Janela() {
+    IntPtr h = GetForegroundWindow();
+    var sb = new System.Text.StringBuilder(512);
+    GetWindowText(h, sb, 512);
+    uint pid; GetWindowThreadProcessId(h, out pid);
+    string nome = "";
+    try { nome = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch {}
+    return new string[] { sb.ToString(), nome };
+  }
   [DllImport("user32.dll")] static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
   public static void Key(byte vk) { keybd_event(vk, 0, 0, UIntPtr.Zero); keybd_event(vk, 0, 2, UIntPtr.Zero); }
 }
@@ -64,6 +77,7 @@ while ($true) {
       'setvol' { [FridayAudio]::Volume = [float]([int]$arg / 100.0); $out = '{"ok":true}' }
       'mute'   { [FridayAudio]::Mute = ($arg -eq '1'); $out = '{"ok":true}' }
       'key'    { [FridayAudio]::Key([byte][int]$arg); $out = '{"ok":true}' }
+      'janela' { $j = [FridayAudio]::Janela(); $out = (@{ titulo = $j[0]; processo = $j[1] } | ConvertTo-Json -Compress) }
       default  { $out = '{"erro":"comando desconhecido"}' }
     }
   } catch { $out = '{"erro":"' + ($_.Exception.Message -replace '["\\]', ' ') + '"}' }
@@ -134,6 +148,11 @@ export const definirMudo = (mudo: boolean) => comando('mute', mudo ? '1' : '0')
 
 const TECLAS = { tocar_pausar: 0xb3, proxima: 0xb0, anterior: 0xb1 } as const
 export const teclaMidia = (acao: keyof typeof TECLAS) => comando('key', String(TECLAS[acao]))
+/** A janela em primeiro plano: título (ex.: "app.ts - meu-projeto - Visual Studio Code") e processo ("Code"). */
+export async function janelaAtiva(): Promise<{ titulo: string; processo: string }> {
+  const r = await comando('janela')
+  return { titulo: String(r.titulo ?? ''), processo: String(r.processo ?? '') }
+}
 
 /** Já deixa o PowerShell compilado para o primeiro comando ser rápido. */
 export function aquecer(): void { iniciar().catch(() => {}) }

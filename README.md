@@ -142,6 +142,17 @@ Os projetos ficam em **Editar projetos de programação**, no ícone da bandeja:
 ]
 ```
 
+### Dupla de programação por voz
+
+Com o projeto aberto no VS Code (ela sabe qual é pelo título da janela), ou dizendo o nome dele:
+
+- **"Roda os testes."** Ela roda o comando de teste liberado no `projetos.json` e diz qual teste quebrou, em que linha e o motivo provável, olhando o código em volta. Entende node:test, Jest, Vitest, pytest e os erros do TypeScript. Se demorar, ela avisa quando terminar.
+- **"Posso dar push?"** A revisora olha o que ainda não foi para o GitHub: chave de API, senha, `.env`, marca de conflito de merge, `console.log` e `debugger` esquecidos. Com "revisão geral", ela também comenta o código. **"Instala a revisora"** coloca um gancho no git que bloqueia sozinho o push que levar chave ou `.env`.
+- **"Explica esse código"** (ou "explica a função tocarMusica"): ela lê o arquivo aberto e explica parte por parte.
+- **"Anota um bug no Harle Bot: a fila trava quando está vazia."** Ela confirma e cria a issue no GitHub (com o [GitHub CLI](https://cli.github.com) logado) ou abre a página da issue já preenchida. Depois, "resolve a issue 12" vira uma tarefa de programação com o texto da issue.
+
+Só roda os comandos liberados no projeto, e arquivos com chaves nunca são lidos para a IA.
+
 ### Memória
 
 O que ela aprende fica só no seu PC (`memoria.json`, na pasta de configuração). Senhas, PINs, chaves, documentos e números de cartão ou conta são recusados antes de gravar.
