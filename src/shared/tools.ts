@@ -25,7 +25,7 @@ export const TOOLS_REMOTAS = [
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
   'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro',
-  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug'
+  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -454,6 +454,19 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'rede_de_casa',
+    description:
+      'Guardiã da rede de casa: quais aparelhos estão no Wi-Fi ("quem está no meu Wi-Fi?"), olhar agora, dar nome a um aparelho ("o 37 é o celular da minha mãe"), esquecer um, ou quanto da internet a casa e o PC estão usando agora ("quem está gastando a internet?").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer. Padrão: listar.', enum: ['listar', 'varrer', 'apelidar', 'esquecer', 'uso'] },
+        alvo: { type: 'STRING', description: 'Qual aparelho: IP, final do IP ("37"), nome ou fabricante.' },
+        apelido: { type: 'STRING', description: 'O nome que ele quer dar ao aparelho.' }
+      }
+    }
+  },
+  {
     name: 'pesquisa_profunda',
     description:
       'Pesquisa a fundo, sozinha e em segundo plano, e entrega um relatório com fontes (leva alguns minutos): "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo", "faz uma pesquisa completa sobre X". Ela também olha o que ele já tem nos arquivos dele. Para perguntas rápidas, use buscar_na_internet.',
@@ -640,6 +653,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
     'Programação por voz: "roda os testes" usa rodar_testes; "posso dar push?" ou "revisa antes de eu mandar" usa revisar_codigo; "explica esse código" usa explicar_codigo; "anota um bug" usa anotar_bug (confirme antes). Para corrigir algo, ofereça tarefa_programacao.',
+    'Quando chegar o aviso de um aparelho novo no Wi-Fi e ele disser de quem é, use rede_de_casa com acao=apelidar.',
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',

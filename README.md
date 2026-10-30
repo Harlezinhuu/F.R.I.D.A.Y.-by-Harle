@@ -29,6 +29,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Segundo cérebro:** ela lê os seus documentos, anotações, PDFs, Word, PowerPoint, planilhas e projetos, guarda um índice só no seu PC e acha as coisas pelo assunto: "onde está aquele PDF de redes que fala de sub-rede?".
 - **Pesquisa profunda:** "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo". Ela planeja, pesquisa cada parte na internet, olha o que você já tem nos seus arquivos e entrega um relatório com fontes numeradas, falando o resumo na hora marcada.
 - **Cérebro reserva:** se a internet cair (ou o Gemini não responder), ela continua funcionando para o básico, toda no PC: entende português sem internet, pensa com uma IA local (Ollama) e fala com a voz do Windows.
+- **Guardiã da rede de casa:** avisa quando um aparelho desconhecido entra no seu Wi-Fi, diz quem está conectado e quanto da internet a casa e o PC estão usando agora.
 - **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
@@ -164,6 +165,16 @@ Se você chamar a FRIDAY e não tiver internet (ou o Gemini não responder), ela
 - **Fala** com a voz do Windows (instale a voz em português em Configurações › Hora e idioma › Fala, se não tiver).
 
 Clima, notícias, pesquisa e WhatsApp precisam de internet; ela avisa isso em uma frase. Quando a internet volta, a próxima conversa já é com o Gemini.
+
+### Guardiã da rede de casa
+
+A cada 10 minutos ela olha quais aparelhos estão no seu Wi-Fi (pela tabela ARP do Windows, o que qualquer aparelho da rede já enxerga). Na primeira vez, só aprende quem já está em casa; depois, se aparecer um desconhecido, ela avisa no PC (e no celular, se você não estiver no PC): "Um aparelho que eu não conhecia entrou no seu Wi-Fi: Xiaomi, no endereço 192.168.0.37".
+
+- **"Quem está no meu Wi-Fi?"** Lista os aparelhos ligados, com o nome que você deu, o nome na rede ou o fabricante (pela lista oficial da IEEE, baixada uma vez).
+- **"O 37 é o celular da minha mãe."** Ela passa a chamar o aparelho assim.
+- **"Quem está gastando a internet?"** Ela mede quanto a casa toda está usando (pelo roteador, se ele informar via UPnP) e quanto disso é o PC. Por aparelho, só o próprio roteador sabe.
+
+Celulares modernos usam um endereço "privado" por rede; ela reconhece isso e chama de "celular ou computador (endereço privado)". Para desligar: `FRIDAY_REDE=0` no `.env`.
 
 ### Memória
 

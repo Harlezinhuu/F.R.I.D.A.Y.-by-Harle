@@ -40,7 +40,8 @@ function salvarCasa(c: Casa): void {
 
 interface Roteador { servico: string; controle: string; ip: string }
 
-async function acharRoteador(ms = 3000): Promise<Roteador | null> {
+/** Aparelhos UPnP da casa (o roteador e outros): o endereço e a descrição de cada um. */
+export async function descobrirUpnp(ms = 3000): Promise<{ url: string; xml: string }[]> {
   const sock = createSocket({ type: 'udp4', reuseAddr: true })
   const locais = new Set<string>()
   sock.on('message', (m) => { const l = lerRespostaSsdp(m.toString()); if (l) locais.add(l) })
@@ -52,14 +53,24 @@ async function acharRoteador(ms = 3000): Promise<Roteador | null> {
   } finally {
     try { sock.close() } catch { /* já fechado */ }
   }
-  for (const l of locais) {
-    try {
-      const xml = await (await fetch(l, { signal: AbortSignal.timeout(4000) })).text()
-      const s = acharServicoWan(xml, l)
-      if (s) return { ...s, ip: new URL(l).hostname }
-    } catch { /* outro aparelho UPnP da casa (TV, impressora) */ }
+  const saida: { url: string; xml: string }[] = []
+  for (const url of locais) {
+    try { saida.push({ url, xml: await (await fetch(url, { signal: AbortSignal.timeout(4000) })).text() }) } catch { /* não respondeu */ }
+  }
+  return saida
+}
+
+async function acharRoteador(ms = 3000): Promise<Roteador | null> {
+  for (const d of await descobrirUpnp(ms)) {
+    const s = acharServicoWan(d.xml, d.url)
+    if (s) return { ...s, ip: new URL(d.url).hostname }
   }
   return null
+}
+
+/** Pede algo a um serviço UPnP (SOAP). */
+export async function pedirUpnp(r: { servico: string; controle: string }, acao: string, args: Record<string, string | number> = {}): Promise<string> {
+  return soap({ ...r, ip: '' }, acao, args)
 }
 
 async function soap(r: Roteador, acao: string, args: Record<string, string | number> = {}): Promise<string> {

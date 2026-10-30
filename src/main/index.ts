@@ -23,6 +23,7 @@ import { manterCasa } from './ligar-de-fora'
 import { iniciarCerebro } from './cerebro'
 import { iniciarPesquisas } from './pesquisa'
 import { encerrarReserva, ollamaPronto, responderReserva } from './reserva'
+import { iniciarRede } from './rede'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -344,6 +345,14 @@ app.whenReady().then(() => {
   manterCasa((t) => log('casa', t))
   // Segundo cérebro: lê os seus documentos devagar, em segundo plano, e guarda o índice só aqui
   iniciarCerebro((t) => log('cerebro', t))
+  // Guardiã da rede de casa: avisa quando um aparelho desconhecido entra no Wi-Fi (no PC e no celular)
+  iniciarRede({
+    log: (t) => log('rede', t),
+    avisar(texto) {
+      avisarEmSegundoPlano(texto, false)
+      if (aparelhosPareados().length && powerMonitor.getSystemIdleState(120) !== 'active') enviarParaCelular({ tipo: 'aviso', texto })
+    }
+  })
   // Pesquisa profunda: quando fica pronta (ou na hora marcada), ela conta no PC e manda para o celular
   iniciarPesquisas({
     log: (t) => log('pesquisa', t),

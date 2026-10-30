@@ -33,6 +33,8 @@ import { prepararLigarDeFora } from './ligar-de-fora'
 import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCerebro } from './cerebro'
 import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
 import { normalizar } from '../shared/consulta'
+import { aparelhosConhecidos, apelidar, esquecerAparelho, usoDaInternet, varrerRede } from './rede'
+import { acharAparelho, nomeDoAparelho } from './logica/rede'
 import { anotarBug, explicarCodigo, instalarRevisora, pedidoComIssue, revisarCodigo, rodarTestes } from './programacao'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
@@ -462,6 +464,46 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     if (!titulo) return falha('Faltou o título do bug.')
     const r = await anotarBug(str(a.projeto), titulo, str(a.detalhes), a.confirmado === true)
     return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true, dados: { pergunta: r.pergunta } } : {}) }
+  },
+
+  // ---------- Rede de casa ----------
+
+  async rede_de_casa(a) {
+    const acao = str(a.acao) || 'listar'
+    const hora = (t: number) => new Date(t).toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+    if (acao === 'uso') {
+      const u = await usoDaInternet()
+      if (!u.casa && !u.pc) return falha('Não consegui medir agora.')
+      const partes = [
+        u.casa ? `A casa toda está baixando ${u.casa.baixando} Mb/s e enviando ${u.casa.enviando} Mb/s.` : 'O roteador não informa o uso da casa (o UPnP dele não mostra isso).',
+        u.pc ? `O PC, sozinho, ${u.pc.baixando} Mb/s baixando e ${u.pc.enviando} enviando.` : ''
+      ]
+      if (u.casa && u.pc) partes.push(`Os outros aparelhos juntos: uns ${Math.max(0, Math.round((u.casa.baixando - u.pc.baixando) * 10) / 10)} Mb/s.`)
+      return { ok: true, mensagem: `${partes.filter(Boolean).join(' ')} Por aparelho, só o roteador sabe.` }
+    }
+    if (acao === 'varrer') {
+      const r = await varrerRede()
+      if (!r) return falha('Não achei a rede de casa (o PC está numa rede privada?).')
+      return { ok: true, mensagem: `Olhei agora: ${r.aparelhos.filter((x) => Date.now() - x.ultimaVez < 15 * 60_000).length} aparelhos ligados.${r.novos.length ? ` Novos: ${r.novos.map(nomeDoAparelho).join(', ')}.` : ' Nenhum desconhecido.'}` }
+    }
+    const lista = aparelhosConhecidos()
+    if (!lista.length) return { ok: true, mensagem: 'Ainda não olhei a rede. Diga "olha quem está no Wi-Fi" para eu ver agora.' }
+    if (acao === 'apelidar' || acao === 'esquecer') {
+      const ap = acharAparelho(str(a.alvo), lista)
+      if (!ap) return falha('Não achei esse aparelho. Diga o final do IP (ex.: "o 37").')
+      if (acao === 'esquecer') { esquecerAparelho(ap.mac); return { ok: true, mensagem: `Esqueci ${nomeDoAparelho(ap)}. Se ele voltar, eu aviso como novo.` } }
+      const apelido = str(a.apelido)
+      if (!apelido) return falha('Faltou o nome.')
+      apelidar(ap.mac, apelido)
+      return { ok: true, mensagem: `Anotado: o ${ap.ip} é ${apelido}.` }
+    }
+    const ligados = lista.filter((x) => Date.now() - x.ultimaVez < 15 * 60_000)
+    const fora = lista.length - ligados.length
+    return {
+      ok: true,
+      mensagem: `${ligados.length} aparelhos no Wi-Fi agora: ${ligados.map((x) => `${nomeDoAparelho(x)} (${x.ip})`).join('; ')}.${fora ? ` E ${fora} que já passaram por aqui (o último: ${nomeDoAparelho(lista.find((x) => !ligados.includes(x))!)}, ${hora(lista.find((x) => !ligados.includes(x))!.ultimaVez)}).` : ''}`,
+      card: { tipo: 'memoria', titulo: 'NO SEU WI-FI', itens: ligados.slice(0, 12).map((x) => `${nomeDoAparelho(x)} · ${x.ip}`) }
+    }
   },
 
   // ---------- Pesquisa profunda ----------

@@ -55,7 +55,7 @@ export const SO_DONO = new Set([
   'energia_pc', 'fechar_app', 'capturar_tela',
   'tarefa_programacao', 'cancelar_tarefa', 'status_tarefas', 'listar_projetos',
   'criar_rotina', 'apagar_rotina', 'parear_celular', 'mandar_para_celular',
-  'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta', 'ligar_de_fora', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro', 'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'explicar_codigo', 'anotar_bug'
+  'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta', 'ligar_de_fora', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro', 'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'explicar_codigo', 'anotar_bug', 'rede_de_casa'
 ])
 
 export function podeUsar(ferramenta: string, papel: Papel | null): boolean {

@@ -27,10 +27,14 @@ const tag = (xml: string, nome: string): string => {
 
 /** Na descrição XML do roteador, o serviço que abre portas e o endereço de controle dele. */
 export function acharServicoWan(xml: string, localizacao: string): { servico: string; controle: string } | null {
+  // WANIPConnection (fibra, cabo) antes de WANPPPConnection (PPPoE)
+  return acharServico(xml, localizacao, ['WANIPConnection', 'WANPPPConnection'])
+}
+
+/** O primeiro serviço de um dos tipos pedidos (na ordem), com o endereço de controle. */
+export function acharServico(xml: string, localizacao: string, ordem: string[]): { servico: string; controle: string } | null {
   const base = tag(xml, 'URLBase') || localizacao
   const servicos = xml.match(/<(?:\w+:)?service>[\s\S]*?<\/(?:\w+:)?service>/gi) ?? []
-  // WANIPConnection (fibra, cabo) antes de WANPPPConnection (PPPoE)
-  const ordem = ['WANIPConnection', 'WANPPPConnection']
   for (const tipo of ordem) {
     for (const s of servicos) {
       const servico = tag(s, 'serviceType')
