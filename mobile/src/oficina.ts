@@ -463,7 +463,8 @@ export class Oficina {
     this.ancora.position.copy(this.camera.position).addScaledVector(frente, distancia)
     // Em pé na mesa: só o giro em volta do eixo vertical acompanha a câmera
     const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
-    this.ancora.rotation.set(0, yaw, 0)
+    // Sem giroscópio (prévia no navegador), a câmera não aponta para baixo: a mesa inclina para você ver de cima
+    this.ancora.rotation.set(!this.orientacao && this.modoMesa !== 'fora' ? 0.6 : 0, yaw, 0, 'YXZ')
   }
 
   /** Ponto da imagem da câmera (0 a 1) → ponto na tela (o vídeo cobre a tela). */
