@@ -259,7 +259,9 @@ Diga **"Friday, importa um design"** (ou ícone da bandeja → *Importar designs
 - Num `.gltf`, o `.bin` e as texturas vão embutidos na projeção; num `.zip`, ela acha o modelo principal sozinha e não deixa o pacote escrever fora da pasta.
 - A lista fica em `designs.json`, na mesma pasta, e dá para editar à mão. Arquivos soltos na pasta também funcionam, pelo nome do arquivo.
 
-A FRIDAY não vem com design de ninguém e não sai procurando: só entra o que você importar. Os arquivos ficam no seu PC, fora do repositório; usar ou publicar designs de terceiros fica por sua conta e pela licença de cada um.
+A FRIDAY já vem com seis designs originais, desenhados peça por peça para ela (`npm run designs` gera de novo): o **núcleo da FRIDAY**, a **oficina do Harle** (a mesa, o PC, os monitores e a estante), a **turbina Harle**, o **toca-discos do Harle Player**, o **Harle Bot** e o **drone Falcão**. Eles entram na biblioteca sozinhos na primeira vez; se você remover um, ele não volta.
+
+Fora esses, a FRIDAY não vem com design de ninguém e não sai procurando: só entra o que você importar. Os arquivos ficam no seu PC, fora do repositório; usar ou publicar designs de terceiros fica por sua conta e pela licença de cada um.
 
 #### Mexendo com as mãos
 
@@ -276,6 +278,17 @@ Diga "Friday, liga os gestos" (ou "quero mexer com as mãos"). A webcam liga, um
 | Tapa rápido com a mão aberta | joga o holograma para fora (fecha) |
 
 Os modelos compactados com Draco (como os da NASA) são abertos pelo decodificador do próprio three.js, que vai junto com a FRIDAY e funciona offline.
+
+### Mesa holográfica
+
+Diga **"Friday, abre a mesa"**. O HUD vira uma mesa de luz em perspectiva, com o arquivo dos seus cartões: os projetos do `projetos.json`, os designs importados e os relatórios da pesquisa profunda.
+
+- **Passar os cartões:** deslize a mão aberta para o lado (com os gestos ligados) ou diga "passa" / "volta um".
+- **Abrir:** toque duplo no ar (feche a pinça duas vezes rápido) ou "abre esse". Também direto: "mostra o prédio do Harle Bot", "coloca a turbina na mesa".
+- **Projeto vira prédio:** cada pasta é um andar (o térreo são os arquivos da raiz; uma pasta que tem quase tudo, como o `src`, é aberta em subpastas) e cada arquivo é uma sala, do tamanho do código que tem. Sala **vermelha** é onde os testes quebraram na última vez que rodaram; **âmbar** é arquivo mexido que ainda não foi para o GitHub. Ela comenta o que aparece.
+- **Design vira holograma** em cima do emissor da mesa, girando. Abra as duas mãos para explodir as peças (com os nomes) e junte para montar.
+- **A FRIDAY em miniatura:** uma figura de luz, sem rosto, com a fita de Möbius girando na cintura, anda pela mesa até o que está aberto e aponta para ele quando ela fala.
+- Mão fechada gira a vista; "volta" retorna aos cartões; "fecha a mesa" fecha.
 
 ### Visão de Deus
 

@@ -1,0 +1,59 @@
+[
+  {
+    "arquivo": "nucleo-da-friday.glb",
+    "nome": "núcleo da FRIDAY",
+    "apelidos": [
+      "núcleo",
+      "fita",
+      "coração da friday"
+    ]
+  },
+  {
+    "arquivo": "oficina-do-harle.glb",
+    "nome": "oficina do Harle",
+    "apelidos": [
+      "oficina",
+      "meu setup",
+      "meu quarto",
+      "laboratório"
+    ]
+  },
+  {
+    "arquivo": "turbina-harle.glb",
+    "nome": "turbina Harle",
+    "apelidos": [
+      "turbina",
+      "motor do harle",
+      "otimizador"
+    ]
+  },
+  {
+    "arquivo": "toca-discos-harle-player.glb",
+    "nome": "toca-discos do Harle Player",
+    "apelidos": [
+      "toca-discos",
+      "harle player",
+      "vitrola",
+      "player"
+    ]
+  },
+  {
+    "arquivo": "harle-bot.glb",
+    "nome": "Harle Bot",
+    "apelidos": [
+      "bot",
+      "robô",
+      "mascote",
+      "harlebot"
+    ]
+  },
+  {
+    "arquivo": "drone-falcao.glb",
+    "nome": "drone Falcão",
+    "apelidos": [
+      "drone",
+      "falcão",
+      "quadricóptero"
+    ]
+  }
+]

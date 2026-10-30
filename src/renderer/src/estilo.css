@@ -185,6 +185,12 @@ body.expandido .foco span { font-size: 13px }
 .who { font-family: var(--f-data); font-size: 11px; letter-spacing: .24em; color: var(--state); transition: color .6s }
 .line { font-size: 20px; font-weight: 300; text-wrap: balance; text-shadow: 0 1px 12px rgba(3, 5, 11, .9) }
 
+/* Mesa holográfica: toma a tela; a fita vai para o canto e os painéis laterais somem */
+.mesa { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; transition: opacity .45s ease }
+body.expandido.mesa-aberta .core { right: calc(100% - 260px); bottom: 20px; width: 250px; height: 250px }
+body.mesa-aberta .col, body.mesa-aberta .ro, body.mesa-aberta .credito, body.mesa-aberta .cena-legenda, body.mesa-aberta .proj-legenda { opacity: 0 !important; pointer-events: none }
+body.mesa-aberta .cards { right: auto; left: 32px; bottom: 290px }
+
 /* Modo explicação: a fita vira emissor no canto e o palco toma a tela */
 .palco { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none }
 body.expandido.explicando .core { right: calc(100% - 300px); bottom: 20px; width: 290px; height: 290px }

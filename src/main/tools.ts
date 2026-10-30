@@ -34,6 +34,8 @@ import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCe
 import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
 import { normalizar } from '../shared/consulta'
 import * as controle from './controle'
+import { cartoesDaMesa, predioDoProjeto } from './mesa'
+import { descreverPredio } from './logica/predio'
 import { escolherEImportar, lerDesigns, removerDesign, renomearDesign, acharDesignPorNome } from './designs'
 import { aparelhosConhecidos, apelidar, esquecerAparelho, usoDaInternet, varrerRede } from './rede'
 import { acharAparelho, nomeDoAparelho } from './logica/rede'
@@ -466,6 +468,23 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     if (!titulo) return falha('Faltou o título do bug.')
     const r = await anotarBug(str(a.projeto), titulo, str(a.detalhes), a.confirmado === true)
     return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true, dados: { pergunta: r.pergunta } } : {}) }
+  },
+
+  // ---------- Mesa holográfica (pedidos do próprio HUD) ----------
+
+  async mesa_cartoes() {
+    const c = cartoesDaMesa()
+    return { ok: true, mensagem: `${c.length} cartões`, dados: c }
+  },
+  async mesa_predio(a) {
+    const p = await predioDoProjeto(str(a.projeto))
+    return { ok: true, mensagem: descreverPredio(p), dados: p }
+  },
+  async mesa_relatorio(a) {
+    const r = pesquisas().find((x) => String(x.id) === str(a.id))
+    if (!r) return falha('Esse relatório não existe mais.')
+    const erro = await abrirPesquisa(r)
+    return erro ? falha(`Não consegui abrir: ${erro}`) : { ok: true, mensagem: `Abri o relatório "${r.titulo || r.tema}".` }
   },
 
   // ---------- Designs importados ----------

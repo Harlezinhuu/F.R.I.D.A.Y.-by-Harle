@@ -176,3 +176,29 @@ export function removerDesign(qual: string): Design | null {
 
 /** Caminho de um arquivo da biblioteca, sem deixar sair da pasta. */
 export const caminhoNaBiblioteca = (rel: string): string => dentro(pastaModelos(), rel)
+
+/**
+ * Na primeira vez (e quando sai uma versão com designs novos), coloca na biblioteca os designs originais
+ * que vêm com a FRIDAY. Um que você removeu não volta.
+ */
+export function semearDesigns(pastaDosOriginais: string): number {
+  const lista = join(pastaDosOriginais, 'designs.json')
+  if (!existsSync(lista)) return 0
+  let originais: { arquivo: string; nome: string; apelidos: string[] }[]
+  try { originais = JSON.parse(readFileSync(lista, 'utf8')) } catch { return 0 }
+  const registro = join(app.getPath('userData'), 'designs-originais.json')
+  let ja: string[] = []
+  try { ja = JSON.parse(readFileSync(registro, 'utf8')) } catch { /* primeira vez */ }
+  const novos = originais.filter((o) => !ja.includes(o.arquivo) && existsSync(join(pastaDosOriginais, o.arquivo)))
+  if (!novos.length) return 0
+  mkdirSync(pastaModelos(), { recursive: true })
+  const atuais = lerDesigns()
+  for (const o of novos) {
+    if (!existsSync(join(pastaModelos(), o.arquivo))) copyFileSync(join(pastaDosOriginais, o.arquivo), join(pastaModelos(), o.arquivo))
+    if (!atuais.some((d) => d.arquivo === o.arquivo)) atuais.push({ arquivo: o.arquivo, nome: nomeLivre(o.nome, atuais.map((d) => d.nome)), apelidos: o.apelidos, importadoEm: new Date().toISOString() })
+  }
+  salvarDesigns(atuais)
+  mkdirSync(dirname(registro), { recursive: true })
+  writeFileSync(registro, JSON.stringify([...ja, ...novos.map((o) => o.arquivo)]))
+  return novos.length
+}

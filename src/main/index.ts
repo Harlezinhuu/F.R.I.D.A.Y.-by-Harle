@@ -15,7 +15,7 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
-import { escolherEImportar } from './designs'
+import { escolherEImportar, semearDesigns } from './designs'
 import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registrarContextoPc } from './elo'
 import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
 import { encerrarWhats, mostrarWhats } from './whatsweb'
@@ -310,6 +310,11 @@ app.whenReady().then(() => {
   criarBandeja()
   inicioNaPrimeiraVez()
   winctl.aquecer()
+  // Os designs originais que vêm com a FRIDAY entram na biblioteca (uma vez só)
+  try {
+    const n = semearDesigns(join(resourcesDir(), 'designs'))
+    if (n) log('designs', `${n} designs originais na biblioteca`)
+  } catch (e) { log('designs', `semear: ${(e as Error).message}`) }
 
   if (!globalShortcut.register('Control+Alt+Space', alternarSilencio)) {
     new Notification({ title: 'F.R.I.D.A.Y', body: 'O atalho Ctrl+Alt+Espaço já está em uso por outro programa.' }).show()

@@ -18,6 +18,7 @@ import type { Modelo3D } from './projetor/tipos'
 import type { AcaoProjecao } from './hud/projecao'
 import { Maos } from './gestos/maos'
 import type { Comando } from './gestos/gestos'
+import type { CartaoMesa, Predio } from '../../shared/mesa'
 import { Rostos } from './rostos/rostos'
 import { filtrarAmostras, podeUsar, quemEsta, reconhecer, type Cadastro, type Papel, type Reconhecimento } from '../../shared/rostos'
 
@@ -241,6 +242,7 @@ async function iniciar(): Promise<void> {
   /** Modo explicação: a tela acompanha a fala com palavras-chave, fotos e fatos. */
   function explicar(a: Record<string, unknown>): { ok: boolean; resultado: string } {
     if (hud.projecaoAtiva) return { ok: false, resultado: 'Tem uma projeção 3D na tela. Explique só falando.' }
+    if (hud.mesa.aberta) return { ok: false, resultado: 'A mesa holográfica está aberta. Explique só falando (a FRIDAY em miniatura aponta enquanto você fala).' }
     const lista = (v: unknown, max: number) => (Array.isArray(v) ? v : []).map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, max)
     const dados = {
       tema: String(a.tema ?? '').trim().slice(0, 80),
@@ -629,6 +631,8 @@ async function iniciar(): Promise<void> {
       resposta = await cadastrarRosto(args)
     } else if (nome === 'rostos') {
       resposta = await gerirRostos(args)
+    } else if (nome === 'mesa') {
+      resposta = await usarMesa(args)
     } else if (nome === 'mostrar_cena') {
       // Responde na hora para a fala não esperar; a foto aparece quando chegar
       const termo = String(args.termo ?? '').trim()
@@ -691,6 +695,121 @@ async function iniciar(): Promise<void> {
       }, 7000)
     }, 7000)
     atividade()
+  }
+
+  // ---------- Mesa holográfica ----------
+
+  const NOME_TIPO_MESA: Record<CartaoMesa['tipo'], string> = { projeto: 'projeto', design: 'design', relatorio: 'relatório' }
+  const descreverCartao = (c: CartaoMesa | null): string => c ? `${NOME_TIPO_MESA[c.tipo]} ${c.titulo} (${c.sub}; ${c.ficha.filter((l) => !/toque duplo/i.test(l)).join('; ')})` : 'nenhum'
+
+  async function cartoesDaMesa(tipo: string): Promise<CartaoMesa[]> {
+    const r = await window.friday.ferramenta('mesa_cartoes', {})
+    const todos = (Array.isArray(r.dados) ? r.dados : []) as CartaoMesa[]
+    const so: Record<string, CartaoMesa['tipo']> = { projetos: 'projeto', designs: 'design', relatorios: 'relatorio' }
+    return so[tipo] ? todos.filter((c) => c.tipo === so[tipo]) : todos
+  }
+
+  /** Abre o cartão: projeto vira prédio, design vira holograma, relatório abre no PC. */
+  async function abrirCartaoDaMesa(c: CartaoMesa): Promise<{ ok: boolean; resultado: string }> {
+    sons.entendi()
+    if (c.tipo === 'projeto') {
+      hud.legenda('SISTEMA', `Montando o prédio do ${c.titulo}…`)
+      const r = await window.friday.ferramenta('mesa_predio', { projeto: c.titulo })
+      if (!r.ok) { sons.erro(); return { ok: false, resultado: r.mensagem } }
+      hud.mesa.mostrarPredio(r.dados as Predio)
+      hud.registrarAcao(`Mesa: prédio do ${c.titulo}`)
+      return { ok: true, resultado: `Prédio do ${c.titulo} na mesa. ${r.mensagem} Comente em uma ou duas frases.` }
+    }
+    if (c.tipo === 'design') {
+      hud.legenda('SISTEMA', `Trazendo ${c.titulo} para a mesa…`)
+      const r = await window.friday.ferramenta('buscar_modelo', { termo: c.titulo, fonte: 'arquivo' })
+      if (!r.ok) { sons.erro(); return { ok: false, resultado: r.mensagem } }
+      const m = await modeloDeDados(r.dados as DadosModelo3D)
+      if (!m.partes.length) return { ok: false, resultado: 'O design veio vazio.' }
+      hud.mesa.mostrarDesign(m)
+      hud.registrarAcao(`Mesa: ${m.nome}`)
+      return { ok: true, resultado: `${m.nome} em holograma na mesa, ${m.partes.length} peças: ${m.partes.slice(0, 10).map((p) => p.nome).join(', ')}. Comente em uma frase.` }
+    }
+    const r = await window.friday.ferramenta('mesa_relatorio', { id: c.id.replace(/^relatorio:/, '') })
+    return { ok: r.ok, resultado: r.mensagem }
+  }
+
+  async function usarMesa(a: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const acao = String(a.acao ?? 'abrir'), qual = String(a.qual ?? '').trim(), tipo = String(a.tipo ?? 'tudo')
+    const mesa = hud.mesa
+    if (acao === 'fechar') {
+      hud.fecharMesa()
+      return { ok: true, resultado: 'Mesa fechada.' }
+    }
+    if (!mesa.aberta || acao === 'abrir') {
+      const cartoes = await cartoesDaMesa(tipo)
+      if (!cartoes.length) return { ok: false, resultado: 'A mesa está vazia: não tem projeto no projetos.json, design importado nem relatório pronto.' }
+      hud.abrirMesa(cartoes)
+      hud.registrarAcao('Mesa holográfica')
+      if (acao === 'abrir' && !qual) {
+        const conta = (t: CartaoMesa['tipo']) => cartoes.filter((c) => c.tipo === t).length
+        return { ok: true, resultado: `Mesa aberta com ${cartoes.length} cartões: ${conta('projeto')} projetos, ${conta('design')} designs e ${conta('relatorio')} relatórios. Na frente: ${descreverCartao(mesa.atual)}. Diga em uma frase e lembre que ele pode passar com a mão.` }
+      }
+    }
+    switch (acao) {
+      case 'proximo':
+      case 'anterior': {
+        if (mesa.modo !== 'cartoes') mesa.voltar()
+        const antes = mesa.indice
+        const c = acao === 'proximo' ? mesa.proximo() : mesa.anterior()
+        if (mesa.indice === antes) return { ok: true, resultado: `Esse já é o ${acao === 'proximo' ? 'último' : 'primeiro'} cartão: ${descreverCartao(c)}.` }
+        return { ok: true, resultado: `Cartão ${mesa.indice + 1} de ${mesa.total}: ${descreverCartao(c)}. Diga só o nome.` }
+      }
+      case 'abrir':
+      case 'abrir_cartao': {
+        const so: Record<string, CartaoMesa['tipo']> = { projetos: 'projeto', designs: 'design', relatorios: 'relatorio' }
+        if (qual) {
+          const i = mesa.acharCartao(qual, so[tipo])
+          if (i < 0) return { ok: false, resultado: `Não tem "${qual}" na mesa.` }
+          mesa.irPara(i)
+        }
+        const c = mesa.atual
+        if (!c) return { ok: false, resultado: 'Não tem cartão na mesa.' }
+        return abrirCartaoDaMesa(c)
+      }
+      case 'voltar':
+        mesa.voltar()
+        return { ok: true, resultado: `De volta aos cartões. Na frente: ${descreverCartao(mesa.atual)}.` }
+      case 'explodir':
+      case 'juntar':
+        if (mesa.modo === 'cartoes') return { ok: false, resultado: 'Abra um projeto ou design primeiro.' }
+        mesa.explodir(acao === 'explodir')
+        return { ok: true, resultado: acao === 'explodir' ? (mesa.modo === 'predio' ? 'Andares separados.' : 'Peças separadas, com os nomes.') : 'Montado de novo.' }
+    }
+    return { ok: false, resultado: 'Ação desconhecida na mesa.' }
+  }
+
+  /** Gesto na mesa: deslizar passa os cartões, toque duplo abre, mão fechada gira, duas mãos explodem. */
+  function gestoNaMesa(c: Comando): void {
+    const mesa = hud.mesa
+    switch (c.tipo) {
+      case 'girar': mesa.girar(c.dx, c.dy); break
+      case 'escalar': mesa.escalar(c.fator); break
+      case 'explodir': if (mesa.modo !== 'cartoes' && !mesa.explodida) { mesa.explodir(true); sons.entendi() } break
+      case 'juntar': if (mesa.explodida) { mesa.explodir(false); sons.entendi() } break
+      case 'arremessar':
+        if (mesa.modo !== 'cartoes') { mesa.voltar(); sons.entendi(); break }
+        // Deslizar a mão para a esquerda traz o próximo cartão (como num carrossel)
+        if (c.direcao < 0) mesa.proximo(); else mesa.anterior()
+        sons.entendi()
+        hud.legenda('MESA', `${mesa.indice + 1}/${mesa.total} · ${mesa.atual?.titulo ?? ''}`)
+        break
+      case 'toque_duplo': {
+        const atual = mesa.atual
+        if (mesa.modo !== 'cartoes' || !atual) break
+        void abrirCartaoDaMesa(atual).then((r) => {
+          hud.legenda('MESA', r.ok ? atual.titulo : r.resultado)
+          // Conversando: ela comenta o que abriu
+          if (conversando && r.ok) live.dizer(`(Ele abriu na mesa holográfica com um toque duplo. ${r.resultado})`)
+        })
+        break
+      }
+    }
   }
 
   // ---------- Projeção 3D ----------
@@ -805,6 +924,7 @@ async function iniciar(): Promise<void> {
   maos.aoComandos = (cmds: Comando[]) => {
     const p = hud.nucleo.projecao
     for (const c of cmds) {
+      if (hud.mesa.aberta) { gestoNaMesa(c); continue }
       if (!hud.projecaoAtiva) continue
       switch (c.tipo) {
         case 'girar': p.girarPor(c.dx, c.dy); break

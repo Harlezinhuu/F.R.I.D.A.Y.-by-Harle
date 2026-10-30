@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular', 'cadastrar_rosto', 'rostos'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular', 'cadastrar_rosto', 'rostos', 'mesa'] as const
 
 /** Ferramentas do PC que o celular pareado pode pedir pelo elo (o resto fica só no PC). */
 export const TOOLS_REMOTAS = [
@@ -25,7 +25,7 @@ export const TOOLS_REMOTAS = [
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
   'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro',
-  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa'
+  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa', 'mesa'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -467,6 +467,20 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'mesa',
+    description:
+      'Mesa holográfica no HUD: um arquivo de cartões com os projetos, designs e relatórios dele. abrir ("abre a mesa", "mostra meus projetos na mesa"); proximo e anterior passam os cartões; abrir_cartao abre o da frente ou o que ele disser em qual (projeto vira prédio: pastas são andares, arquivos são salas, vermelho é teste falhando; design vira holograma; relatório abre no PC): "mostra o prédio do Harle Bot", "coloca a turbina na mesa"; explodir e juntar abrem e fecham as peças ou os andares; voltar volta para os cartões; fechar fecha a mesa.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['abrir', 'proximo', 'anterior', 'abrir_cartao', 'voltar', 'explodir', 'juntar', 'fechar'] },
+        qual: { type: 'STRING', description: 'Nome do projeto, design ou relatório (opcional; vazio = o cartão da frente).' },
+        tipo: { type: 'STRING', description: 'Só um tipo de cartão (opcional).', enum: ['tudo', 'projetos', 'designs', 'relatorios'] }
+      },
+      required: ['acao']
+    }
+  },
+  {
     name: 'designs',
     description:
       'Os designs 3D que ele importou (modelos .glb, .gltf, .stl, .obj ou pacotes .zip): importar abre a janela para ele escolher os arquivos ("importa um design", "quero colocar uns modelos"); listar diz quais tem; renomear dá nome ou apelidos ("chama esse de reator"); remover tira da biblioteca (confirme antes). Para mostrar um design, use projetar com o nome dele e fonte arquivo.',
@@ -726,6 +740,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
     'Programação por voz: "roda os testes" usa rodar_testes; "posso dar push?" ou "revisa antes de eu mandar" usa revisar_codigo; "explica esse código" usa explicar_codigo; "anota um bug" usa anotar_bug (confirme antes). Para corrigir algo, ofereça tarefa_programacao.',
+    'Com a mesa holográfica aberta, "passa", "volta", "abre esse", "explode", "junta" e "fecha" se referem à mesa: use mesa. Ao abrir um prédio ou design, comente em uma ou duas frases o que aparece (o resultado traz o resumo).',
     'Ele pode importar os próprios designs 3D (designs com acao=importar). Depois de importar, pergunte como ele quer chamar cada um e use acao=renomear. "Projeta o <nome>" com um design dele usa projetar com fonte arquivo.',
     'Para fazer algo dentro de um programa do PC ("no Spotify, coloca a playlist de estudo", "preenche isso com meu nome"), use ver_janela, depois clicar_janela, digitar_janela, tecla_janela ou rolar_janela, um passo por vez, conferindo a janela que volta. Só nos programas da lista dele; nunca senhas; banco, pagamento e login são com ele. Se não estiver dando certo em poucos passos, diga o que falta.',
     'Quando chegar o aviso de um aparelho novo no Wi-Fi e ele disser de quem é, use rede_de_casa com acao=apelidar.',

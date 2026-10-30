@@ -81,3 +81,16 @@ test('apontar mostra a mira na ponta do indicador', () => {
   assert.ok(mira)
   assert.ok(Math.abs(mira.y - (0.5 - 0.08)) < 1e-9)
 })
+
+test('duas pinças rápidas no mesmo lugar: toque duplo (uma só vez); devagar ou longe, não', () => {
+  const P: Dedos = [true, false, false, false]
+  const pinca = (x = 0.5) => [mao(x, 0.5, P, true)], solta = (x = 0.5) => [mao(x, 0.5, P)]
+  const rapido = rodar([solta(), pinca(), pinca(), solta(), solta(), pinca(), pinca(), solta()])
+  assert.equal(rapido.filter((c) => c.tipo === 'toque_duplo').length, 1)
+  // Pinças a 1 s uma da outra
+  const devagar = rodar([solta(), pinca(), solta(), ...Array.from({ length: 30 }, () => solta()), pinca()])
+  assert.equal(devagar.filter((c) => c.tipo === 'toque_duplo').length, 0)
+  // A segunda pinça longe da primeira (é um arrasto, não um toque)
+  const longe = rodar([solta(0.3), pinca(0.3), solta(0.5), pinca(0.6)])
+  assert.equal(longe.filter((c) => c.tipo === 'toque_duplo').length, 0)
+})

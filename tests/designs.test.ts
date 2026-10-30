@@ -50,3 +50,21 @@ test('acha o design pelo nome, pelo apelido ou por palavras', () => {
   assert.equal(acharDesign(['armadura'], l)?.arquivo, 'armadura.glb')
   assert.equal(acharDesign(['satélite'], l), null)
 })
+
+test('os designs originais são .glb válidos, com peças nomeadas e listados no designs.json', async () => {
+  const { readFileSync } = await import('node:fs')
+  const pasta = new URL('../resources/designs/', import.meta.url)
+  const lista = JSON.parse(readFileSync(new URL('designs.json', pasta), 'utf8')) as { arquivo: string; nome: string; apelidos: string[] }[]
+  assert.ok(lista.length >= 6)
+  for (const d of lista) {
+    const b = readFileSync(new URL(d.arquivo, pasta))
+    assert.equal(b.readUInt32LE(0), 0x46546c67, d.arquivo)
+    assert.equal(b.readUInt32LE(8), b.length, d.arquivo)
+    const tam = b.readUInt32LE(12)
+    const json = JSON.parse(b.subarray(20, 20 + tam).toString('utf8'))
+    assert.ok(json.nodes.length >= 5 && json.nodes.every((n: { name: string }) => n.name.length > 0), d.arquivo)
+    const bin = b.readUInt32LE(20 + tam)
+    assert.equal(json.buffers[0].byteLength, bin)
+    assert.ok(d.apelidos.length > 0)
+  }
+})

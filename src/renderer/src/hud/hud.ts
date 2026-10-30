@@ -4,6 +4,8 @@
 import { Nucleo, ESTADOS, type Estado } from './nucleo'
 import { Cartoes } from './cartoes'
 import { Explicacao } from '../explicacao/explicacao'
+import { Mesa } from '../mesa/mesa'
+import type { CartaoMesa } from '../../../shared/mesa'
 import type { Card } from '../../../shared/types'
 import type { Modelo3D } from '../projetor/tipos'
 import type { AcaoProjecao } from './projecao'
@@ -20,6 +22,7 @@ export class Hud {
   readonly nucleo: Nucleo
   readonly cartoes: Cartoes
   readonly explicacao: Explicacao
+  readonly mesa: Mesa
   private estado: Estado = 'repouso'
   private timerLegenda = 0
   private latencias: number[] = []
@@ -34,6 +37,7 @@ export class Hud {
       const r = $('core').getBoundingClientRect()
       return r.width ? { x: r.left + r.width / 2, y: r.top + r.height * 0.52 } : null
     })
+    this.mesa = new Mesa($('mesa') as HTMLCanvasElement, () => this.estado)
     const relogio = () => { $('relogio').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
     relogio()
     setInterval(relogio, 10_000)
@@ -141,7 +145,25 @@ export class Hud {
     this.nucleo.setCompacto(false)
   }
 
+  // ---------- Mesa holográfica ----------
+
+  abrirMesa(cartoes: CartaoMesa[]): void {
+    if (this.projecaoAtiva) this.comandoProjecao('fechar')
+    this.explicacao.fechar()
+    this.expandir()
+    this.nucleo.esconderCena(true)
+    document.body.classList.add('mesa-aberta')
+    this.mesa.abrir(cartoes)
+  }
+
+  fecharMesa(): void {
+    if (!this.mesa.aberta) return
+    this.mesa.fechar()
+    document.body.classList.remove('mesa-aberta')
+  }
+
   compactar(): void {
+    this.fecharMesa()
     this.identidade(null)
     // Minimizar encerra a projeção (as partículas voltam para a fita)
     this.nucleo.projecao.esconder()
@@ -161,6 +183,7 @@ export class Hud {
 
   /** Abre o HUD e projeta o modelo: as partículas saem da fita e montam o objeto. */
   projetar(m: Modelo3D): void {
+    this.fecharMesa()
     this.explicacao.fechar()
     this.expandir()
     this.nucleo.esconderCena(true)

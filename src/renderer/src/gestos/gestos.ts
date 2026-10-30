@@ -7,7 +7,8 @@
 // Duas mãos fechadas ............. afastar/aproximar as mãos muda o tamanho
 // Duas mãos abertas se afastando . explode as peças; se juntando, monta de novo
 // Indicador apontando ............ mira; parar em cima de uma peça seleciona
-// Mão aberta num tapa rápido ..... arremessa o holograma para fora (fecha)
+// Mão aberta num tapa rápido ..... arremessa o holograma para fora (fecha); na mesa, passa os cartões
+// Duas pinças rápidas ............ toque duplo (na mesa, abre o cartão da frente)
 
 export interface Ponto { x: number; y: number; z?: number }
 export type Pose = 'aberta' | 'fechada' | 'pinca' | 'aponta' | 'outra'
@@ -19,6 +20,7 @@ export type Comando =
   | { tipo: 'juntar' }
   | { tipo: 'arremessar'; direcao: number }
   | { tipo: 'mira'; x: number; y: number }
+  | { tipo: 'toque_duplo' }
 
 const dist = (a: Ponto, b: Ponto) => Math.hypot(a.x - b.x, a.y - b.y)
 
@@ -58,6 +60,9 @@ export class Gestos {
   private rastro: Rastro[] = []
   private esperaAte = 0
   private suave: Ponto[] = []
+  /** Quando a pinça fechou (para o toque duplo) e onde */
+  private pincas: { t: number; x: number; y: number }[] = []
+  private esperaToque = 0
 
   /** Quanto o holograma gira quando a mão atravessa a câmera inteira (radianos). */
   static readonly GIRO_POR_TELA = 7
@@ -88,6 +93,16 @@ export class Gestos {
         if (Math.abs(dy) > Gestos.MOVIMENTO_MINIMO) out.push({ tipo: 'escalar', fator: Math.exp(-dy * 3) })
       }
       if (a.pose === 'aponta') out.push({ tipo: 'mira', x: a.ponta.x, y: a.ponta.y })
+      // Toque duplo: fechar a pinça duas vezes seguidas, quase sem mexer a mão
+      if (a.pose === 'pinca' && p && p.pose !== 'pinca') {
+        this.pincas = [...this.pincas.filter((x) => t - x.t <= 700), { t, x: a.pinca.x, y: a.pinca.y }]
+        const [x0, x1] = this.pincas.slice(-2)
+        if (x0 && x1 && x0 !== x1 && t >= this.esperaToque && Math.hypot(x1.x - x0.x, x1.y - x0.y) < 0.06) {
+          out.push({ tipo: 'toque_duplo' })
+          this.pincas = []
+          this.esperaToque = t + 900
+        }
+      }
       // Tapa: mão aberta atravessando rápido para o lado
       if (a.pose === 'aberta') {
         this.rastro.push({ t, x: a.c.x, y: a.c.y })

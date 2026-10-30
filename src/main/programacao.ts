@@ -6,7 +6,7 @@
 import { execFile, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { shell } from 'electron'
+import { app, shell } from 'electron'
 import { lerProjetos } from './tarefas'
 import { encontrarProjeto, normalizar, type Projeto } from './logica/tarefas'
 import { janelaAtiva } from './winctl'
@@ -104,6 +104,29 @@ function contarResultado(p: Projeto, comando: string, r: { codigo: number; saida
   return linhas.join('\n')
 }
 
+// ---------- Última rodada (a mesa holográfica pinta de vermelho onde quebrou) ----------
+
+const arquivoTestes = (): string => path.join(app.getPath('userData'), 'testes.json')
+
+function guardarRodada(p: Projeto, codigo: number, resumo: ResumoTestes): void {
+  try {
+    let tudo: Record<string, { quando: number; ok: boolean; arquivos: string[] }> = {}
+    try { tudo = JSON.parse(readFileSync(arquivoTestes(), 'utf8')) } catch { /* primeira vez */ }
+    tudo[p.nome] = { quando: Date.now(), ok: codigo === 0 && !resumo.falhas.length, arquivos: [...new Set(resumo.falhas.map((f) => f.arquivo).filter(Boolean))] }
+    writeFileSync(arquivoTestes(), JSON.stringify(tudo, null, 2))
+  } catch { /* sem disco: só não pinta */ }
+}
+
+/** Onde os testes quebraram na última vez que rodaram neste projeto (vazio se passaram). */
+export function ultimasFalhas(nomeProjeto: string): { quando: number; arquivos: string[] } | null {
+  try {
+    const r = (JSON.parse(readFileSync(arquivoTestes(), 'utf8')) as Record<string, { quando: number; arquivos: string[] }>)[nomeProjeto]
+    return r ? { quando: r.quando, arquivos: Array.isArray(r.arquivos) ? r.arquivos : [] } : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Roda os testes. Se demorar mais de 25 s, responde já e conta o resultado depois (por `depois`).
  */
@@ -112,7 +135,11 @@ export async function rodarTestes(nomeProjeto: string, pedido: string, depois: (
   if ('erro' in e) return { ok: false, mensagem: e.erro }
   const comando = escolherComando(e.projeto, pedido)
   if (typeof comando !== 'string') return { ok: false, mensagem: comando.erro }
-  const execucao = rodar(comando, e.projeto.pasta).then((r) => ({ r, texto: contarResultado(e.projeto, comando, r, resumirTestes(r.saida)) }))
+  const execucao = rodar(comando, e.projeto.pasta).then((r) => {
+    const resumo = resumirTestes(r.saida)
+    guardarRodada(e.projeto, r.codigo, resumo)
+    return { r, texto: contarResultado(e.projeto, comando, r, resumo) }
+  })
   const rapido = await Promise.race([execucao, new Promise<null>((ok) => setTimeout(() => ok(null), 25_000))])
   if (rapido) return { ok: rapido.r.codigo === 0, mensagem: rapido.texto }
   void execucao.then(({ r, texto }) => depois(r.codigo === 0 ? `Os testes do ${e.projeto.nome} passaram.` : `Os testes do ${e.projeto.nome} falharam. ${texto.split('\n').slice(0, 3).join(' ')}`, r.codigo === 0))
