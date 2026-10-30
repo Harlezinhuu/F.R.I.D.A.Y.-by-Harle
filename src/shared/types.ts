@@ -25,6 +25,8 @@ export interface FridayConfig {
   maos: { modeloUrl: string; wasmUrl: string } | null
   /** Reconhecimento facial (opcional): modelos do Human na pasta resources */
   rostos: { modelosUrl: string; limiar: number } | null
+  /** Modo reserva (sem internet): ouvido em português (Vosk) e a IA local (Ollama) */
+  reserva: { ouvidoUrl: string | null; url: string; modelo: string }
 }
 
 /** Cartões contextuais que o HUD sabe desenhar. */

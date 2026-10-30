@@ -28,6 +28,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
 - **Segundo cérebro:** ela lê os seus documentos, anotações, PDFs, Word, PowerPoint, planilhas e projetos, guarda um índice só no seu PC e acha as coisas pelo assunto: "onde está aquele PDF de redes que fala de sub-rede?".
 - **Pesquisa profunda:** "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo". Ela planeja, pesquisa cada parte na internet, olha o que você já tem nos seus arquivos e entrega um relatório com fontes numeradas, falando o resumo na hora marcada.
+- **Cérebro reserva:** se a internet cair (ou o Gemini não responder), ela continua funcionando para o básico, toda no PC: entende português sem internet, pensa com uma IA local (Ollama) e fala com a voz do Windows.
 - **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
@@ -152,6 +153,17 @@ Com o projeto aberto no VS Code (ela sabe qual é pelo título da janela), ou di
 - **"Anota um bug no Harle Bot: a fila trava quando está vazia."** Ela confirma e cria a issue no GitHub (com o [GitHub CLI](https://cli.github.com) logado) ou abre a página da issue já preenchida. Depois, "resolve a issue 12" vira uma tarefa de programação com o texto da issue.
 
 Só roda os comandos liberados no projeto, e arquivos com chaves nunca são lidos para a IA.
+
+### Cérebro reserva (sem internet)
+
+Se você chamar a FRIDAY e não tiver internet (ou o Gemini não responder), ela entra no **modo reserva**, tudo no seu PC:
+
+- **Ouve** em português com o Vosk, sem internet: o `npm run modelo` baixa esse ouvido (uns 31 MB) junto com os outros modelos.
+- **Pensa** com uma IA local pelo [Ollama](https://ollama.com), se estiver instalado. Instale o Ollama e rode uma vez `ollama pull qwen2.5:3b` (uns 2 GB; roda bem numa placa de 6 GB). Para usar outro modelo: `FRIDAY_RESERVA_MODELO` no `.env`.
+- **Sem o Ollama**, ela entende os pedidos do dia a dia por regras: abrir e fechar programas, volume, música, lembretes, timers, que horas são, status do PC, bloquear o PC e procurar nos seus arquivos.
+- **Fala** com a voz do Windows (instale a voz em português em Configurações › Hora e idioma › Fala, se não tiver).
+
+Clima, notícias, pesquisa e WhatsApp precisam de internet; ela avisa isso em uma frase. Quando a internet volta, a próxima conversa já é com o Gemini.
 
 ### Memória
 

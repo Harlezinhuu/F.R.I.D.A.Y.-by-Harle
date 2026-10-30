@@ -11,6 +11,8 @@ export function resourcesDir(): string {
 }
 
 export const MODELO_ATIVACAO_ARQUIVO = 'vosk-model-small-en-us-0.15.tar.gz'
+/** Ouvido em português do modo reserva (sem internet) */
+export const MODELO_RESERVA_ARQUIVO = 'vosk-model-small-pt-0.3.tar.gz'
 
 // Chaves do Google AI Studio: formato antigo (AIza...) e novo (AQ....)
 const CHAVE_GOOGLE = /^(AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_.-]{30,})$/
@@ -110,6 +112,11 @@ export function carregarConfig(): FridayConfig {
     rostos: existsSync(join(resourcesDir(), 'models', 'rostos', 'faceres.bin'))
       ? { modelosUrl: 'friday-assets://models/rostos/', limiar: Math.min(0.9, Math.max(0.3, Number(env.FRIDAY_ROSTO_LIMIAR) || 0.5)) }
       : null,
+    reserva: {
+      ouvidoUrl: existsSync(join(resourcesDir(), 'models', MODELO_RESERVA_ARQUIVO)) ? `friday-assets://models/${MODELO_RESERVA_ARQUIVO}` : null,
+      url: (env.FRIDAY_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/+$/, ''),
+      modelo: env.FRIDAY_RESERVA_MODELO || 'qwen2.5:3b'
+    },
     maos: existsSync(join(resourcesDir(), 'models', 'maos', 'hand_landmarker.task')) && existsSync(join(resourcesDir(), 'models', 'maos', 'wasm'))
       ? { modeloUrl: 'friday-assets://models/maos/hand_landmarker.task', wasmUrl: 'friday-assets://models/maos/wasm' }
       : null

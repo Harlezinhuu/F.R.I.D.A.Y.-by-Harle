@@ -28,6 +28,10 @@ export interface FridayApi {
   contexto(texto: string): void
   /** O agente de consultas pelo WhatsApp precisa de você (pergunta), terminou, ou pede o QR */
   aoConsulta(cb: (e: { tipo: 'pergunta' | 'fim' | 'qr'; texto: string; ok?: boolean }) => void): void
+  /** Modo reserva (sem internet): o que você disse → o que ela responde */
+  reserva(texto: string): Promise<{ fala: string; encerrar: boolean; cartoes: Card[]; motor: 'ollama' | 'regras' }>
+  reservaEstado(): Promise<{ ok: boolean; modelo: string; motivo: string }>
+  reservaFim(): void
   /** A central do quarto (o celular em casa ouvindo "Friday") entrou ou saiu do ar */
   aoCentral(cb: (ativa: boolean, aparelho: string) => void): void
 }

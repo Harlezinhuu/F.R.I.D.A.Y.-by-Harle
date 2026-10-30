@@ -20,6 +20,9 @@ const api: FridayApi = {
   eloResponder: (id, r) => ipcRenderer.send('elo-resposta', id, r),
   contexto: (texto) => ipcRenderer.send('contexto', texto),
   aoConsulta: (cb) => { ipcRenderer.on('consulta', (_e, ev) => cb(ev)) },
+  reserva: (texto) => ipcRenderer.invoke('reserva', texto),
+  reservaEstado: () => ipcRenderer.invoke('reserva-estado'),
+  reservaFim: () => ipcRenderer.send('reserva-fim'),
   aoCentral: (cb) => { ipcRenderer.on('central', (_e, ativa: boolean, aparelho: string) => cb(ativa, aparelho)) }
 }
 

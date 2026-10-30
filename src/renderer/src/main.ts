@@ -9,6 +9,7 @@ import { sons } from './hud/sons'
 import { Microfone, Alto, pcm16Base64 } from './voz/audio'
 import { SessaoLive, type ChamadaFerramenta } from './voz/live'
 import { PalavraAtivacao } from './voz/ativacao'
+import { OuvidoReserva } from './voz/reserva'
 import { FalaFish } from './voz/fish'
 import type { DadosModelo3D, ItemDiagnostico, Lembrete } from '../../shared/types'
 import { FORMAS, acharForma, funcao, listaFormas } from './projetor/formas'
@@ -48,6 +49,11 @@ async function iniciar(): Promise<void> {
   const fala = cfg.vozProvedor === 'fish' ? new FalaFish() : null
   const falandoAgora = () => alto.tocando || (fala?.ocupado ?? false)
   const ativacao = new PalavraAtivacao()
+  // Modo reserva (sem internet): ouvido em português no PC, cérebro local (Ollama ou regras), voz do Windows
+  const ouvidoReserva = new OuvidoReserva()
+  let reservaAtiva = false
+  let reservaPensando = false
+  let reservaUltima = 0
 
   let conversando = false
   let conectando = false
@@ -354,7 +360,7 @@ async function iniciar(): Promise<void> {
   // ---------- Conversa ----------
 
   async function iniciarConversa(): Promise<void> {
-    if (conversando || silenciada || !micOk) return
+    if (conversando || reservaAtiva || silenciada || !micOk) return
     // A própria voz dela (ou o fim da sua frase) logo depois de encerrar não abre outra conversa
     if (falandoAgora() || performance.now() - fimDaConversa < 1500) return
     if (!cfg.apiKey) {
@@ -362,7 +368,7 @@ async function iniciar(): Promise<void> {
       hud.cartao({ tipo: 'aviso', titulo: 'FALTA CONFIGURAR', texto: 'Coloque sua GEMINI_API_KEY no arquivo .env e reinicie a FRIDAY.' }, 10000)
       return
     }
-    if (!navigator.onLine) { sons.offline(); hud.setEstado('offline'); return }
+    if (!navigator.onLine) { void iniciarReserva('Estou sem internet.'); return }
 
     // Um aviso falado em andamento para quando você chama
     try { speechSynthesis.cancel() } catch { /* sem voz do Windows */ }
@@ -409,11 +415,8 @@ async function iniciar(): Promise<void> {
       console.error('[friday] não conectou', e)
       conectando = false
       conversando = false
-      sons.offline()
-      hud.setEstado('offline')
-      hud.legenda('SISTEMA', 'Não consegui conectar ao Gemini. Confira a internet e a chave da API.')
-      await esperar(4000)
-      if (!conversando && !silenciada) { hud.setEstado(micOk ? 'repouso' : 'semMic'); hud.compactar() }
+      // Sem Gemini (internet caiu, limite da chave): o cérebro reserva assume o básico
+      void iniciarReserva('Não consegui falar com o Gemini.')
       return
     }
     conectando = false
@@ -478,6 +481,99 @@ async function iniciar(): Promise<void> {
     alertaPendente = false
     turnosDesdeAlerta = 0
     hud.confirmacao(null)
+  }
+
+  // ---------- Modo reserva (sem internet) ----------
+
+  async function iniciarReserva(motivo: string): Promise<void> {
+    if (reservaAtiva) return
+    if (!cfg.reserva.ouvidoUrl) {
+      sons.offline()
+      hud.setEstado('offline')
+      hud.legenda('SISTEMA', `${motivo} Para eu funcionar sem internet, rode "npm run modelo" uma vez (baixa o ouvido em português).`)
+      await esperar(5000)
+      if (!conversando && !reservaAtiva && !silenciada) { hud.setEstado(estadoDeRepouso()); hud.compactar() }
+      return
+    }
+    reservaAtiva = true
+    reservaPensando = true
+    hud.expandir()
+    hud.setEstado('pensando')
+    hud.legenda('SISTEMA', `${motivo} Modo reserva: faço o básico aqui no PC.`)
+    try {
+      await ouvidoReserva.carregar(cfg.reserva.ouvidoUrl)
+    } catch (e) {
+      console.error('[friday] ouvido reserva', e)
+      reservaAtiva = false
+      reservaPensando = false
+      sons.offline()
+      hud.setEstado('offline')
+      return
+    }
+    const est = await window.friday.reservaEstado().catch(() => ({ ok: false, modelo: '', motivo: '' }))
+    hud.cartao({ tipo: 'aviso', titulo: 'MODO RESERVA', texto: est.ok ? `Sem internet: usando a IA local (${est.modelo}).` : 'Sem internet: entendo os pedidos básicos (programas, volume, música, lembretes, timers, arquivos).' }, 9000)
+    sons.ativar()
+    ouvidoReserva.reiniciar()
+    reservaPensando = false
+    reservaUltima = performance.now()
+    hud.setEstado('ouvindo')
+  }
+
+  function encerrarModoReserva(despedida: boolean): void {
+    if (!reservaAtiva) return
+    reservaAtiva = false
+    reservaPensando = false
+    window.friday.reservaFim()
+    ativacao.reiniciar()
+    fimDaConversa = performance.now()
+    if (despedida) sons.despedida()
+    hud.setEstado(estadoDeRepouso())
+    if (!hud.projecaoAtiva) hud.compactar()
+  }
+
+  function falarReserva(texto: string): Promise<void> {
+    return new Promise((ok) => {
+      if (!texto.trim()) { ok(); return }
+      void vozDoWindows().then((v) => {
+        const u = new SpeechSynthesisUtterance(texto)
+        u.lang = 'pt-BR'
+        u.rate = 1.05
+        if (v) u.voice = v
+        const fim = () => { clearTimeout(limite); ok() }
+        const limite = setTimeout(fim, 25_000)
+        u.onstart = () => hud.setEstado('falando')
+        u.onend = u.onerror = fim
+        speechSynthesis.speak(u)
+      })
+    })
+  }
+
+  ouvidoReserva.aoParcial = (t) => { if (reservaAtiva && !reservaPensando) { hud.legenda('VOCÊ', t); reservaUltima = performance.now() } }
+  ouvidoReserva.aoFrase = (t) => { void tratarFraseReserva(t) }
+
+  async function tratarFraseReserva(t: string): Promise<void> {
+    if (!reservaAtiva || reservaPensando) return
+    reservaPensando = true
+    hud.legenda('VOCÊ', t)
+    hud.setEstado('pensando')
+    sons.entendi()
+    let encerrar = false
+    try {
+      const r = await window.friday.reserva(t)
+      for (const c of r.cartoes) hud.cartao(c)
+      hud.legenda('FRIDAY', r.fala)
+      await falarReserva(r.fala)
+      encerrar = r.encerrar
+    } catch (e) {
+      console.warn('[friday] reserva', e)
+      hud.legenda('SISTEMA', 'Não consegui fazer isso agora.')
+    } finally {
+      reservaPensando = false
+      reservaUltima = performance.now()
+      ouvidoReserva.reiniciar()
+    }
+    if (encerrar) encerrarModoReserva(true)
+    else if (reservaAtiva) hud.setEstado('ouvindo')
   }
 
   // ---------- Ferramentas ----------
@@ -820,6 +916,12 @@ async function iniciar(): Promise<void> {
     nivelMic = rms
     if (silenciada) return
 
+    if (reservaAtiva) {
+      // Enquanto ela pensa ou fala, não ouve (para não entender a própria voz)
+      if (!reservaPensando && !speechSynthesis.speaking) ouvidoReserva.alimentar(amostras)
+      return
+    }
+
     if (!conversando) {
       preRoll.push(amostras)
       if (preRoll.length > BLOCOS_PRE_ROLL) preRoll.shift()
@@ -888,7 +990,8 @@ async function iniciar(): Promise<void> {
     const agora = performance.now()
     hud.nucleo.setNivel(alto.tocando ? alto.nivel() : nivelMic)
     // Aviso falado fora da conversa terminou: volta ao repouso
-    if (!conversando && hud.estadoAtual === 'falando' && !falandoAgora() && !avisoFalando) hud.setEstado(estadoDeRepouso())
+    if (!conversando && !reservaAtiva && hud.estadoAtual === 'falando' && !falandoAgora() && !avisoFalando) hud.setEstado(estadoDeRepouso())
+    if (reservaAtiva && !reservaPensando && !speechSynthesis.speaking && agora - reservaUltima > 15_000) encerrarModoReserva(false)
     if (!conversando || conectando) return
 
     if (hud.estadoAtual === 'falando' && !falandoAgora()) hud.setEstado(alertaPendente ? 'alerta' : 'ouvindo')
@@ -988,6 +1091,7 @@ async function iniciar(): Promise<void> {
     hud.setEstado('offline')
   })
   window.addEventListener('online', () => {
+    if (reservaAtiva) hud.legenda('SISTEMA', 'A internet voltou. Na próxima vez que você me chamar, volto ao normal.')
     if (hud.estadoAtual !== 'offline') return
     sons.reconectou()
     hud.setEstado(conversando ? 'ouvindo' : micOk ? 'repouso' : 'semMic')

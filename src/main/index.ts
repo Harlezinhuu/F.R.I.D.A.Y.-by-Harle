@@ -22,6 +22,7 @@ import { criarLembrete } from './reminders'
 import { manterCasa } from './ligar-de-fora'
 import { iniciarCerebro } from './cerebro'
 import { iniciarPesquisas } from './pesquisa'
+import { encerrarReserva, ollamaPronto, responderReserva } from './reserva'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -266,6 +267,10 @@ function registrarIpc(): void {
     if (f) { pendentesHud.delete(id); f(r) }
   })
   ipcMain.on('contexto', (_e, texto: string) => registrarContextoPc(String(texto)))
+  // Modo reserva (sem internet): o HUD manda o que ouviu; a resposta vem da IA local ou das regras
+  ipcMain.handle('reserva', (_e, texto: string) => responderReserva(String(texto).slice(0, 500)))
+  ipcMain.handle('reserva-estado', () => ollamaPronto())
+  ipcMain.on('reserva-fim', () => encerrarReserva())
 
   // Voz pelo Fish Audio: o áudio volta em pedaços para o HUD tocar enquanto ainda está sendo gerado
   ipcMain.handle('fish-falar', async (e, id: number, texto: string) => {

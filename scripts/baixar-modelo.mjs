@@ -3,6 +3,7 @@
 // - palavra "Friday" (Vosk, ~40 MB): o áudio só vai para a internet depois que você diz "Friday"
 // - mãos (MediaPipe Hand Landmarker, ~8 MB): a imagem da câmera nunca sai do PC
 // - rostos (Human: faceres, antispoof, liveness, ~10 MB): reconhecimento facial opcional, tudo no PC
+// - ouvido em português (Vosk, ~31 MB): o modo reserva entende você mesmo sem internet
 
 import { cpSync, createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -37,6 +38,27 @@ async function baixarVosk() {
   rmSync(zip, { force: true })
   rmSync(join(pasta, NOME), { recursive: true, force: true })
   console.log(`Pronto! Modelo do "Friday" salvo em ${destino}`)
+}
+
+// Ouvido em português do modo reserva (sem internet): ~31 MB
+const NOME_PT = 'vosk-model-small-pt-0.3'
+
+async function baixarOuvidoPt() {
+  const destinoPt = join(pasta, `${NOME_PT}.tar.gz`)
+  if (existsSync(destinoPt)) {
+    console.log('O ouvido em português (modo reserva) já está pronto.')
+    return
+  }
+  const zipPt = join(pasta, `${NOME_PT}.zip`)
+  console.log(`Baixando o ouvido em português (modo reserva, ~31 MB) ...`)
+  const resp = await fetch(`https://alphacephei.com/vosk/models/${NOME_PT}.zip`)
+  if (!resp.ok || !resp.body) throw new Error(`Falha no download do ouvido em português: HTTP ${resp.status}`)
+  await pipeline(Readable.fromWeb(resp.body), createWriteStream(zipPt))
+  execFileSync('tar', ['-xf', zipPt, '-C', pasta], { stdio: 'inherit' })
+  execFileSync('tar', ['-czf', destinoPt, '-C', pasta, NOME_PT], { stdio: 'inherit' })
+  rmSync(zipPt, { force: true })
+  rmSync(join(pasta, NOME_PT), { recursive: true, force: true })
+  console.log('Pronto: ouvido em português do modo reserva.')
 }
 
 const URL_MAOS = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
@@ -76,7 +98,7 @@ async function prepararRostos() {
 }
 
 let falhou = false
-for (const [nome, passo] of [['palavra "Friday"', baixarVosk], ['mãos', prepararMaos], ['rostos', prepararRostos]]) {
+for (const [nome, passo] of [['palavra "Friday"', baixarVosk], ['ouvido em português (modo reserva)', baixarOuvidoPt], ['mãos', prepararMaos], ['rostos', prepararRostos]]) {
   try { await passo() } catch (e) { falhou = true; console.error(`Não deu para preparar o modelo de ${nome}: ${e.message}`) }
 }
 if (falhou) process.exit(1)
