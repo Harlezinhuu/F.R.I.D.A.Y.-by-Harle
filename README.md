@@ -26,6 +26,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Modo explicação:** quando você pede uma explicação ou uma história, as palavras-chave aparecem gigantes, montadas em partículas, no instante em que ela as fala, com fotos, fatos e um carimbo de veredito.
 - **Projeção 3D:** as partículas saem da fita e montam o objeto em holograma, como na cena da máquina do tempo. Formas da ciência, funções matemáticas, moléculas, proteínas, 257 modelos da NASA, STLs da Wikimedia, os seus arquivos e a IA para o resto.
 - **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
+- **Segundo cérebro:** ela lê os seus documentos, anotações, PDFs, Word, PowerPoint, planilhas e projetos, guarda um índice só no seu PC e acha as coisas pelo assunto: "onde está aquele PDF de redes que fala de sub-rede?".
 - **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
@@ -149,6 +150,17 @@ O que ela aprende fica só no seu PC (`memoria.json`, na pasta de configuração
 Peça uma explicação, uma história, uma teoria ou "o que você faria" ("Friday, me explica como o Watergate foi descoberto"). A fita vira emissor no canto, um rio de partículas corre até um ponto de fuga cercado de linhas de radar e cada palavra-chave é montada em pontos, em perspectiva, **no momento em que a voz dela chega nela**; de uma palavra para a outra, as partículas voam e se rearrumam. Palavras de perigo, proibição ou mentira ficam vermelhas.
 
 Ao lado entram fotos da Wikipédia (quando ela cita o assunto) e cartões com fatos curtos; à esquerda fica a trilha das palavras já ditas. Quando a explicação responde se algo é verdade, um carimbo cai no fim: **FALSO**, **MITO**, **VERDADE**... Uns segundos depois que ela termina, ou quando você volta a falar, tudo volta para a fita.
+
+### Segundo cérebro
+
+"Friday, onde está aquele PDF de redes que fala de sub-rede?", "o que eu anotei sobre o TCC?", "acha o contrato do aluguel". Ela responde com o arquivo e o trecho; "abre o primeiro" abre.
+
+- **O que ela lê:** Documentos, Área de Trabalho, Downloads e os projetos de programação (`projetos.json`). Textos, anotações (.md), código, PDF, Word, PowerPoint, Excel e OpenDocument.
+- **O que ela nunca lê:** `.env`, chaves, cofres de senha, `node_modules` e `.git`. Chaves de API que aparecerem no meio de um texto viram `[oculto]` antes de entrar no índice.
+- **Onde fica:** o índice fica só no seu PC (`cerebro/indice.json` na pasta de configuração). Na hora da pergunta, só os trechos achados vão para o Gemini responder, nunca os arquivos inteiros.
+- **Como acha pelo assunto:** a FRIDAY manda junto da sua pergunta palavras relacionadas (sinônimos, o termo em inglês), e a busca roda no PC.
+- Ela lê devagar, em segundo plano, e depois só relê o que mudou. "Lê meus arquivos de novo" força agora; "quantos arquivos você já leu?" mostra como está.
+- Para escolher outras pastas: `FRIDAY_CEREBRO_PASTAS` no `.env` (separadas por `;`). Para desligar: `FRIDAY_CEREBRO=0`.
 
 ### Projeção 3D
 

@@ -20,6 +20,7 @@ import { configurarConsultas, retomarConsulta, type EventoConsulta } from './con
 import { encerrarWhats, mostrarWhats } from './whatsweb'
 import { criarLembrete } from './reminders'
 import { manterCasa } from './ligar-de-fora'
+import { iniciarCerebro } from './cerebro'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -335,6 +336,8 @@ app.whenReady().then(() => {
   win?.webContents.on('did-finish-load', () => { if (centralNoAr()) win?.webContents.send('central', true, centralNome) })
   // Porta do roteador e endereço de casa sempre em dia (para o celular ligar o PC de fora)
   manterCasa((t) => log('casa', t))
+  // Segundo cérebro: lê os seus documentos devagar, em segundo plano, e guarda o índice só aqui
+  iniciarCerebro((t) => log('cerebro', t))
   configurarConsultas({ avisar: avisoDaConsulta, marcou: consultaMarcada, log: (t) => log('consulta', t) })
   // Uma consulta pela metade (a FRIDAY fechou no meio) continua de onde parou
   setTimeout(() => { if (retomarConsulta()) log('consulta', 'retomando a consulta em andamento') }, 15_000)

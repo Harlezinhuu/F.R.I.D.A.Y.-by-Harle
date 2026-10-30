@@ -24,7 +24,7 @@ export const TOOLS_REMOTAS = [
   'listar_apps', 'abrir_app', 'fechar_app', 'volume', 'midia', 'pesquisar_web', 'abrir_site', 'status_sistema', 'capturar_tela',
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
-  'responder_consulta', 'andamento_consulta'
+  'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -381,6 +381,29 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'buscar_nos_meus_arquivos',
+    description:
+      'Segundo cérebro: procura pelo ASSUNTO nos documentos, anotações, PDFs, Word, planilhas e projetos dele ("onde está aquele PDF de redes que fala de sub-rede?", "o que eu anotei sobre o TCC?", "acha o contrato do aluguel"). Responda com o nome do arquivo e o que o trecho diz; para abrir, use abrir_achado.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        pergunta: { type: 'STRING', description: 'O que ele procura, com as palavras dele.' },
+        relacionadas: { type: 'ARRAY', description: 'De 3 a 10 palavras ou expressões relacionadas que podem estar no texto: sinônimos, termos técnicos, o mesmo em inglês (para "sub-rede": subnet, máscara, CIDR, endereçamento IP).', items: { type: 'STRING', description: 'Uma palavra ou expressão.' } }
+      },
+      required: ['pergunta']
+    }
+  },
+  {
+    name: 'abrir_achado',
+    description: 'Abre um dos arquivos da última busca do segundo cérebro, pelo número (1 = o primeiro).',
+    parameters: { type: 'OBJECT', properties: { numero: { type: 'NUMBER', description: 'Número do arquivo na lista (1, 2, 3...).' } }, required: ['numero'] }
+  },
+  {
+    name: 'segundo_cerebro',
+    description: 'Como está o segundo cérebro (quantos arquivos ela já leu, quais pastas) ou atualizar agora ("lê meus arquivos de novo").',
+    parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'O que fazer. Padrão: estado.', enum: ['estado', 'atualizar'] } } }
+  },
+  {
     name: 'marcar_consulta',
     description:
       'Marca consulta ou exame pelo WhatsApp do plano de saúde ou da clínica: você conversa com o robô ou a atendente por ele, em segundo plano, e pergunta antes de escolher horário, confirmar ou passar algum dado. Antes de começar, diga em uma frase com quem vai falar e o que vai pedir; só chame com confirmado=true depois que ele confirmar.',
@@ -540,6 +563,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Ao projetar, sempre passe termo_ingles. Para objetos reais, prefira a fonte certa (nasa, molecula, proteina); use auto quando não souber.',
     'Reconhecimento facial é opcional: "cadastra meu rosto" usa cadastrar_rosto (peça o consentimento antes). Se o começo da conversa disser quem está falando, trate a pessoa pelo nome e respeite o que é só do dono.',
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
+    'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',

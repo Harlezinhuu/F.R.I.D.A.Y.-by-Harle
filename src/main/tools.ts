@@ -30,6 +30,7 @@ import { aprender, apagarPessoa, definirSoDono, lerCadastro, salvarPessoa } from
 import type { Papel } from '../shared/rostos'
 import { descrever, emAndamento } from '../shared/consulta'
 import { prepararLigarDeFora } from './ligar-de-fora'
+import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCerebro } from './cerebro'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
 /** Roda um comando do Windows sem abrir janela. */
@@ -65,6 +66,10 @@ type Args = Record<string, unknown>
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const falha = (mensagem: string): ToolResult => ({ ok: false, mensagem })
+
+/** Última busca do segundo cérebro ("abre o segundo") */
+let ultimosAchados: AchadoDoCerebro[] = []
+const dataCurta = (ms: number): string => (ms ? new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '')
 
 const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
   async listar_apps() {
@@ -383,6 +388,53 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
       case 'reiniciar': await rodar('shutdown.exe', ['/r', '/t', '20']); return { ok: true, mensagem: 'O PC reinicia em 20 segundos.' }
       case 'cancelar': await rodar('shutdown.exe', ['/a']).catch(() => {}); return { ok: true, mensagem: 'Desligamento cancelado.' }
       default: return falha('Ação de energia desconhecida.')
+    }
+  },
+
+  // ---------- Segundo cérebro ----------
+
+  async buscar_nos_meus_arquivos(a) {
+    const pergunta = str(a.pergunta)
+    if (!pergunta) return falha('Faltou dizer o que procurar.')
+    const est = estadoDoCerebro()
+    if (!est.ligado) return falha('O segundo cérebro está desligado (FRIDAY_CEREBRO=0 no .env).')
+    const relacionadas = Array.isArray(a.relacionadas) ? a.relacionadas.map(String).slice(0, 15) : []
+    const achados = buscarNoCerebro(pergunta, relacionadas)
+    ultimosAchados = achados
+    if (!achados.length) {
+      return falha(est.arquivos === 0
+        ? (est.indexando ? `Ainda estou lendo os seus arquivos (${est.progresso.lidos} de ${est.progresso.total}). Tente daqui a pouco.` : 'Ainda não li os seus arquivos. Diga "lê meus arquivos" para eu começar.')
+        : `Não achei nada sobre isso nos ${est.arquivos} arquivos que eu li.`)
+    }
+    const linhas = achados.map((r, i) => `${i + 1}. ${r.nome} (em ${r.pasta}${r.modificado ? `, de ${dataCurta(r.modificado)}` : ''}): "${r.trechos[0] ?? ''}"`)
+    return {
+      ok: true,
+      mensagem: `Achei nos arquivos dele (do mais provável para o menos):\n${linhas.join('\n')}\nDiga qual parece ser o certo e o que o trecho diz, em poucas palavras. Para abrir, use abrir_achado.${est.indexando ? ' (Ainda estou lendo alguns arquivos.)' : ''}`,
+      card: { tipo: 'memoria', titulo: 'NOS SEUS ARQUIVOS', itens: achados.map((r, i) => `${i + 1}. ${r.nome} · ${r.pasta}`) }
+    }
+  },
+
+  async abrir_achado(a) {
+    const n = Math.round(num(a.numero) ?? 1)
+    const r = ultimosAchados[n - 1]
+    if (!r) return falha(ultimosAchados.length ? `Só tenho ${ultimosAchados.length} na lista.` : 'Faça uma busca primeiro.')
+    const erro = await shell.openPath(r.caminho)
+    if (erro) return falha(`O Windows não conseguiu abrir: ${erro}`)
+    return { ok: true, mensagem: `Abri ${r.nome}.`, card: { tipo: 'app', acao: 'aberto', nome: r.nome } }
+  },
+
+  async segundo_cerebro(a) {
+    if (str(a.acao) === 'atualizar') {
+      const est = estadoDoCerebro()
+      if (est.indexando) return { ok: true, mensagem: `Já estou lendo: ${est.progresso.lidos} de ${est.progresso.total} arquivos.` }
+      void indexar().catch(() => {})
+      return { ok: true, mensagem: 'Comecei a ler os seus arquivos de novo, em segundo plano. Só leio o que mudou.' }
+    }
+    const e = estadoDoCerebro()
+    if (!e.ligado) return { ok: true, mensagem: 'O segundo cérebro está desligado (FRIDAY_CEREBRO=0 no .env).' }
+    return {
+      ok: true,
+      mensagem: `Já li ${e.arquivos} arquivos (${e.pedacos} trechos)${e.atualizadoEm ? `, atualizado em ${new Date(e.atualizadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}. ${e.indexando ? `Lendo agora: ${e.progresso.lidos} de ${e.progresso.total}. ` : ''}Pastas: ${e.pastas.map((p) => p.split(/[\\/]/).pop()).join(', ')}.`
     }
   },
 
