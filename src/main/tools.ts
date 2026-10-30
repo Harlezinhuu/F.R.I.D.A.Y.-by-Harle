@@ -34,6 +34,7 @@ import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCe
 import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
 import { normalizar } from '../shared/consulta'
 import * as controle from './controle'
+import { escolherEImportar, lerDesigns, removerDesign, renomearDesign, acharDesignPorNome } from './designs'
 import { aparelhosConhecidos, apelidar, esquecerAparelho, usoDaInternet, varrerRede } from './rede'
 import { acharAparelho, nomeDoAparelho } from './logica/rede'
 import { anotarBug, explicarCodigo, instalarRevisora, pedidoComIssue, revisarCodigo, rodarTestes } from './programacao'
@@ -465,6 +466,40 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     if (!titulo) return falha('Faltou o título do bug.')
     const r = await anotarBug(str(a.projeto), titulo, str(a.detalhes), a.confirmado === true)
     return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true, dados: { pergunta: r.pergunta } } : {}) }
+  },
+
+  // ---------- Designs importados ----------
+
+  async designs(a) {
+    const acao = str(a.acao) || 'listar'
+    if (acao === 'importar') {
+      const r = await escolherEImportar(janela())
+      if (r.cancelou) return { ok: true, mensagem: 'Ele fechou a janela sem escolher nada.' }
+      const nomes = r.entraram.map((d) => d.nome)
+      return {
+        ok: r.entraram.length > 0,
+        mensagem: [
+          nomes.length ? `Importei ${nomes.length}: ${nomes.join(', ')}. Pergunte se ele quer dar outro nome ou apelidos.` : 'Nada entrou.',
+          r.erros.length ? `Não deu: ${r.erros.join('; ')}.` : ''
+        ].filter(Boolean).join(' ')
+      }
+    }
+    if (acao === 'renomear') {
+      const apelidos = Array.isArray(a.apelidos) ? a.apelidos.map(String) : []
+      if (!str(a.nome) && !apelidos.length) return falha('Faltou o nome ou o apelido.')
+      const d = renomearDesign(str(a.qual), str(a.nome), apelidos)
+      return d ? { ok: true, mensagem: `Pronto: "${d.nome}"${d.apelidos.length ? ` (também: ${d.apelidos.join(', ')})` : ''}.` } : falha('Não achei esse design.')
+    }
+    if (acao === 'remover') {
+      const d = acharDesignPorNome(str(a.qual))
+      if (!d) return falha('Não achei esse design.')
+      if (a.confirmado !== true) return { ok: false, precisaConfirmacao: true, mensagem: `Precisa de confirmação: tirar "${d.nome}" da biblioteca (o arquivo original dele continua onde estava).`, dados: { pergunta: `Remover o design "${d.nome}"?` } }
+      removerDesign(d.nome)
+      return { ok: true, mensagem: `Tirei "${d.nome}" da biblioteca.` }
+    }
+    const l = lerDesigns()
+    if (!l.length) return { ok: true, mensagem: 'Ainda não tem design importado. Diga "importa um design" para escolher os arquivos.' }
+    return { ok: true, mensagem: `${l.length} designs: ${l.map((d) => d.apelidos.length ? `${d.nome} (${d.apelidos.join(', ')})` : d.nome).join('; ')}.` }
   },
 
   // ---------- Ela usa o Windows por você ----------

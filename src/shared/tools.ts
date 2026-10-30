@@ -467,6 +467,21 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'designs',
+    description:
+      'Os designs 3D que ele importou (modelos .glb, .gltf, .stl, .obj ou pacotes .zip): importar abre a janela para ele escolher os arquivos ("importa um design", "quero colocar uns modelos"); listar diz quais tem; renomear dá nome ou apelidos ("chama esse de reator"); remover tira da biblioteca (confirme antes). Para mostrar um design, use projetar com o nome dele e fonte arquivo.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer. Padrão: listar.', enum: ['importar', 'listar', 'renomear', 'remover'] },
+        qual: { type: 'STRING', description: 'Qual design (nome ou apelido). Vazio em renomear = o último importado.' },
+        nome: { type: 'STRING', description: 'Nome novo (renomear).' },
+        apelidos: { type: 'ARRAY', description: 'Outros jeitos de chamar (renomear).', items: { type: 'STRING', description: 'Um apelido.' } },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que ele confirmou a remoção.' }
+      }
+    }
+  },
+  {
     name: 'ver_janela',
     description:
       'Ela usa o Windows por ele: lê o programa que está na frente (botões, campos e textos, numerados) e vê a tela. Use antes de clicar ou digitar, em pedidos como "no Spotify, coloca a playlist de estudo", "preenche esse formulário com meu nome", "no Chrome, abre meus favoritos". Só funciona nos programas da lista dele.',
@@ -711,6 +726,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
     'Programação por voz: "roda os testes" usa rodar_testes; "posso dar push?" ou "revisa antes de eu mandar" usa revisar_codigo; "explica esse código" usa explicar_codigo; "anota um bug" usa anotar_bug (confirme antes). Para corrigir algo, ofereça tarefa_programacao.',
+    'Ele pode importar os próprios designs 3D (designs com acao=importar). Depois de importar, pergunte como ele quer chamar cada um e use acao=renomear. "Projeta o <nome>" com um design dele usa projetar com fonte arquivo.',
     'Para fazer algo dentro de um programa do PC ("no Spotify, coloca a playlist de estudo", "preenche isso com meu nome"), use ver_janela, depois clicar_janela, digitar_janela, tecla_janela ou rolar_janela, um passo por vez, conferindo a janela que volta. Só nos programas da lista dele; nunca senhas; banco, pagamento e login são com ele. Se não estiver dando certo em poucos passos, diga o que falta.',
     'Quando chegar o aviso de um aparelho novo no Wi-Fi e ele disser de quem é, use rede_de_casa com acao=apelidar.',
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',

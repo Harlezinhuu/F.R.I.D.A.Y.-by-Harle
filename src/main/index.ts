@@ -15,6 +15,7 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
+import { escolherEImportar } from './designs'
 import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registrarContextoPc } from './elo'
 import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
 import { encerrarWhats, mostrarWhats } from './whatsweb'
@@ -212,12 +213,21 @@ function atualizarBandeja(): void {
       { label: 'Ver o WhatsApp da FRIDAY (consultas)', click: () => mostrarWhats() },
       { label: 'Iniciar com o Windows', type: 'checkbox', checked: iniciaComWindows(), click: (item) => definirInicio(item.checked) },
       ...(!app.isPackaged && existsSync(join(app.getAppPath(), 'atualizar.bat')) ? [{ label: 'Atualizar a FRIDAY', click: atualizarFriday }] : []),
+      { label: 'Importar designs…', click: () => void importarPelaBandeja() },
       { label: 'Abrir pasta de modelos 3D', click: () => { listarArquivos(); shell.openPath(pastaModelos()) } },
       { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
       { type: 'separator' },
       { label: 'Sair', click: () => app.quit() }
     ])
   )
+}
+
+async function importarPelaBandeja(): Promise<void> {
+  const r = await escolherEImportar(null)
+  if (r.cancelou) return
+  const nomes = r.entraram.map((d) => d.nome)
+  const texto = [nomes.length ? `Importei ${nomes.join(', ')}. Para ver, diga "projeta o ${nomes[0]}".` : 'Nenhum design entrou.', r.erros.length ? `Não deu: ${r.erros.join('; ')}.` : ''].filter(Boolean).join(' ')
+  new Notification({ title: 'F.R.I.D.A.Y · designs', body: texto }).show()
 }
 
 function criarBandeja(): void {

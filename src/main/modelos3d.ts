@@ -10,11 +10,15 @@
 import { app } from 'electron'
 import { GoogleGenAI } from '@google/genai'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { dirname, extname, join, resolve, sep } from 'node:path'
 import type { DadosModelo3D } from '../shared/types'
 import { carregarConfig } from './config'
 import { NASA_MODELOS } from './dados/nasa'
 import { acharNasa, acharArquivo, nomeNasa, semHtml, validarPrimitivas } from './logica/modelos'
+import { acharDesign, embutirGltf } from './logica/designs'
+import { caminhoNaBiblioteca, lerDesigns, pastaModelos } from './designs'
+
+export { pastaModelos }
 
 const UA = 'FRIDAY-by-Harle/0.4 (assistente pessoal; github.com/Harlezinhuu/F.R.I.D.A.Y.-by-Harle)'
 const MAX_BYTES = 80 * 1024 * 1024
@@ -23,7 +27,6 @@ const EXTENSOES = ['.glb', '.gltf', '.stl', '.obj']
 export type Fonte = 'auto' | 'arquivo' | 'biblioteca' | 'nasa' | 'wikimedia' | 'molecula' | 'proteina' | 'ia'
 export interface Pedido { termo: string; termoIngles: string; fonte: Fonte }
 
-export const pastaModelos = (): string => join(app.getPath('documents'), 'FRIDAY Modelos')
 
 async function baixar(url: string, limiteMs = 30_000): Promise<Buffer> {
   const r = await fetch(url, { signal: AbortSignal.timeout(limiteMs), headers: { 'User-Agent': UA } })
@@ -50,18 +53,33 @@ export function listarArquivos(): string[] {
 }
 
 function deArquivo(p: Pedido): DadosModelo3D | null {
-  const nome = acharArquivo([p.termo, p.termoIngles], listarArquivos())
-  if (!nome) return null
-  const caminho = join(pastaModelos(), nome)
-  if (statSync(caminho).size > MAX_BYTES) throw new Error(`O arquivo ${nome} é grande demais (mais de 80 MB).`)
-  const ext = extname(nome).toLowerCase().slice(1) as 'glb' | 'gltf' | 'stl' | 'obj'
+  // Primeiro os designs importados (pelo nome ou apelido), depois qualquer arquivo solto na pasta
+  const design = acharDesign([p.termo, p.termoIngles], lerDesigns())
+  const rel = design?.arquivo ?? acharArquivo([p.termo, p.termoIngles], listarArquivos())
+  if (!rel) return null
+  const caminho = caminhoNaBiblioteca(rel)
+  if (statSync(caminho).size > MAX_BYTES) throw new Error(`O arquivo ${rel} é grande demais (mais de 80 MB).`)
+  const ext = extname(rel).toLowerCase().slice(1) as 'glb' | 'gltf' | 'stl' | 'obj'
   const dados = readFileSync(caminho)
+  let texto = ext === 'glb' || ext === 'stl' ? '' : dados.toString('utf8')
+  const detalhes = [`Documentos/FRIDAY Modelos/${rel}`]
+  if (ext === 'gltf') {
+    // O .bin e as texturas vão embutidos: a projeção recebe um arquivo só
+    const pasta = dirname(caminho)
+    const r = embutirGltf(texto, (uri) => {
+      const alvo = resolve(pasta, uri)
+      if (!alvo.startsWith(pasta + sep) || !existsSync(alvo)) return null
+      return readFileSync(alvo)
+    })
+    texto = r.texto
+    if (r.faltando.length) detalhes.push(`faltam: ${r.faltando.slice(0, 3).join(', ')}`)
+  }
   return {
     formato: ext,
-    nome: nome.replace(/\.[a-z0-9]+$/i, ''),
-    fonte: 'SEU ARQUIVO',
-    detalhes: [`Documentos/FRIDAY Modelos/${nome}`],
-    ...(ext === 'glb' || ext === 'stl' ? { base64: dados.toString('base64') } : { texto: dados.toString('utf8') }),
+    nome: design?.nome ?? rel.split('/').pop()!.replace(/\.[a-z0-9]+$/i, ''),
+    fonte: design ? 'SEU DESIGN' : 'SEU ARQUIVO',
+    detalhes,
+    ...(ext === 'glb' || ext === 'stl' ? { base64: dados.toString('base64') } : { texto }),
     zParaCima: ext === 'stl'
   }
 }

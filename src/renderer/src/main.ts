@@ -641,7 +641,7 @@ async function iniciar(): Promise<void> {
       const r = await Promise.race([
         window.friday.ferramenta(nome, args),
         // Preparar o "ligar de fora" espera você aceitar o aviso do Windows
-        esperar(nome === 'ligar_de_fora' ? 180_000 : nome === 'rodar_testes' ? 40_000 : /_janela$/.test(nome) ? 40_000 : 20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
+        esperar(nome === 'ligar_de_fora' ? 180_000 : nome === 'rodar_testes' ? 40_000 : /_janela$/.test(nome) ? 40_000 : nome === 'designs' ? 300_000 : 20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
       ])
       console.log(`[ferramenta] ${nome} ${r.ok ? 'ok' : r.precisaConfirmacao ? 'pediu confirmação' : 'falhou'} em ${Math.round(performance.now() - inicio)} ms: ${r.mensagem.slice(0, 160)}`)
       if (r.precisaConfirmacao) {

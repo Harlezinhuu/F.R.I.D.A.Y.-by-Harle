@@ -243,12 +243,23 @@ Diga "Friday, projeta..." e as partículas saem da fita de Möbius, que encolhe 
 | Moléculas e proteínas | "projeta a molécula da cafeína" (PubChem), "a hemoglobina" (RCSB PDB) |
 | NASA | "projeta a estação espacial", "o Hubble", "o Saturn V", "o Perseverance": 257 modelos de domínio público |
 | Wikimedia | STLs abertos da Wikimedia Commons, com autor e licença na ficha |
-| Seus arquivos | coloque `.glb`, `.gltf`, `.stl` ou `.obj` em **Documentos/FRIDAY Modelos** (ícone da bandeja → *Abrir pasta de modelos 3D*) e peça pelo nome |
+| Seus designs | importe os seus modelos (veja abaixo) e peça pelo nome ou apelido: "projeta o reator" |
 | Qualquer outra coisa | a IA monta o objeto com peças simples e nomeadas |
 
 Com o holograma na tela: **gira**, **para**, **vira para a esquerda/direita**, **vira de cabeça para baixo**, **vista de cima/de lado/de frente**, **aproxima/afasta**, **explode** (as peças se separam com etiquetas) e **junta**, **inverte** (como no filme, fica laranja), **corta** (corte transversal que varre o objeto), **renderiza** (ganha superfície: "Modelo renderizado"), **só as linhas**, **mede**, **salva** (vai para Imagens/FRIDAY) e **fecha**.
 
 A projeção fica na tela mesmo quando a conversa acaba; diga "Friday, fecha a projeção" ou "minimiza".
+
+#### Importando os seus designs
+
+Diga **"Friday, importa um design"** (ou ícone da bandeja → *Importar designs…*) e escolha os arquivos: modelos `.glb`, `.gltf`, `.stl` e `.obj`, ou um pacote `.zip` com o modelo, o `.bin` e as texturas. A FRIDAY faz uma cópia em **Documentos/FRIDAY Modelos** (o original fica onde estava), dá um nome tirado do arquivo e pergunta como você quer chamar: "chama esse de reator, ou núcleo". Depois é só "projeta o reator".
+
+- **"Quais designs eu tenho?"** lista os nomes e apelidos.
+- **"Remove o reator"** tira da biblioteca e apaga a cópia (ela confirma antes).
+- Num `.gltf`, o `.bin` e as texturas vão embutidos na projeção; num `.zip`, ela acha o modelo principal sozinha e não deixa o pacote escrever fora da pasta.
+- A lista fica em `designs.json`, na mesma pasta, e dá para editar à mão. Arquivos soltos na pasta também funcionam, pelo nome do arquivo.
+
+A FRIDAY não vem com design de ninguém e não sai procurando: só entra o que você importar. Os arquivos ficam no seu PC, fora do repositório; usar ou publicar designs de terceiros fica por sua conta e pela licença de cada um.
 
 #### Mexendo com as mãos
 
