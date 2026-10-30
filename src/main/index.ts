@@ -21,6 +21,7 @@ import { encerrarWhats, mostrarWhats } from './whatsweb'
 import { criarLembrete } from './reminders'
 import { manterCasa } from './ligar-de-fora'
 import { iniciarCerebro } from './cerebro'
+import { iniciarPesquisas } from './pesquisa'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -338,6 +339,22 @@ app.whenReady().then(() => {
   manterCasa((t) => log('casa', t))
   // Segundo cérebro: lê os seus documentos devagar, em segundo plano, e guarda o índice só aqui
   iniciarCerebro((t) => log('cerebro', t))
+  // Pesquisa profunda: quando fica pronta (ou na hora marcada), ela conta no PC e manda para o celular
+  iniciarPesquisas({
+    log: (t) => log('pesquisa', t),
+    entregar(p) {
+      const texto = p.estado === 'pronta'
+        ? `A pesquisa sobre ${p.tema} ficou pronta. ${p.resumo} O relatório completo, com ${p.fontes} fontes, está em Documentos, FRIDAY, Pesquisas.`
+        : `A pesquisa sobre ${p.tema} não deu certo: ${p.etapa.replace(/^falhou: /, '')}.`
+      avisarEmSegundoPlano(texto, p.estado === 'pronta')
+      if (p.estado === 'pronta') {
+        const n = new Notification({ title: `F.R.I.D.A.Y · pesquisa pronta`, body: `${p.titulo}: ${p.resumo.slice(0, 200)}` })
+        n.on('click', () => void shell.openPath(p.arquivoHtml || p.arquivoMd))
+        n.show()
+      }
+      if (aparelhosPareados().length) enviarParaCelular({ tipo: 'aviso', texto: p.estado === 'pronta' ? `Pesquisa pronta: ${p.titulo}. ${p.resumo}` : texto })
+    }
+  })
   configurarConsultas({ avisar: avisoDaConsulta, marcou: consultaMarcada, log: (t) => log('consulta', t) })
   // Uma consulta pela metade (a FRIDAY fechou no meio) continua de onde parou
   setTimeout(() => { if (retomarConsulta()) log('consulta', 'retomando a consulta em andamento') }, 15_000)

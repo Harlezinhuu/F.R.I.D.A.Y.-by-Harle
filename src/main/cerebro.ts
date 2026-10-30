@@ -86,7 +86,10 @@ function percorrer(raiz: string, saida: string[], profundidade = 0): void {
     // A própria pasta do índice nunca entra (ela mudaria a cada leitura)
     if (d.isDirectory()) { if (!PULAR.has(d.name) && c !== pasta()) percorrer(c, saida, profundidade + 1); continue }
     if (!d.isFile() || arquivoSecreto(d.name)) continue
-    if (tipoLido(path.extname(d.name).toLowerCase())) saida.push(c)
+    const ext = path.extname(d.name).toLowerCase()
+    // Página que tem o mesmo texto em .md ao lado (os relatórios das pesquisas): lê só o .md
+    if ((ext === '.html' || ext === '.htm') && existsSync(c.slice(0, -ext.length) + '.md')) continue
+    if (tipoLido(ext)) saida.push(c)
   }
 }
 

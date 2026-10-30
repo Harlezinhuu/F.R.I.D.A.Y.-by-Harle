@@ -31,6 +31,8 @@ import type { Papel } from '../shared/rostos'
 import { descrever, emAndamento } from '../shared/consulta'
 import { prepararLigarDeFora } from './ligar-de-fora'
 import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCerebro } from './cerebro'
+import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
+import { normalizar } from '../shared/consulta'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
 
 /** Roda um comando do Windows sem abrir janela. */
@@ -436,6 +438,46 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
       ok: true,
       mensagem: `Já li ${e.arquivos} arquivos (${e.pedacos} trechos)${e.atualizadoEm ? `, atualizado em ${new Date(e.atualizadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}. ${e.indexando ? `Lendo agora: ${e.progresso.lidos} de ${e.progresso.total}. ` : ''}Pastas: ${e.pastas.map((p) => p.split(/[\\/]/).pop()).join(', ')}.`
     }
+  },
+
+  // ---------- Pesquisa profunda ----------
+
+  async pesquisa_profunda(a) {
+    const tema = str(a.tema)
+    if (!tema) return falha('Faltou dizer o que pesquisar.')
+    if (!carregarConfig().apiKey) return falha('Falta a chave do Gemini.')
+    const quando = new Date(str(a.entregar_iso))
+    const entregar = Number.isNaN(quando.getTime()) ? 0 : quando.getTime()
+    const fila = pesquisas().filter((x) => x.estado === 'na fila' || x.estado === 'pesquisando').length
+    const p = pedirPesquisa(tema, str(a.foco), entregar)
+    const quandoTexto = p.entregarEm ? `Te entrego ${new Date(p.entregarEm).toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}.` : 'Te aviso quando terminar (uns 3 a 5 minutos).'
+    return {
+      ok: true,
+      mensagem: `Comecei a pesquisa sobre ${tema}, em segundo plano.${fila ? ` Antes dela tem ${fila} na fila.` : ''} ${quandoTexto}`,
+      card: { tipo: 'aviso', titulo: 'PESQUISA PROFUNDA', texto: `${tema}${p.entregarEm ? ` · entrega ${new Date(p.entregarEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` }
+    }
+  },
+
+  async pesquisas(a) {
+    const todas = pesquisas()
+    const acao = str(a.acao) || 'estado'
+    if (acao === 'pasta') { await shell.openPath(pastaDasPesquisas()); return { ok: true, mensagem: 'Abri a pasta das pesquisas.' } }
+    if (!todas.length) return { ok: true, mensagem: 'Ainda não fiz nenhuma pesquisa profunda.' }
+    const q = normalizar(str(a.qual))
+    const escolhida: Pesquisa | undefined = q ? [...todas].reverse().find((p) => normalizar(`${p.tema} ${p.titulo}`).includes(q)) : todas[todas.length - 1]
+    if (acao === 'listar') {
+      return { ok: true, mensagem: todas.slice(-6).reverse().map((p) => `${p.titulo} (${p.estado}${p.estado === 'pesquisando' ? `: ${p.etapa}` : ''})`).join('; ') }
+    }
+    if (!escolhida) return falha('Não achei essa pesquisa.')
+    if (acao === 'estado') {
+      if (escolhida.estado === 'pesquisando' || escolhida.estado === 'na fila') return { ok: true, mensagem: `A pesquisa sobre ${escolhida.tema} está ${escolhida.etapa}.` }
+      if (escolhida.estado === 'falhou') return { ok: true, mensagem: `A pesquisa sobre ${escolhida.tema} não deu certo: ${escolhida.etapa}.` }
+      return { ok: true, mensagem: `A pesquisa "${escolhida.titulo}" está pronta (${escolhida.fontes} fontes). Resumo: ${escolhida.resumo}` }
+    }
+    if (escolhida.estado !== 'pronta') return falha(`Essa pesquisa ainda está ${escolhida.etapa}.`)
+    if (acao === 'contar') return { ok: true, mensagem: `Fale este resumo com calma: ${escolhida.resumo}` }
+    const erro = await abrirPesquisa(escolhida)
+    return erro ? falha(`O Windows não conseguiu abrir: ${erro}`) : { ok: true, mensagem: `Abri o relatório "${escolhida.titulo}".` }
   },
 
   async ligar_de_fora() {

@@ -194,7 +194,8 @@ function eventoDoPc(e: EventoParaCelular): void {
     // A FRIDAY do PC precisa de você e você está longe dele (ex.: a consulta que ela está marcando lá)
     if (e.consulta === 'pergunta') definirPerguntaDoPc(e.texto)
     else if (e.consulta === 'fim') definirPerguntaDoPc('')
-    void avisoDeConsulta(e.consulta === 'pergunta' ? 'pergunta' : 'fim', e.texto, true, 'pc_responder_consulta')
+    if (e.consulta) void avisoDeConsulta(e.consulta === 'pergunta' ? 'pergunta' : 'fim', e.texto, true, 'pc_responder_consulta')
+    else avisoDoPc(e.texto)
   } else if (e.tipo === 'evento') {
     // Consulta marcada no PC: entra na agenda daqui
     void (async () => {
@@ -207,6 +208,14 @@ function eventoDoPc(e: EventoParaCelular): void {
       }
     })()
   }
+}
+
+/** Aviso qualquer da FRIDAY do PC (ex.: a pesquisa profunda ficou pronta): ela fala aqui. */
+function avisoDoPc(texto: string): void {
+  voz.aoAcao('DO PC', texto.slice(0, 90), '')
+  if (voz.dizer(`(Aviso da FRIDAY do PC. Conte isto para ele agora, em poucas frases: ${texto})`)) return
+  if (nativo()) void Celular.testarAviso({ texto }).catch(() => {})
+  avisar(texto.slice(0, 120))
 }
 
 // ---------- Consultas pelo WhatsApp ----------

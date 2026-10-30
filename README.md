@@ -27,6 +27,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Projeção 3D:** as partículas saem da fita e montam o objeto em holograma, como na cena da máquina do tempo. Formas da ciência, funções matemáticas, moléculas, proteínas, 257 modelos da NASA, STLs da Wikimedia, os seus arquivos e a IA para o resto.
 - **Reconhecimento facial (opcional):** ela vê quem chamou e trata cada um pelo nome; visitantes não mexem em arquivos, memória nem desligam o PC. Tudo no próprio PC.
 - **Segundo cérebro:** ela lê os seus documentos, anotações, PDFs, Word, PowerPoint, planilhas e projetos, guarda um índice só no seu PC e acha as coisas pelo assunto: "onde está aquele PDF de redes que fala de sub-rede?".
+- **Pesquisa profunda:** "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo". Ela planeja, pesquisa cada parte na internet, olha o que você já tem nos seus arquivos e entrega um relatório com fontes numeradas, falando o resumo na hora marcada.
 - **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
@@ -161,6 +162,17 @@ Ao lado entram fotos da Wikipédia (quando ela cita o assunto) e cartões com fa
 - **Como acha pelo assunto:** a FRIDAY manda junto da sua pergunta palavras relacionadas (sinônimos, o termo em inglês), e a busca roda no PC.
 - Ela lê devagar, em segundo plano, e depois só relê o que mudou. "Lê meus arquivos de novo" força agora; "quantos arquivos você já leu?" mostra como está.
 - Para escolher outras pastas: `FRIDAY_CEREBRO_PASTAS` no `.env` (separadas por `;`). Para desligar: `FRIDAY_CEREBRO=0`.
+
+### Pesquisa profunda
+
+"Friday, pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo." Ela trabalha sozinha, em segundo plano:
+
+1. Quebra o tema em 4 a 6 perguntas.
+2. Pesquisa cada uma na internet (Google, pelo Gemini), anotando de onde veio cada coisa.
+3. Olha no segundo cérebro o que você já tem guardado sobre o assunto.
+4. Escreve o relatório: resumo, o que encontrou (com as fontes numeradas [1], [2]), o que os seus arquivos já diziam, onde as fontes discordam e próximos passos.
+
+O relatório fica em **Documentos › FRIDAY › Pesquisas** (página para ler e Markdown). Quando fica pronto (ou na hora que você pediu), ela fala o resumo no PC, mostra uma notificação e manda para o celular pareado. "Como está a pesquisa?", "abre a pesquisa de Node" e "me conta a pesquisa de novo" também funcionam. Leva uns 3 a 5 minutos, porque ela vai devagar para respeitar o limite da chave grátis do Gemini.
 
 ### Projeção 3D
 
