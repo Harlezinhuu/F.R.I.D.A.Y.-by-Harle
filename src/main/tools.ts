@@ -33,6 +33,7 @@ import { prepararLigarDeFora } from './ligar-de-fora'
 import { buscarNoCerebro, estadoDoCerebro, indexar, type Resultado as AchadoDoCerebro } from './cerebro'
 import { abrirPesquisa, pastaDasPesquisas, pedirPesquisa, pesquisas, type Pesquisa } from './pesquisa'
 import { normalizar } from '../shared/consulta'
+import * as controle from './controle'
 import { aparelhosConhecidos, apelidar, esquecerAparelho, usoDaInternet, varrerRede } from './rede'
 import { acharAparelho, nomeDoAparelho } from './logica/rede'
 import { anotarBug, explicarCodigo, instalarRevisora, pedidoComIssue, revisarCodigo, rodarTestes } from './programacao'
@@ -464,6 +465,26 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     if (!titulo) return falha('Faltou o título do bug.')
     const r = await anotarBug(str(a.projeto), titulo, str(a.detalhes), a.confirmado === true)
     return { ok: r.ok, mensagem: r.mensagem, ...(r.precisaConfirmacao ? { precisaConfirmacao: true, dados: { pergunta: r.pergunta } } : {}) }
+  },
+
+  // ---------- Ela usa o Windows por você ----------
+
+  async ver_janela(a) {
+    return controle.verJanela(janela(), a.continuar === true)
+  },
+  async clicar_janela(a) {
+    const n = Number(a.numero)
+    return controle.clicar(a.numero === undefined || a.numero === null || !Number.isFinite(n) ? null : n, str(a.texto), a.confirmado === true)
+  },
+  async digitar_janela(a) {
+    const n = Number(a.numero)
+    return controle.digitar(a.numero === undefined || a.numero === null || !Number.isFinite(n) || n <= 0 ? null : n, typeof a.texto === 'string' ? a.texto : '')
+  },
+  async tecla_janela(a) {
+    return controle.tecla(str(a.tecla))
+  },
+  async rolar_janela(a) {
+    return controle.rolar(str(a.direcao) !== 'cima')
   },
 
   // ---------- Rede de casa ----------

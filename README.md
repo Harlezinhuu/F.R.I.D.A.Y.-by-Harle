@@ -176,6 +176,19 @@ A cada 10 minutos ela olha quais aparelhos estão no seu Wi-Fi (pela tabela ARP 
 
 Celulares modernos usam um endereço "privado" por rede; ela reconhece isso e chama de "celular ou computador (endereço privado)". Para desligar: `FRIDAY_REDE=0` no `.env`.
 
+### Ela usa o Windows por você
+
+Com um programa na frente, peça o que fazer dentro dele: "no Spotify, coloca a playlist de estudo", "preenche esse formulário com meu nome", "no Bloco de Notas, escreve a lista de compras e salva". Ela lê a janela pelo UI Automation do Windows (botões, campos e textos, numerados), vê uma foto da tela (sem o HUD na frente) e vai passo a passo: clica, escreve, aperta teclas e rola, conferindo a janela depois de cada passo.
+
+Os limites ficam no código, não só na instrução:
+
+- **Só nos programas da sua lista** (os de **Editar programas permitidos** que têm `processo`). Terminal, PowerShell, Registro, Gerenciador de Tarefas, cofres de senha, acesso remoto e telas de segurança do Windows: nunca, nem se estiverem na lista.
+- **No navegador, banco, pagamento, compra e login ficam com você:** se o título da aba parecer de banco, Pix, checkout, fatura ou "entrar", ela não mexe.
+- **Senha, nunca:** campos de senha aparecem marcados e ela recusa clicar ou escrever neles.
+- **Botões de pagar, comprar, enviar, apagar ou confirmar** pedem a sua confirmação antes, como no celular.
+- **Teclas só de uma lista** (Enter, Tab, setas, Ctrl+S, Ctrl+T e outras); nada de Alt+F4, Win+R ou Delete.
+- **No máximo 15 passos seguidos:** depois ela pergunta se pode continuar.
+
 ### Memória
 
 O que ela aprende fica só no seu PC (`memoria.json`, na pasta de configuração). Senhas, PINs, chaves, documentos e números de cartão ou conta são recusados antes de gravar.

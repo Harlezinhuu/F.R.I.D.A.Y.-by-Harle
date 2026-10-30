@@ -641,7 +641,7 @@ async function iniciar(): Promise<void> {
       const r = await Promise.race([
         window.friday.ferramenta(nome, args),
         // Preparar o "ligar de fora" espera você aceitar o aviso do Windows
-        esperar(nome === 'ligar_de_fora' ? 180_000 : nome === 'rodar_testes' ? 40_000 : 20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
+        esperar(nome === 'ligar_de_fora' ? 180_000 : nome === 'rodar_testes' ? 40_000 : /_janela$/.test(nome) ? 40_000 : 20000).then(() => ({ ok: false, mensagem: 'A ação demorou demais e foi interrompida.' }) as Awaited<ReturnType<typeof window.friday.ferramenta>>)
       ])
       console.log(`[ferramenta] ${nome} ${r.ok ? 'ok' : r.precisaConfirmacao ? 'pediu confirmação' : 'falhou'} em ${Math.round(performance.now() - inicio)} ms: ${r.mensagem.slice(0, 160)}`)
       if (r.precisaConfirmacao) {
@@ -654,6 +654,9 @@ async function iniciar(): Promise<void> {
         limparAlerta()
       }
       if (r.card) hud.cartao(r.card)
+      // Ela usa o Windows por você: a foto da tela vai para a IA ver o que a lista de itens não diz
+      const foto = nome === 'ver_janela' ? (r.dados as { imagem?: string } | undefined)?.imagem : undefined
+      if (foto) live.enviarImagem(foto)
       // Guardar na memória acontece em silêncio, sem som de "feito"
       const silenciosa = nome === 'memorizar'
       if (r.ok) { if (!silenciosa) { sons.feito(); hud.registrarAcao(r.mensagem) } } else if (!r.precisaConfirmacao && !silenciosa) sons.erro()

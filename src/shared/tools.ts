@@ -467,6 +467,64 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   {
+    name: 'ver_janela',
+    description:
+      'Ela usa o Windows por ele: lê o programa que está na frente (botões, campos e textos, numerados) e vê a tela. Use antes de clicar ou digitar, em pedidos como "no Spotify, coloca a playlist de estudo", "preenche esse formulário com meu nome", "no Chrome, abre meus favoritos". Só funciona nos programas da lista dele.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        continuar: { type: 'BOOLEAN', description: 'true só quando ele mandou continuar depois do aviso de 15 passos.' }
+      }
+    }
+  },
+  {
+    name: 'clicar_janela',
+    description: 'Clica num item da janela lida por ver_janela, pelo número (#) ou pelo texto do botão. Botões de pagar, comprar, enviar, apagar ou confirmar pedem confirmação: pergunte e chame de novo com confirmado=true.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        numero: { type: 'NUMBER', description: 'O número do item (#) na lista.' },
+        texto: { type: 'STRING', description: 'O texto do botão ou link, se não souber o número.' },
+        confirmado: { type: 'BOOLEAN', description: 'true só depois que ele confirmou.' }
+      }
+    }
+  },
+  {
+    name: 'digitar_janela',
+    description: 'Escreve um texto num campo da janela (pelo número) ou onde o cursor está. Nunca em campo de senha.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        texto: { type: 'STRING', description: 'O que escrever.' },
+        numero: { type: 'NUMBER', description: 'O número do campo (#). Vazio = onde o cursor está.' }
+      },
+      required: ['texto']
+    }
+  },
+  {
+    name: 'tecla_janela',
+    description: 'Aperta uma tecla ou atalho no programa da frente (ex.: enter para pesquisar, ctrl_s para salvar, ctrl_t para nova aba).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        tecla: {
+          type: 'STRING',
+          description: 'A tecla.',
+          enum: ['enter', 'tab', 'shift_tab', 'esc', 'espaco', 'apagar', 'seta_cima', 'seta_baixo', 'seta_esquerda', 'seta_direita', 'pagina_cima', 'pagina_baixo', 'inicio', 'fim', 'f5', 'ctrl_s', 'ctrl_c', 'ctrl_v', 'ctrl_a', 'ctrl_z', 'ctrl_y', 'ctrl_f', 'ctrl_t', 'ctrl_l', 'ctrl_n', 'ctrl_w', 'ctrl_tab', 'ctrl_mais', 'ctrl_menos']
+        }
+      },
+      required: ['tecla']
+    }
+  },
+  {
+    name: 'rolar_janela',
+    description: 'Rola o programa da frente para baixo ou para cima.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { direcao: { type: 'STRING', description: 'Para onde. Padrão: baixo.', enum: ['baixo', 'cima'] } }
+    }
+  },
+  {
     name: 'pesquisa_profunda',
     description:
       'Pesquisa a fundo, sozinha e em segundo plano, e entrega um relatório com fontes (leva alguns minutos): "pesquisa a fundo os melhores cursos de Node e me entrega amanhã cedo", "faz uma pesquisa completa sobre X". Ela também olha o que ele já tem nos arquivos dele. Para perguntas rápidas, use buscar_na_internet.',
@@ -653,6 +711,7 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'O app FRIDAY do celular pode ser pareado com este PC (parear_celular). Pareado, avisos de ligação e mensagem do celular chegam aqui e você pode mandar coisas para ele (mandar_para_celular).',
     'Para achar algo nos documentos, anotações ou projetos dele pelo assunto, use buscar_nos_meus_arquivos (mande palavras relacionadas e o termo em inglês). Diga o nome do arquivo e o que ele diz; não leia caminhos inteiros.',
     'Programação por voz: "roda os testes" usa rodar_testes; "posso dar push?" ou "revisa antes de eu mandar" usa revisar_codigo; "explica esse código" usa explicar_codigo; "anota um bug" usa anotar_bug (confirme antes). Para corrigir algo, ofereça tarefa_programacao.',
+    'Para fazer algo dentro de um programa do PC ("no Spotify, coloca a playlist de estudo", "preenche isso com meu nome"), use ver_janela, depois clicar_janela, digitar_janela, tecla_janela ou rolar_janela, um passo por vez, conferindo a janela que volta. Só nos programas da lista dele; nunca senhas; banco, pagamento e login são com ele. Se não estiver dando certo em poucos passos, diga o que falta.',
     'Quando chegar o aviso de um aparelho novo no Wi-Fi e ele disser de quem é, use rede_de_casa com acao=apelidar.',
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
