@@ -14,6 +14,7 @@ on:
       - 'src/renderer/src/voz/**'
       - 'src/renderer/src/projetor/**'
       - 'src/renderer/src/gestos/**'
+      - 'src/renderer/src/mesa/**'
       - 'resources/designs/**'
       - 'src/renderer/public/**'
       - '.github/workflows/celular.yml'
