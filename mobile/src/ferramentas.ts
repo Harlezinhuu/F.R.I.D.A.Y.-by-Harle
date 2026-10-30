@@ -112,7 +112,8 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
 const FERRAMENTAS_PC: ToolDeclaration[] = [
   ...TOOL_DECLARATIONS.filter((t) => TOOLS_REMOTAS.includes(t.name)).map((t) => ({ ...t, name: `pc_${t.name}`, description: `No PC (pela FRIDAY do PC): ${t.description}` })),
   { name: 'acordar_pc', description: 'Liga o PC pela rede (Wake-on-LAN), mesmo desligado ou dormindo: em casa pelo Wi-Fi e, se ele preparou "ligar de fora" no PC, de qualquer lugar pela internet ("liga o PC", "liga o computador que eu tô chegando").' },
-  { name: 'sincronizar_com_pc', description: 'Junta a memória do celular com a do PC agora ("sincroniza com o PC").' }
+  { name: 'sincronizar_com_pc', description: 'Junta a memória do celular com a do PC agora ("sincroniza com o PC").' },
+  { name: 'olhar_o_pc', description: 'Abre o HUD do PC em realidade aumentada: com a câmera apontada para o monitor, os dados do PC (CPU, RAM, GPU, lembretes de hoje, tarefas em andamento, Wi-Fi) aparecem flutuando em volta dele ("mostra o HUD do PC", "realidade aumentada", "quero ver o PC pela câmera").' }
 ]
 
 const FERRAMENTAS_MENSAGENS: ToolDeclaration[] = [
@@ -154,6 +155,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
     '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
     'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
+    '"Mostra o HUD do PC" ou "quero ver o PC pela câmera" usa olhar_o_pc: a câmera vai para o monitor e os dados do PC flutuam em volta dele.',
     '"Liga o PC" (até da rua) usa acordar_pc. Se este celular é a central do quarto, "fica quieta" usa central com acao=quieta.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano e pergunta antes de escolher horário ou confirmar. Quando a consulta te perguntar algo, pergunte a ele e passe a resposta em responder_consulta (ou pc_responder_consulta, se quem está marcando é o PC).',
     extra,
@@ -167,6 +169,8 @@ export interface Contexto {
   projetar(args: Record<string, unknown>): Promise<Resultado>
   explicar?(args: Record<string, unknown>): Promise<Resultado>
   controlarProjecao(args: Record<string, unknown>): Promise<Resultado>
+  /** HUD do PC em realidade aumentada (câmera apontada para o monitor) */
+  abrirAr?(): Promise<Resultado>
   encerrar(): void
 }
 
@@ -314,6 +318,9 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
       case 'controlar_projecao': return await ctx.controlarProjecao(a)
       case 'encerrar_conversa': ctx.encerrar(); return { ok: true, mensagem: 'A conversa será encerrada depois da despedida.' }
       case 'explicar': return ctx.explicar ? await ctx.explicar(a) : { ok: true, mensagem: 'Explique falando.' }
+      case 'olhar_o_pc':
+        if (!(await pareado())) return { ok: false, mensagem: 'O celular ainda não está pareado com o PC. Ajustes > FRIDAY do PC > Parear.' }
+        return ctx.abrirAr ? await ctx.abrirAr() : { ok: false, mensagem: 'O HUD em realidade aumentada abre pela tela do app.' }
       case 'marcar_consulta': case 'responder_consulta': case 'andamento_consulta': case 'lugar_de_consulta':
         return await consulta(nome, a)
       default:

@@ -121,6 +121,8 @@ export type PedidoElo =
   /** O celular que fica em casa ouvindo "Friday" (central do quarto) está no ar: o PC fica só nas mãos */
   | { acao: 'central'; ativa: boolean; aparelho: string }
   | { acao: 'parear'; aparelho: string }
+  /** HUD em realidade aumentada: o celular está com a câmera no monitor (true renova; false encerra) */
+  | { acao: 'ar'; ligar: boolean }
 
 /** O que o PC manda para o celular pela escuta. */
 export type EventoParaCelular =

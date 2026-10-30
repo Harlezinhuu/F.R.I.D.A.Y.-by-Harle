@@ -26,6 +26,8 @@ export interface OpcoesElo {
   pareou(aparelho: string): void
   /** A central do quarto (celular em casa ouvindo "Friday") avisou que está no ar, ou que saiu. */
   central(ativa: boolean, aparelho: string): void
+  /** HUD em realidade aumentada: o celular está olhando a tela (liga as marcas e pede os dados). */
+  ar(ligar: boolean): Promise<unknown>
 }
 
 interface Arquivo { segredo: string; aparelhos: { nome: string; ultimaVez: string }[] }
@@ -171,6 +173,8 @@ async function tratar(p: PedidoElo): Promise<unknown> {
     case 'central':
       o.central(p.ativa === true, String(p.aparelho ?? 'celular').slice(0, 60))
       return { ok: true }
+    case 'ar':
+      return await o.ar(p.ligar === true)
     case 'escutar': {
       ultimaEscuta = Date.now()
       if (fila.length) return { eventos: fila.splice(0) }

@@ -50,6 +50,8 @@ export class ModoVoz {
   aoArremessar: (args: Record<string, unknown>) => void = () => {}
   /** Câmera ligada ou desligada (mostra a prévia) */
   aoOlhos: (video: HTMLVideoElement | null) => void = () => {}
+  /** Abrir o HUD do PC na câmera (quem abre é a tela principal) */
+  aoAr: () => Promise<Resultado> = async () => ({ ok: false, mensagem: 'Indisponível.' })
   /** Modo explicação (palavras de partículas), criado pela tela */
   explicacao: Explicacao | null = null
   /** Busca foto da Wikipédia para os cartões da explicação */
@@ -234,6 +236,7 @@ export class ModoVoz {
     projetar: async (a) => this.projetar(a),
     explicar: async (a) => this.explicar(a),
     controlarProjecao: async (a) => this.controlar(String(a.acao ?? '')),
+    abrirAr: async () => this.aoAr(),
     encerrar: () => { this.encerrarDepois = true }
   }
 

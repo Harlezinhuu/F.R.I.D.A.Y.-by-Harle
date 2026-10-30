@@ -11,6 +11,7 @@ import { executar, lerMemoria } from './ferramentas'
 import { Celular, explicarErro, garantir, nativo, type Permissao } from './celular'
 import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarCasa, sincronizarMemoria } from './elo'
 import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
+import { abrirAr, arAberto, fecharAr } from './ar'
 import type { EventoParaCelular } from '../../src/shared/elo'
 import { avisos as avisosConsulta, definirPerguntaDoPc, retomarConsulta } from './consulta'
 import {
@@ -711,6 +712,16 @@ $('pcAcordar').addEventListener('click', async () => {
   const r = await executar('acordar_pc', {}, voz.contexto)
   avisar(r.mensagem)
 })
+// HUD do PC em realidade aumentada (a câmera dos "olhos" desliga antes: a câmera é uma só)
+async function abrirHudAr(): Promise<{ ok: boolean; mensagem: string }> {
+  if (voz.olhosLigados) await voz.olhos(false)
+  return abrirAr({ aoFechar: () => {} })
+}
+voz.aoAr = abrirHudAr
+$('pcAr').addEventListener('click', async () => {
+  const r = await abrirHudAr()
+  if (!r.ok) avisar(r.mensagem)
+})
 $('pcSincronizar').addEventListener('click', async () => {
   const n = await sincronizarMemoria()
   avisar(n === null ? 'O PC não respondeu.' : `Memória sincronizada: ${n} coisas.`)
@@ -832,6 +843,7 @@ $('ceRegistro').parentElement?.addEventListener('toggle', () => void mostrarCent
 // ---------- Botão voltar do Android ----------
 
 void App.addListener('backButton', () => {
+  if (arAberto()) { fecharAr(); return }
   if (!$('folhaMemoria').hidden) { $('folhaMemoria').hidden = true; return }
   if (!$('folhaParear').hidden) { $('folhaParear').hidden = true; return }
   if (voz.ativo) { void voz.parar(); return }

@@ -24,6 +24,7 @@ import { iniciarCerebro } from './cerebro'
 import { iniciarPesquisas } from './pesquisa'
 import { encerrarReserva, ollamaPronto, responderReserva } from './reserva'
 import { iniciarRede } from './rede'
+import { encerrarAr, pedidoAr } from './ar'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
@@ -336,7 +337,8 @@ app.whenReady().then(() => {
       centralAte = ativa ? Date.now() + 75_000 : 0
       centralNome = aparelho
       mudouCentral()
-    }
+    },
+    ar: (ligar) => pedidoAr(ligar)
   })
   setInterval(mudouCentral, 10_000)
   // O HUD recarregou: diz de novo quem está ouvindo
@@ -396,6 +398,7 @@ app.on('will-quit', () => {
   winctl.encerrar()
   visao.encerrar()
   encerrarElo()
+  encerrarAr()
   encerrarWhats()
 })
 app.on('window-all-closed', () => app.quit())

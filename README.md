@@ -189,6 +189,17 @@ Os limites ficam no código, não só na instrução:
 - **Teclas só de uma lista** (Enter, Tab, setas, Ctrl+S, Ctrl+T e outras); nada de Alt+F4, Win+R ou Delete.
 - **No máximo 15 passos seguidos:** depois ela pergunta se pode continuar.
 
+### HUD em realidade aumentada
+
+No app do celular, em **Ajustes › FRIDAY do PC › Ver o PC pela câmera** (ou falando: "mostra o HUD do PC"), aponte a câmera para o monitor. O PC mostra quatro marcas nos cantos da tela (o desenho dos cantos do QR Code) e o celular acha as marcas em cada quadro, monta a perspectiva e "cola" os painéis no plano do monitor:
+
+- **Em cima:** a hora, o nome do PC, há quanto tempo está ligado, o programa na frente e quantos aparelhos estão no Wi-Fi.
+- **Sistema:** CPU, RAM, GPU e memória de vídeo (vermelho acima de 85%).
+- **Hoje:** os lembretes que faltam no dia.
+- **Em andamento:** tarefa de programação, pesquisa profunda, consulta sendo marcada e aparelho desconhecido no Wi-Fi.
+
+Com o celular deitado, os painéis ficam dos lados do monitor; em pé, em cima e embaixo. Se uma marca ficar tapada, ela completa a quarta pelas outras três. A imagem da câmera não sai do celular; as marcas somem sozinhas uns segundos depois que você fecha.
+
 ### Memória
 
 O que ela aprende fica só no seu PC (`memoria.json`, na pasta de configuração). Senhas, PINs, chaves, documentos e números de cartão ou conta são recusados antes de gravar.
