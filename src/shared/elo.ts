@@ -123,6 +123,8 @@ export type PedidoElo =
   | { acao: 'parear'; aparelho: string }
   /** HUD em realidade aumentada: o celular está com a câmera no monitor (true renova; false encerra) */
   | { acao: 'ar'; ligar: boolean }
+  /** Versão de um design salva na oficina de hologramas do celular (.glb em base64): entra na biblioteca do PC */
+  | { acao: 'design'; nome: string; glb: string }
 
 /** O que o PC manda para o celular pela escuta. */
 export type EventoParaCelular =

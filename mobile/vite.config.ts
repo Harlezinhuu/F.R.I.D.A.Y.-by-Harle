@@ -13,7 +13,8 @@ export default defineConfig({
   resolve: {
     alias: {
       three: aqui('./node_modules/three'),
-      '@google/genai': aqui('./node_modules/@google/genai')
+      '@google/genai': aqui('./node_modules/@google/genai'),
+      '@mediapipe/tasks-vision': aqui('./node_modules/@mediapipe/tasks-vision')
     }
   },
   server: { fs: { allow: [aqui('..')] } },

@@ -1,6 +1,6 @@
 {
   "name": "friday-mobile",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "F.R.I.D.A.Y no celular (Android): voz, chat, câmera e ligação com a FRIDAY do PC.",
   "author": "Ahmad Mourad (Harle)",
@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/maos.mjs",
     "typecheck": "tsc --noEmit",
     "android": "vite build && npx cap sync android && npx cap open android"
   },
@@ -20,6 +20,7 @@
     "@capacitor/local-notifications": "^7.0.0",
     "@capacitor/preferences": "^7.0.0",
     "@google/genai": "^1.20.0",
+    "@mediapipe/tasks-vision": "^0.10.35",
     "three": "^0.170.0"
   },
   "devDependencies": {

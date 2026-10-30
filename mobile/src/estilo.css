@@ -320,3 +320,32 @@ body.explicando .saudacao, body.explicando .legenda { opacity: .15 }
 .ar-dica { position: absolute; left: 50%; bottom: calc(40px + var(--base)); transform: translateX(-50%); margin: 0; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; border: 1px solid var(--borda); background: rgba(8, 12, 28, .8); font-size: 13.5px; text-align: center; transition: opacity .3s ease }
 .ar.preso .ar-mira, .ar.preso .ar-dica { opacity: 0 }
 .ar-fechar { position: absolute; right: 16px; top: calc(16px + var(--topo)); background: rgba(8, 12, 28, .7) }
+
+/* Oficina de hologramas: a câmera cobre a tela; o holograma e a mão por cima */
+.oficina { position: fixed; inset: 0; z-index: 9; background: #000; overflow: hidden; touch-action: none }
+.oficina video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
+.oficina .of-tela, .oficina .of-mao { position: absolute; inset: 0; width: 100%; height: 100% }
+.oficina .of-mao { pointer-events: none }
+.of-topo { position: absolute; left: 0; right: 0; top: 0; padding: calc(12px + var(--topo)) 14px 10px; display: flex; align-items: center; gap: 10px; background: linear-gradient(rgba(3, 5, 12, .78), transparent) }
+.of-topo > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.of-rotulo { font-family: var(--f-mono); font-size: 10px; letter-spacing: .26em; color: var(--ciano) }
+.of-nome { font-family: var(--f-display); font-weight: 500; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.of-chip { font-family: var(--f-mono); font-size: 10px; letter-spacing: .14em; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--borda); background: rgba(8, 12, 28, .7); color: var(--suave); white-space: nowrap }
+.of-topo .icone { background: rgba(8, 12, 28, .7) }
+.of-peca { position: absolute; left: 12px; right: 12px; top: calc(70px + var(--topo)); padding: 10px 12px; border-radius: 16px; border: 1px solid rgba(255, 181, 71, .6); background: rgba(20, 14, 6, .72); display: flex; flex-direction: column; gap: 8px }
+.of-peca-nome { font-family: var(--f-mono); font-size: 12px; letter-spacing: .14em; color: #FFD08A; text-transform: uppercase }
+.of-botoes { display: flex; flex-wrap: wrap; gap: 6px }
+.of-botoes button, .of-barra button { min-height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--borda); background: rgba(10, 16, 36, .78); font-size: 13px }
+.of-botoes button { min-width: 44px }
+.of-dica { position: absolute; left: 50%; bottom: calc(76px + var(--base)); transform: translateX(-50%); margin: 0; width: max-content; max-width: calc(100% - 28px); padding: 8px 12px; border-radius: 12px; background: rgba(8, 12, 28, .72); font-size: 12.5px; color: var(--suave); text-align: center }
+.of-barra { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 10px calc(12px + var(--base)); display: flex; gap: 6px; overflow-x: auto; background: linear-gradient(transparent, rgba(3, 5, 12, .85)) }
+.of-barra button { flex: 1 0 auto }
+.of-folha { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: flex-end }
+.of-folha-painel { width: 100%; max-height: 70%; overflow-y: auto; padding: 18px 16px calc(18px + var(--base)); border-radius: 22px 22px 0 0; border-top: 1px solid var(--borda); background: #0B1124 }
+.of-folha-painel h2 { margin: 0 0 12px }
+.of-lista { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.of-lista li { display: flex; gap: 6px }
+.of-lista li > button:first-child { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 12px; text-align: left }
+.of-lista small { color: var(--apagado); font-size: 11.5px }
+.of-apagar { padding: 0 12px; border: 1px solid rgba(255, 122, 138, .4); border-radius: 12px; color: var(--perigo); font-size: 12.5px }
+.of-folha-painel > .vidro { width: 100%; min-height: 46px }

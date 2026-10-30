@@ -202,3 +202,17 @@ export function semearDesigns(pastaDosOriginais: string): number {
   writeFileSync(registro, JSON.stringify([...ja, ...novos.map((o) => o.arquivo)]))
   return novos.length
 }
+
+/** Um design editado na oficina do celular: entra na biblioteca com o nome que você deu (substitui se já existir). */
+export function importarDoCelular(nome: string, glb: Buffer): { ok: boolean; nome: string; mensagem: string } {
+  if (glb.length > MAX_ARQUIVO) return { ok: false, nome, mensagem: 'O design é grande demais (mais de 80 MB).' }
+  mkdirSync(pastaModelos(), { recursive: true })
+  const lista = lerDesigns()
+  const existente = lista.find((d) => d.nome.toLowerCase() === nome.toLowerCase())
+  const arquivo = existente?.arquivo ?? livre(`${nomeSeguro(nome)}.glb`)
+  writeFileSync(dentro(pastaModelos(), arquivo), glb)
+  if (!existente) lista.push({ arquivo, nome: nomeLivre(nome, lista.map((d) => d.nome)), apelidos: [], importadoEm: new Date().toISOString() })
+  else existente.importadoEm = new Date().toISOString()
+  salvarDesigns(lista)
+  return { ok: true, nome: existente?.nome ?? nome, mensagem: `Design "${nome}" salvo no PC.` }
+}

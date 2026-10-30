@@ -28,6 +28,8 @@ export interface OpcoesElo {
   central(ativa: boolean, aparelho: string): void
   /** HUD em realidade aumentada: o celular está olhando a tela (liga as marcas e pede os dados). */
   ar(ligar: boolean): Promise<unknown>
+  /** Um design editado no celular chegou (.glb). */
+  design(nome: string, glb: Buffer): { ok: boolean; mensagem: string }
 }
 
 interface Arquivo { segredo: string; aparelhos: { nome: string; ultimaVez: string }[] }
@@ -175,6 +177,11 @@ async function tratar(p: PedidoElo): Promise<unknown> {
       return { ok: true }
     case 'ar':
       return await o.ar(p.ligar === true)
+    case 'design': {
+      const glb = Buffer.from(String(p.glb ?? ''), 'base64')
+      if (glb.length < 20 || glb.readUInt32LE(0) !== 0x46546c67) return { ok: false, mensagem: 'Esse arquivo não é um .glb.' }
+      return o.design(String(p.nome ?? 'design').slice(0, 60), glb)
+    }
     case 'escutar': {
       ultimaEscuta = Date.now()
       if (fila.length) return { eventos: fila.splice(0) }

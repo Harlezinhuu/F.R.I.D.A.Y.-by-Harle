@@ -3,6 +3,7 @@
 // voz, chat, conversas e ajustes.
 
 import { App } from '@capacitor/app'
+import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { Mundo, type Tela } from './mundo'
 import { ModoVoz } from './voz'
 import { responder } from './chat'
@@ -12,6 +13,7 @@ import { Celular, explicarErro, garantir, nativo, type Permissao } from './celul
 import { desparear, escutarPC, lerElo, parearCom, parearPorCodigo, pararEscuta, pedirPC, sincronizarCasa, sincronizarMemoria } from './elo'
 import { Explicacao } from '../../src/renderer/src/explicacao/explicacao'
 import { abrirAr, arAberto, fecharAr } from './ar'
+import { Oficina } from './oficina'
 import type { EventoParaCelular } from '../../src/shared/elo'
 import { avisos as avisosConsulta, definirPerguntaDoPc, retomarConsulta } from './consulta'
 import {
@@ -718,6 +720,41 @@ async function abrirHudAr(): Promise<{ ok: boolean; mensagem: string }> {
   return abrirAr({ aoFechar: () => {} })
 }
 voz.aoAr = abrirHudAr
+
+// Oficina de hologramas: editar um design com a mão, na câmera de trás
+let oficina: Oficina | null = null
+function aOficina(): Oficina {
+  oficina ??= new Oficina({
+    avisar,
+    vibrar: () => { if (ajustes.vibrar) void Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}) },
+    aoFechar: () => {}
+  })
+  return oficina
+}
+async function usarOficina(a: Record<string, unknown>): Promise<{ ok: boolean; mensagem: string }> {
+  const acao = String(a.acao ?? 'abrir'), design = String(a.design ?? '').trim()
+  try {
+    if (acao === 'fechar') { oficina?.fechar(); return { ok: true, mensagem: 'Oficina fechada.' } }
+    // A câmera é uma só: os "olhos" da conversa desligam
+    if (voz.olhosLigados) await voz.olhos(false)
+    const o = aOficina()
+    if (acao === 'abrir' || !o.aberta || design) {
+      const r = await o.abrir(design)
+      if (acao === 'abrir' || /^Não achei/.test(r)) return { ok: !/^Não achei/.test(r), mensagem: `${r} Diga em uma frase e lembre: apontar e segurar seleciona, pinça arrasta, mão fechada gira, tapa joga fora.` }
+    }
+    if (acao === 'salvar') return { ok: true, mensagem: await o.salvar(String(a.nome ?? '').trim() || `${o.nome} v2`) }
+    if (acao === 'resumo') return { ok: true, mensagem: o.resumo() }
+    const r = o.comando({ acao, peca: String(a.peca ?? '').trim() || undefined, cor: String(a.cor ?? '').trim() || undefined })
+    return { ok: !/^(Selecione|Não achei|Cor que|Nenhum|Ação)/.test(r), mensagem: r }
+  } catch (e) {
+    return { ok: false, mensagem: (e as Error).message }
+  }
+}
+voz.aoOficina = usarOficina
+$('abrirOficina').addEventListener('click', async () => {
+  const r = await usarOficina({ acao: 'abrir' })
+  if (!r.ok) avisar(r.mensagem)
+})
 $('pcAr').addEventListener('click', async () => {
   const r = await abrirHudAr()
   if (!r.ok) avisar(r.mensagem)
@@ -844,6 +881,7 @@ $('ceRegistro').parentElement?.addEventListener('toggle', () => void mostrarCent
 
 void App.addListener('backButton', () => {
   if (arAberto()) { fecharAr(); return }
+  if (oficina?.aberta) { oficina.fechar(); return }
   if (!$('folhaMemoria').hidden) { $('folhaMemoria').hidden = true; return }
   if (!$('folhaParear').hidden) { $('folhaParear').hidden = true; return }
   if (voz.ativo) { void voz.parar(); return }

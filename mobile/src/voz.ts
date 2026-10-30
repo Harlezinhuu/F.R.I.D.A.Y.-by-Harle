@@ -52,6 +52,8 @@ export class ModoVoz {
   aoOlhos: (video: HTMLVideoElement | null) => void = () => {}
   /** Abrir o HUD do PC na câmera (quem abre é a tela principal) */
   aoAr: () => Promise<Resultado> = async () => ({ ok: false, mensagem: 'Indisponível.' })
+  /** Oficina de hologramas (quem abre é a tela principal) */
+  aoOficina: (a: Record<string, unknown>) => Promise<Resultado> = async () => ({ ok: false, mensagem: 'Indisponível.' })
   /** Modo explicação (palavras de partículas), criado pela tela */
   explicacao: Explicacao | null = null
   /** Busca foto da Wikipédia para os cartões da explicação */
@@ -237,6 +239,7 @@ export class ModoVoz {
     explicar: async (a) => this.explicar(a),
     controlarProjecao: async (a) => this.controlar(String(a.acao ?? '')),
     abrirAr: async () => this.aoAr(),
+    oficina: async (a) => this.aoOficina(a),
     encerrar: () => { this.encerrarDepois = true }
   }
 

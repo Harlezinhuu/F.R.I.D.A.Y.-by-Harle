@@ -74,6 +74,22 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
     description: 'Lista os compromissos da agenda do celular num período ("o que tenho amanhã?").',
     parameters: { type: 'OBJECT', properties: { de_iso: S('Começo do período em ISO 8601 (padrão: agora).'), ate_iso: S('Fim do período em ISO 8601 (padrão: fim de amanhã).') } }
   },
+  {
+    name: 'oficina',
+    description:
+      'Oficina de hologramas: abre um design 3D na câmera do celular para ele editar com a mão, como o Tony ("abre a oficina", "quero mexer no drone", "abre o Harle Bot na oficina"). Com ela aberta: selecionar uma peça pelo nome, tirar, duplicar, aumentar, diminuir, girar, pintar (cor), restaurar o original, desfazer, refazer, explodir, juntar, trazer (centralizar na frente dele), salvar com um nome ("salva como drone v2") e fechar. resumo diz o que mudou.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['abrir', 'selecionar', 'soltar', 'tirar', 'duplicar', 'aumentar', 'diminuir', 'girar', 'pintar', 'restaurar', 'desfazer', 'refazer', 'explodir', 'juntar', 'centralizar', 'salvar', 'resumo', 'fechar'] },
+        design: { type: 'STRING', description: 'Qual design abrir (opcional).' },
+        peca: { type: 'STRING', description: 'Nome da peça (opcional; vazio = a selecionada).' },
+        cor: { type: 'STRING', description: 'Cor em português, para pintar (vermelho, azul, dourado...).' },
+        nome: { type: 'STRING', description: 'Nome da versão nova, para salvar.' }
+      },
+      required: ['acao']
+    }
+  },
   { name: 'ler_tela', description: 'Lê o que está na tela agora (qualquer app): cada item vem com um número (#) para tocar_tela e escrever_tela.' },
   {
     name: 'tocar_tela',
@@ -155,6 +171,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
     '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
     'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
+    '"Abre a oficina", "quero mexer no drone" ou "edita o Harle Bot" usam oficina: o holograma aparece na câmera e ele mexe com a mão. Com a oficina aberta, "tira isso", "aumenta", "pinta de vermelho", "desfaz" e "salva como..." são da oficina.',
     '"Mostra o HUD do PC" ou "quero ver o PC pela câmera" usa olhar_o_pc: a câmera vai para o monitor e os dados do PC flutuam em volta dele.',
     '"Liga o PC" (até da rua) usa acordar_pc. Se este celular é a central do quarto, "fica quieta" usa central com acao=quieta.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano e pergunta antes de escolher horário ou confirmar. Quando a consulta te perguntar algo, pergunte a ele e passe a resposta em responder_consulta (ou pc_responder_consulta, se quem está marcando é o PC).',
@@ -171,6 +188,8 @@ export interface Contexto {
   controlarProjecao(args: Record<string, unknown>): Promise<Resultado>
   /** HUD do PC em realidade aumentada (câmera apontada para o monitor) */
   abrirAr?(): Promise<Resultado>
+  /** Oficina de hologramas (editar um design com a mão, na câmera) */
+  oficina?(args: Record<string, unknown>): Promise<Resultado>
   encerrar(): void
 }
 
@@ -318,6 +337,7 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
       case 'controlar_projecao': return await ctx.controlarProjecao(a)
       case 'encerrar_conversa': ctx.encerrar(); return { ok: true, mensagem: 'A conversa será encerrada depois da despedida.' }
       case 'explicar': return ctx.explicar ? await ctx.explicar(a) : { ok: true, mensagem: 'Explique falando.' }
+      case 'oficina': return ctx.oficina ? await ctx.oficina(a) : { ok: false, mensagem: 'A oficina abre pela tela do app.' }
       case 'olhar_o_pc':
         if (!(await pareado())) return { ok: false, mensagem: 'O celular ainda não está pareado com o PC. Ajustes > FRIDAY do PC > Parear.' }
         return ctx.abrirAr ? await ctx.abrirAr() : { ok: false, mensagem: 'O HUD em realidade aumentada abre pela tela do app.' }

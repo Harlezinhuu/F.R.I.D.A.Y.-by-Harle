@@ -13,6 +13,8 @@ on:
       - 'src/renderer/src/hud/**'
       - 'src/renderer/src/voz/**'
       - 'src/renderer/src/projetor/**'
+      - 'src/renderer/src/gestos/**'
+      - 'resources/designs/**'
       - 'src/renderer/public/**'
       - '.github/workflows/celular.yml'
   workflow_dispatch:

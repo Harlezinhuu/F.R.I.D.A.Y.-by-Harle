@@ -15,7 +15,7 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
-import { escolherEImportar, semearDesigns } from './designs'
+import { escolherEImportar, importarDoCelular, semearDesigns } from './designs'
 import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registrarContextoPc } from './elo'
 import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
 import { encerrarWhats, mostrarWhats } from './whatsweb'
@@ -353,7 +353,12 @@ app.whenReady().then(() => {
       centralNome = aparelho
       mudouCentral()
     },
-    ar: (ligar) => pedidoAr(ligar)
+    ar: (ligar) => pedidoAr(ligar),
+    design(nome, glb) {
+      const r = importarDoCelular(nome, glb)
+      if (r.ok) avisarEmSegundoPlano(`Chegou do celular o design "${r.nome}". Diga "projeta o ${r.nome}" para ver.`, true)
+      return { ok: r.ok, mensagem: r.mensagem }
+    }
   })
   setInterval(mudouCentral, 10_000)
   // O HUD recarregou: diz de novo quem está ouvindo

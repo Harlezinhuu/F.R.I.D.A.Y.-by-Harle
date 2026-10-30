@@ -11,6 +11,8 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "three": [
@@ -21,6 +23,9 @@
       ],
       "@google/genai": [
         "./node_modules/@google/genai"
+      ],
+      "@mediapipe/tasks-vision": [
+        "./node_modules/@mediapipe/tasks-vision"
       ]
     }
   },
