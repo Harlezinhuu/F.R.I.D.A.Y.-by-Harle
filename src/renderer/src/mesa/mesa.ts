@@ -71,6 +71,8 @@ const PONTOS_FRAG = /* glsl */ `
 export class Mesa {
   private renderer: THREE.WebGLRenderer | null = null
   private cena = new THREE.Scene()
+  /** Tudo da mesa fica aqui dentro: no celular, este grupo vai para a cena da câmera */
+  readonly raiz = new THREE.Group()
   private camera = new THREE.PerspectiveCamera(38, 1, 0.05, 80)
   private raf = 0
   private relogio = new THREE.Clock()
@@ -103,9 +105,14 @@ export class Mesa {
   modo: ModoMesa = 'cartoes'
   titulo = ''
 
-  constructor(private canvas: HTMLCanvasElement, private estado: () => string = () => 'repouso') {
+  /**
+   * `canvas`: a mesa desenha sozinha na tela (PC). null: modo embutido (celular), quem desenha é a cena
+   * de quem usa, que chama `animar` a cada quadro.
+   */
+  constructor(private canvas: HTMLCanvasElement | null, private estado: () => string = () => 'repouso') {
     this.camera.position.set(0, 6, 7)
-    this.cena.add(this.grupoCartoes, this.palco, this.emissor, this.mini.raiz)
+    this.cena.add(this.raiz)
+    this.raiz.add(this.grupoCartoes, this.palco, this.emissor, this.mini.raiz)
     this.criarMesa()
     this.criarEmissor()
   }
@@ -124,11 +131,11 @@ export class Mesa {
     })
     const tampo = new THREE.Mesh(forma, mat)
     tampo.renderOrder = -2
-    this.cena.add(tampo)
+    this.raiz.add(tampo)
     // Bordas: a de fora acesa, uma de dentro mais fraca e um risco violeta no canto (como uma etiqueta)
     const linha = (pts: THREE.Vector3[], cor: string, opac: number) => {
       const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: cor, transparent: true, opacity: opac, blending: THREE.AdditiveBlending, depthWrite: false }))
-      this.cena.add(l)
+      this.raiz.add(l)
       return l
     }
     linha(contorno(LARGURA, FUNDO, RAIO), '#8FEFFF', 0.95)
@@ -136,13 +143,13 @@ export class Mesa {
     linha([new THREE.Vector3(-LARGURA / 2 + 0.6, 0.004, -FUNDO / 2 + 0.32), new THREE.Vector3(-LARGURA / 2 + 1.5, 0.004, -FUNDO / 2 + 0.32)], '#FF5A8A', 0.9)
     const legenda = textoPlano(['MESA HOLOGRÁFICA · F.R.I.D.A.Y', 'BY HARLE'], { tamanho: 26, cor: '#7FD8F0', fonte: 'JetBrains Mono', espacamento: 6 }, 3.2)
     legenda.position.set(-LARGURA / 2 + 2.2, 0.005, -FUNDO / 2 + 0.6)
-    this.cena.add(legenda)
+    this.raiz.add(legenda)
     // Anel em volta da mesa, no ar (o "horizonte" do vídeo)
     const arco = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(Array.from({ length: 121 }, (_, i) => { const a = Math.PI * (0.08 + (i / 120) * 0.84); return new THREE.Vector3(Math.cos(a) * 9, 1.6, -Math.sin(a) * 6.5) })),
       new THREE.LineBasicMaterial({ color: '#4E8FE8', transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })
     )
-    this.cena.add(arco)
+    this.raiz.add(arco)
   }
 
   /** O círculo no meio da mesa, de onde sobe o holograma. */
@@ -169,7 +176,7 @@ export class Mesa {
   }
 
   private iniciarRenderer(): void {
-    if (this.renderer) return
+    if (this.renderer || !this.canvas) return
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true })
     this.renderer.setClearColor(0x000000, 0)
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75))
@@ -192,22 +199,45 @@ export class Mesa {
   // ---------- Abrir e fechar ----------
 
   abrir(cartoes: CartaoMesa[]): void {
-    this.iniciarRenderer()
-    this.canvas.hidden = false
     this.aberta = true
     this.sumindo = 0
-    this.canvas.style.opacity = '1'
     this.definirCartoes(cartoes)
     this.voltar()
     this.mini.colocar(new THREE.Vector3(-3.4, 0, 1.6))
+    if (!this.canvas) return
+    this.iniciarRenderer()
+    this.canvas.hidden = false
+    this.canvas.style.opacity = '1'
     if (!this.raf) { this.relogio.start(); this.raf = requestAnimationFrame(this.quadro) }
   }
 
   fechar(): void {
     if (!this.aberta) return
     this.aberta = false
-    this.sumindo = performance.now()
+    if (this.canvas) this.sumindo = performance.now()
+    else this.limparPalco()
   }
+
+  /** No celular a mesa é pequena (uns 45 cm): as partículas encolhem junto. */
+  escalaDasParticulas(f: number): void {
+    this.uniPontos.uTam.value = 26 * f
+    this.mini.escalaDasParticulas(f)
+  }
+
+  /** O cartão que está nesta posição da tela (raio já no espaço do mundo), ou -1. */
+  cartaoNoRaio(raio: THREE.Ray): number {
+    let melhor = -1, dist = Infinity
+    this.malhasCartoes.forEach((m, i) => {
+      if (!m.visible || !this.grupoCartoes.visible) return
+      const caixa = new THREE.Box3().setFromObject(m)
+      const p = raio.intersectBox(caixa, new THREE.Vector3())
+      if (p && p.distanceTo(raio.origin) < dist) { dist = p.distanceTo(raio.origin); melhor = i }
+    })
+    return melhor
+  }
+
+  /** O centro do palco (onde o holograma ou o prédio aparece), no espaço da mesa. */
+  get alturaDoPalco(): number { return this.foco.y }
 
   definirCartoes(cartoes: CartaoMesa[]): void {
     for (const m of this.malhasCartoes) { this.grupoCartoes.remove(m); (m.material as THREE.MeshBasicMaterial).map?.dispose(); (m.material as THREE.Material).dispose(); m.geometry.dispose() }
@@ -246,23 +276,23 @@ export class Mesa {
   }
 
   private atualizarContador(): void {
-    if (this.contador) { this.cena.remove(this.contador); this.contador.geometry.dispose(); ((this.contador.material as THREE.MeshBasicMaterial).map)?.dispose() }
+    if (this.contador) { this.raiz.remove(this.contador); this.contador.geometry.dispose(); ((this.contador.material as THREE.MeshBasicMaterial).map)?.dispose() }
     if (!this.cartoes.length) { this.contador = null; return }
     const tipo = { projeto: 'PROJETO', design: 'DESIGN', relatorio: 'RELATÓRIO' }[this.atual!.tipo]
     this.contador = textoPlano([`${String(this.indice + 1).padStart(2, '0')} / ${String(this.cartoes.length).padStart(2, '0')}  ·  ${tipo}`], { tamanho: 30, cor: '#9FE9FF', fonte: 'JetBrains Mono', espacamento: 4 }, 2.6)
     this.contador.position.set(0, 0.006, 1.32)
     this.contador.visible = this.modo === 'cartoes'
-    this.cena.add(this.contador)
+    this.raiz.add(this.contador)
   }
 
   private trocarLetreiro(texto: string, dica: string): void {
-    for (const m of [this.letreiro, this.dica]) if (m) { this.cena.remove(m); m.geometry.dispose(); ((m.material as THREE.MeshBasicMaterial).map)?.dispose() }
+    for (const m of [this.letreiro, this.dica]) if (m) { this.raiz.remove(m); m.geometry.dispose(); ((m.material as THREE.MeshBasicMaterial).map)?.dispose() }
     this.letreiro = textoPlano([texto.toUpperCase()], { tamanho: 150, cor: '#5FE1F2', fonte: 'Tektur', contorno: true, espacamento: 10 }, Math.min(7.4, 0.9 + texto.length * 0.52))
     this.letreiro.position.set(0, 0.004, 1.95)
     ;(this.letreiro.material as THREE.MeshBasicMaterial).opacity = 0.4
     this.dica = textoPlano([dica], { tamanho: 24, cor: '#7FD8F0', fonte: 'JetBrains Mono', espacamento: 5 }, 6.2)
     this.dica.position.set(0, 0.005, FUNDO / 2 - 0.3)
-    this.cena.add(this.letreiro, this.dica)
+    this.raiz.add(this.letreiro, this.dica)
   }
 
   // ---------- Modos ----------
@@ -302,6 +332,21 @@ export class Mesa {
     this.trocarLetreiro('ARQUIVO', 'DESLIZE OS CARTÕES COM A MÃO · TOQUE DUPLO PARA ABRIR')
     this.enquadrar(0.95, 0.3)
     this.mini.andarPara(new THREE.Vector3(-1.75, 0, 1.25), new THREE.Vector3(0, 0.6, 0))
+  }
+
+  /**
+   * Outro desenha em cima da mesa (no celular, o editor de hologramas): a mesa só esconde os cartões,
+   * acende o emissor, troca o letreiro e manda a FRIDAY para o lado.
+   */
+  ocupar(titulo: string, dica: string): void {
+    this.limparPalco()
+    this.modo = 'design'
+    this.titulo = titulo
+    this.grupoCartoes.visible = false
+    if (this.contador) this.contador.visible = false
+    this.emissor.visible = true
+    this.trocarLetreiro(titulo, dica)
+    this.mini.andarPara(new THREE.Vector3(2.3, 0, 1.0), new THREE.Vector3(0, 1.4, 0))
   }
 
   /** Design em holograma: as peças em partículas e linhas, girando em cima do emissor. */
@@ -439,7 +484,7 @@ export class Mesa {
   private quadro = (): void => {
     const dt = Math.min(0.05, this.relogio.getDelta())
     const t = this.relogio.elapsedTime
-    if (!this.aberta && this.sumindo) {
+    if (!this.aberta && this.sumindo && this.canvas) {
       const k = Math.min(1, (performance.now() - this.sumindo) / 450)
       this.canvas.style.opacity = String(1 - k)
       if (k >= 1) {
@@ -450,9 +495,6 @@ export class Mesa {
         return
       }
     }
-    this.uniMesa.uTime.value = t
-    this.uniMesa.uSweep.value = ((t * 0.35) % 1.4) * FUNDO - FUNDO * 0.7
-
     // Câmera em órbita em volta do centro da mesa
     const o = this.orbita
     o.yaw = suave(o.yaw, o.alvoYaw, 0.08); o.pitch = suave(o.pitch, o.alvoPitch, 0.08); o.raio = suave(o.raio, o.alvoRaio, 0.08)
@@ -460,6 +502,16 @@ export class Mesa {
     const alvo = this.foco
     this.camera.position.set(alvo.x + Math.sin(o.yaw) * Math.cos(o.pitch) * o.raio, alvo.y + Math.sin(o.pitch) * o.raio, alvo.z + Math.cos(o.yaw) * Math.cos(o.pitch) * o.raio)
     this.camera.lookAt(alvo)
+    this.animar(dt, t, this.camera.position)
+    this.renderer?.render(this.cena, this.camera)
+    this.raf = requestAnimationFrame(this.quadro)
+  }
+
+  /** Um passo da animação. `camera`: onde está quem olha, no espaço da mesa (a FRIDAY vira para lá). */
+  animar(dt: number, t: number, camera: THREE.Vector3): void {
+    if (!this.canvas) this.foco.lerp(this.alvoFoco, 0.08)
+    this.uniMesa.uTime.value = t
+    this.uniMesa.uSweep.value = ((t * 0.35) % 1.4) * FUNDO - FUNDO * 0.7
 
     // Cartões: o da frente sobe e cresce; os outros se afastam em arco e apagam
     this.posicao = suave(this.posicao, this.indice, 0.12)
@@ -488,8 +540,6 @@ export class Mesa {
     if (this.modo === 'design') { this.giroModelo += dt * 0.35; this.palco.rotation.y = this.giroModelo }
     this.emissor.rotation.y = -t * 0.2
 
-    this.mini.atualizar(dt, t, this.estado() === 'falando', this.camera.position)
-    this.renderer?.render(this.cena, this.camera)
-    this.raf = requestAnimationFrame(this.quadro)
+    this.mini.atualizar(dt, t, this.estado() === 'falando', camera)
   }
 }

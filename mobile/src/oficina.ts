@@ -18,6 +18,11 @@ import { escreverGlb } from '../../src/shared/glb.ts'
 import listaOriginais from '../../resources/designs/designs.json'
 import { pareado, pedirPC } from './elo'
 import { apagarSalvo, lerSalvo, listarSalvos, salvarDesign } from './designs-salvos'
+import { Mesa } from '../../src/renderer/src/mesa/mesa'
+import type { CartaoMesa, Predio } from '../../src/shared/mesa'
+
+/** A mesa do PC tem 10 unidades de largura; no celular ela vira uns 45 cm em cima do seu móvel */
+const ESCALA_MESA = 0.045
 
 // Os designs originais vão dentro do app
 const ARQUIVOS = import.meta.glob('../../resources/designs/*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>
@@ -100,7 +105,9 @@ function quaternionDoCelular(q: THREE.Quaternion, alfa: number, beta: number, ga
   q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -tela))
 }
 
-export interface OpcoesOficina { avisar(texto: string): void; vibrar(): void; aoFechar(): void }
+export interface OpcoesOficina { avisar(texto: string): void; vibrar(): void; aoFechar(): void; estado?(): string }
+
+type ModoMesa = 'fora' | 'cartoes' | 'design' | 'predio'
 
 export class Oficina {
   private raiz: HTMLElement
@@ -136,6 +143,12 @@ export class Oficina {
   private toqueInicio: { x: number; y: number; t: number } | null = null
   aberta = false
   nome = ''
+  // Mesa holográfica (a mesma do PC, pequena, em cima do seu móvel)
+  private mesa: Mesa | null = null
+  modoMesa: ModoMesa = 'fora'
+  /** Onde o modelo fica em relação à âncora (em cima do emissor, quando está na mesa) */
+  private baseModelo = new THREE.Vector3()
+  private arrastoToque = { dx: 0, dy: 0 }
 
   constructor(private o: OpcoesOficina) {
     this.raiz = document.createElement('section')
@@ -160,7 +173,7 @@ export class Oficina {
       </div>
       <p class="of-dica" aria-live="polite">Aponte o dedo para uma peça e segure para selecionar · pinça pega e arrasta · mão fechada gira · tapa joga fora</p>
       <nav class="of-barra">
-        <button type="button" data-acao="designs">Designs</button><button type="button" data-acao="explodir">Explodir</button>
+        <button type="button" data-acao="mesa">Mesa</button><button type="button" data-acao="designs">Designs</button><button type="button" data-acao="explodir">Explodir</button>
         <button type="button" data-acao="desfazer">Desfazer</button><button type="button" data-acao="refazer">Refazer</button>
         <button type="button" data-acao="centralizar">Trazer</button><button type="button" data-acao="salvar">Salvar</button>
       </nav>
@@ -190,7 +203,8 @@ export class Oficina {
       try {
         this.camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
         this.video.srcObject = this.camStream
-        await this.video.play().catch(() => {})
+        // Sem esperar para sempre: em alguns aparelhos o primeiro quadro demora
+        await Promise.race([this.video.play().catch(() => {}), new Promise((r) => setTimeout(r, 1500))])
       } catch {
         this.o.avisar('Sem a câmera, o holograma aparece no fundo escuro. Libere a câmera para a FRIDAY nas permissões.')
       }
@@ -223,6 +237,127 @@ export class Oficina {
     this.o.aoFechar()
   }
 
+  // ---------- Mesa holográfica ----------
+
+  /** Os cartões: os designs do celular e, com o PC pareado e ligado, os projetos, relatórios e designs de lá. */
+  private async cartoesDaMesa(): Promise<{ cartoes: CartaoMesa[]; pc: boolean }> {
+    const locais: CartaoMesa[] = (await catalogo()).map((d) => ({
+      id: `celular:${d.origem}:${d.nome}`,
+      tipo: 'design',
+      titulo: d.nome,
+      sub: d.origem === 'salvo' ? 'sua versão · no celular' : 'design original',
+      ficha: [d.apelidos.length ? `Também: ${d.apelidos.slice(0, 3).join(', ')}` : 'Editável com a mão', 'Toque duplo: abre no editor']
+    }))
+    let doPc: CartaoMesa[] = []
+    let pc = false
+    if (await pareado()) {
+      try {
+        const r = await pedirPC<{ ok: boolean; cartoes?: CartaoMesa[] }>({ acao: 'mesa', pedido: 'cartoes' }, 5000)
+        doPc = (r.cartoes ?? []).map((c) => (c.tipo === 'design' ? { ...c, id: `pc:${c.titulo}`, sub: `${c.sub} · no PC` } : c))
+        pc = true
+      } catch { /* PC desligado ou longe: só os do celular */ }
+    }
+    const nomes = new Set(locais.map((c) => c.titulo.toLowerCase()))
+    const todos = [...doPc.filter((c) => c.tipo === 'projeto'), ...locais, ...doPc.filter((c) => c.tipo === 'design' && !nomes.has(c.titulo.toLowerCase())), ...doPc.filter((c) => c.tipo === 'relatorio')]
+    return { cartoes: todos, pc }
+  }
+
+  /** Abre a mesa em cima do seu móvel, com os cartões. */
+  async abrirMesa(): Promise<string> {
+    if (!this.aberta) await this.abrir()
+    if (!this.mesa) {
+      this.mesa = new Mesa(null, () => this.o.estado?.() ?? 'repouso')
+      this.mesa.raiz.scale.setScalar(ESCALA_MESA)
+      this.mesa.escalaDasParticulas(ESCALA_MESA * this.renderer.getPixelRatio() * 1.6)
+    }
+    const { cartoes, pc } = await this.cartoesDaMesa()
+    // A mesa nasce dentro da cena própria dela: aqui ela passa para a âncora (fica em cima do móvel)
+    this.ancora.add(this.mesa.raiz)
+    this.mesa.abrir(cartoes)
+    this.modoMesa = 'cartoes'
+    this.editor?.selecionar(-1)
+    this.mostrarPeca()
+    this.centralizar(0.7, 0.1)
+    this.raiz.querySelector('.of-nome')!.textContent = 'Mesa holográfica'
+    this.dica('Tapa de lado passa os cartões · duas pinças rápidas abrem · no toque: deslize para passar e toque no cartão')
+    const conta = (t: CartaoMesa['tipo']) => cartoes.filter((c) => c.tipo === t).length
+    return `Mesa aberta em cima do seu móvel: ${cartoes.length} cartões (${conta('projeto')} projetos, ${conta('design')} designs, ${conta('relatorio')} relatórios)${pc ? '' : '; sem o PC, só os designs do celular'}. Na frente: ${this.mesa.atual?.titulo ?? 'nada'}.`
+  }
+
+  sairDaMesa(): void {
+    if (!this.mesa || this.modoMesa === 'fora') return
+    this.mesa.fechar()
+    this.mesa.raiz.removeFromParent()
+    this.modoMesa = 'fora'
+    this.baseModelo.set(0, 0, 0)
+    this.raiz.querySelector('.of-nome')!.textContent = this.nome || '—'
+    this.centralizar()
+  }
+
+  /** Abre o cartão da frente (ou o que você disse): design vai para o editor, projeto vira prédio. */
+  async abrirCartao(qual = ''): Promise<string> {
+    const mesa = this.mesa
+    if (!mesa || this.modoMesa === 'fora') return 'A mesa não está aberta.'
+    if (qual) {
+      const i = mesa.acharCartao(qual)
+      if (i < 0) return `Não tem "${qual}" na mesa.`
+      mesa.irPara(i)
+    }
+    const c = mesa.atual
+    if (!c) return 'A mesa está vazia.'
+    this.o.vibrar()
+    if (c.tipo === 'design') {
+      if (c.id.startsWith('pc:')) {
+        this.dica(`Trazendo ${c.titulo} do PC…`)
+        const r = await pedirPC<{ ok: boolean; mensagem: string; glb?: string; nome?: string }>({ acao: 'design_baixar', nome: c.titulo }, 30_000)
+        if (!r.ok || !r.glb) return r.mensagem
+        await this.carregarDados(r.nome ?? c.titulo, Uint8Array.from(atob(r.glb), (x) => x.charCodeAt(0)).buffer)
+      } else {
+        const item = acharNoCatalogo(c.titulo, await catalogo())
+        if (!item) return 'Esse design sumiu do celular.'
+        await this.carregar(item)
+      }
+      mesa.ocupar(this.nome, 'APONTE PARA SELECIONAR · PINÇA ARRASTA · TAPA JOGA FORA · "VOLTA" PARA OS CARTÕES')
+      this.modoMesa = 'design'
+      this.baseModelo.set(0, 0.13, 0)
+      return `${this.nome} em cima da mesa: ${this.editor?.visiveis ?? 0} peças (${this.nomesDasPecas().slice(0, 8).join(', ')}).`
+    }
+    if (c.tipo === 'projeto') {
+      this.dica(`Montando o prédio do ${c.titulo}…`)
+      try {
+        const r = await pedirPC<{ ok: boolean; mensagem?: string; predio?: Predio; resumo?: string }>({ acao: 'mesa', pedido: 'predio', projeto: c.titulo }, 30_000)
+        if (!r.ok || !r.predio) return r.mensagem ?? 'O PC não montou o prédio.'
+        mesa.mostrarPredio(r.predio)
+        this.modoMesa = 'predio'
+        this.dica('Mão fechada ou um dedo giram a mesa · duas pinças rápidas abrem os andares · tapa volta aos cartões')
+        return `Prédio do ${c.titulo} na mesa. ${r.resumo ?? ''}`
+      } catch (e) { return `O PC não respondeu (${(e as Error).message}).` }
+    }
+    try {
+      const r = await pedirPC<{ ok: boolean; mensagem: string }>({ acao: 'mesa', pedido: 'relatorio', id: c.id.replace(/^relatorio:/, '') }, 10_000)
+      return r.ok ? `${r.mensagem} (no PC)` : r.mensagem
+    } catch { return 'O PC não respondeu.' }
+  }
+
+  voltarParaOsCartoes(): string {
+    if (!this.mesa || this.modoMesa === 'fora') return 'A mesa não está aberta.'
+    this.mesa.voltar()
+    this.modoMesa = 'cartoes'
+    this.editor?.selecionar(-1)
+    this.mostrarPeca()
+    this.baseModelo.set(0, 0, 0)
+    return `De volta aos cartões. Na frente: ${this.mesa.atual?.titulo ?? 'nada'}.`
+  }
+
+  passarCartao(direcao: 1 | -1): string {
+    if (!this.mesa || this.modoMesa !== 'cartoes') return 'Abra a mesa (ou volte aos cartões) primeiro.'
+    const antes = this.mesa.indice
+    const c = direcao > 0 ? this.mesa.proximo() : this.mesa.anterior()
+    this.o.vibrar()
+    if (this.mesa.indice === antes) return `Esse já é o ${direcao > 0 ? 'último' : 'primeiro'}: ${c?.titulo ?? ''}.`
+    return `Cartão ${this.mesa.indice + 1} de ${this.mesa.total}: ${c?.titulo ?? ''}.`
+  }
+
   private nomesDasPecas(): string[] { return this.editor ? this.editor.estado.pecas.filter((p) => !p.tirada).map((p) => p.nome) : [] }
 
   // ---------- Carregar um design ----------
@@ -238,6 +373,11 @@ export class Oficina {
       if (!url) throw new Error('Esse design não veio com o app.')
       dados = await (await fetch(url)).arrayBuffer()
     }
+    await this.carregarDados(item.nome, dados)
+  }
+
+  /** Abre um .glb (do app, das suas versões ou baixado do PC) no editor. */
+  async carregarDados(nome: string, dados: ArrayBuffer): Promise<void> {
     const gltf = await new GLTFLoader().parseAsync(dados, '')
     // Cor e brilho originais de cada malha, pelo nome
     const cores = new Map<string, { cor: THREE.Color; brilho: boolean }>()
@@ -248,7 +388,7 @@ export class Oficina {
       cores.set(m.name, { cor: mat?.color?.clone() ?? CIANO.clone(), brilho: !!mat?.emissive && mat.emissive.getHex() !== 0 })
     })
     const partes = partesDeObjeto(gltf.scene, { particulas: 9000 })
-    this.montar(item.nome, partes, cores)
+    this.montar(nome, partes, cores)
   }
 
   private montar(nome: string, partes: Parte[], cores: Map<string, { cor: THREE.Color; brilho: boolean }>): void {
@@ -318,9 +458,9 @@ export class Oficina {
   }
 
   /** Põe o holograma uns 55 cm na sua frente, um pouco abaixo do centro. */
-  centralizar(): void {
-    const frente = new THREE.Vector3(0, -0.12, -1).normalize().applyQuaternion(this.camera.quaternion)
-    this.ancora.position.copy(this.camera.position).addScaledVector(frente, 0.55)
+  centralizar(distancia = 0.55, abaixo = 0.12): void {
+    const frente = new THREE.Vector3(0, -abaixo, -1).normalize().applyQuaternion(this.camera.quaternion)
+    this.ancora.position.copy(this.camera.position).addScaledVector(frente, distancia)
     // Em pé na mesa: só o giro em volta do eixo vertical acompanha a câmera
     const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
     this.ancora.rotation.set(0, yaw, 0)
@@ -391,7 +531,32 @@ export class Oficina {
 
   // ---------- Mãos e toque ----------
 
+  /** Gestos com a mesa nos cartões ou no prédio (no design, vale o editor). Devolve se tratou. */
+  private maoNaMesa(ev: EventoOficina): boolean {
+    if (this.modoMesa === 'cartoes' || this.modoMesa === 'predio') {
+      switch (ev.tipo) {
+        case 'jogar_fora':
+          if (this.modoMesa === 'cartoes') this.dica(this.passarCartao(ev.direcao < 0 ? 1 : -1))
+          else this.dica(this.voltarParaOsCartoes())
+          return true
+        case 'toque_duplo':
+          if (this.modoMesa === 'cartoes') void this.abrirCartao().then((r) => this.dica(r))
+          else { this.mesa?.explodir(!this.mesa.explodida); this.o.vibrar() }
+          return true
+        case 'girar':
+          this.ancora.rotation.y += ev.dx * 0.8
+          return true
+        default:
+          return true
+      }
+    }
+    // No design em cima da mesa: tapa sem peça selecionada volta aos cartões
+    if (this.modoMesa === 'design' && ev.tipo === 'jogar_fora' && !this.editor?.peca) { this.dica(this.voltarParaOsCartoes()); return true }
+    return false
+  }
+
   private tratarMao(ev: EventoOficina): void {
+    if (this.maoNaMesa(ev)) return
     const ed = this.editor
     if (!ed) return
     switch (ev.tipo) {
@@ -475,13 +640,20 @@ export class Oficina {
     tela.addEventListener('pointerdown', (e) => {
       tela.setPointerCapture(e.pointerId)
       this.toques.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      if (this.toques.size === 1) this.toqueInicio = { x: e.clientX, y: e.clientY, t: performance.now() }
+      if (this.toques.size === 1) { this.toqueInicio = { x: e.clientX, y: e.clientY, t: performance.now() }; this.arrastoToque = { dx: 0, dy: 0 } }
     })
     tela.addEventListener('pointermove', (e) => {
       const antes = this.toques.get(e.pointerId)
       if (!antes || !this.editor) return
       const agora = { x: e.clientX, y: e.clientY }
       if (Math.hypot(agora.x - antes.x, agora.y - antes.y) < 1) return
+      if (this.modoMesa === 'cartoes' || this.modoMesa === 'predio') {
+        this.arrastoToque.dx += agora.x - antes.x
+        this.arrastoToque.dy += agora.y - antes.y
+        if (this.modoMesa === 'predio') this.ancora.rotation.y += (agora.x - antes.x) * 0.01
+        this.toques.set(e.pointerId, agora)
+        return
+      }
       this.editor.comecarGesto()
       if (this.toques.size === 1) {
         // Um dedo: gira (a peça selecionada ou o modelo)
@@ -501,8 +673,22 @@ export class Oficina {
       this.toques.delete(e.pointerId)
       if (this.toques.size) return
       this.editor?.terminarGesto()
-      // Toque rápido sem arrastar: seleciona a peça ali (ou solta a seleção)
       const t0 = this.toqueInicio
+      // Na mesa: deslizar de lado passa os cartões; tocar num cartão traz ele para a frente ou abre
+      if (this.modoMesa === 'cartoes' && t0) {
+        this.toqueInicio = null
+        if (Math.abs(this.arrastoToque.dx) > 50 && Math.abs(this.arrastoToque.dx) > Math.abs(this.arrastoToque.dy)) { this.dica(this.passarCartao(this.arrastoToque.dx < 0 ? 1 : -1)); return }
+        if (performance.now() - t0.t < 350 && Math.hypot(e.clientX - t0.x, e.clientY - t0.y) < 12 && this.mesa) {
+          const raio = new THREE.Raycaster()
+          raio.setFromCamera(new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1), this.camera)
+          const i = this.mesa.cartaoNoRaio(raio.ray)
+          if (i >= 0 && i === this.mesa.indice) void this.abrirCartao().then((r) => this.dica(r))
+          else if (i >= 0) { this.mesa.irPara(i); this.o.vibrar() }
+        }
+        return
+      }
+      if (this.modoMesa === 'predio') { this.toqueInicio = null; return }
+      // Toque rápido sem arrastar: seleciona a peça ali (ou solta a seleção)
       if (t0 && performance.now() - t0.t < 300 && Math.hypot(e.clientX - t0.x, e.clientY - t0.y) < 12) {
         this.selecionar(this.pecaEm(e.clientX, e.clientY))
       }
@@ -540,6 +726,13 @@ export class Oficina {
   private async acao(qual: string, _dados: DOMStringMap): Promise<void> {
     if (qual === 'fechar') { this.fechar(); return }
     if (qual === 'designs') { await this.mostrarDesigns(); return }
+    if (qual === 'mesa') {
+      // Fora da mesa: abre; com um cartão aberto: volta aos cartões; nos cartões: sai da mesa
+      if (this.modoMesa === 'fora') this.o.avisar(await this.abrirMesa())
+      else if (this.modoMesa === 'cartoes') this.sairDaMesa()
+      else this.dica(this.voltarParaOsCartoes())
+      return
+    }
     if (qual === 'fechar-folha') { this.raiz.querySelector<HTMLElement>('.of-folha')!.hidden = true; return }
     if (qual === 'salvar') {
       const nome = prompt('Nome da versão nova:', `${this.nome.replace(/ v\d+$/, '')} v2`)
@@ -560,7 +753,13 @@ export class Oficina {
       b.type = 'button'
       b.innerHTML = `<b></b><small>${d.origem === 'salvo' ? 'sua versão' : 'original'}</small>`
       b.querySelector('b')!.textContent = d.nome
-      b.addEventListener('click', async () => { folha.hidden = true; try { await this.carregar(d) } catch (e) { this.o.avisar((e as Error).message) } })
+      b.addEventListener('click', async () => {
+        folha.hidden = true
+        try {
+          await this.carregar(d)
+          if (this.modoMesa !== 'fora' && this.mesa) { this.mesa.ocupar(this.nome, 'APONTE PARA SELECIONAR · PINÇA ARRASTA · TAPA JOGA FORA'); this.modoMesa = 'design'; this.baseModelo.set(0, 0.13, 0) }
+        } catch (e) { this.o.avisar((e as Error).message) }
+      })
       li.appendChild(b)
       if (d.origem === 'salvo') {
         const x = document.createElement('button')
@@ -610,9 +809,9 @@ export class Oficina {
       case 'restaurar': ed.restaurar(); r = `${nome} voltou ao original.`; break
       case 'desfazer': r = ed.desfazer() ? 'Desfeito.' : 'Nada para desfazer.'; break
       case 'refazer': r = ed.refazer() ? 'Refeito.' : 'Nada para refazer.'; break
-      case 'explodir': this.alvoExplodido = this.alvoExplodido > 0.5 ? 0 : 1; r = this.alvoExplodido ? 'Peças separadas.' : 'Montado de novo.'; break
-      case 'juntar': this.alvoExplodido = 0; r = 'Montado de novo.'; break
-      case 'centralizar': this.centralizar(); r = 'Holograma na sua frente.'; break
+      case 'explodir': if (this.modoMesa === 'predio') { this.mesa?.explodir(!this.mesa.explodida); r = this.mesa?.explodida ? 'Andares separados.' : 'Prédio montado.'; break } this.alvoExplodido = this.alvoExplodido > 0.5 ? 0 : 1; r = this.alvoExplodido ? 'Peças separadas.' : 'Montado de novo.'; break
+      case 'juntar': this.alvoExplodido = 0; this.mesa?.explodir(false); r = 'Montado de novo.'; break
+      case 'centralizar': if (this.modoMesa === 'fora') this.centralizar(); else this.centralizar(0.7, 0.1); r = 'Holograma na sua frente.'; break
       default: return 'Ação desconhecida.'
     }
     this.mostrarPeca()
@@ -663,7 +862,7 @@ export class Oficina {
       const tela = ((screen.orientation?.angle ?? 0) * Math.PI) / 180
       quaternionDoCelular(this.camera.quaternion, THREE.MathUtils.degToRad(this.orientacao.a), THREE.MathUtils.degToRad(this.orientacao.b), THREE.MathUtils.degToRad(this.orientacao.g), tela)
     }
-    if (!this.posicionou && (this.orientacao || this.relogio.elapsedTime > 0.6)) { this.camera.updateMatrixWorld(); this.centralizar(); this.posicionou = true }
+    if (!this.posicionou && (this.orientacao || this.relogio.elapsedTime > 0.6)) { this.camera.updateMatrixWorld(); if (this.modoMesa === 'fora') this.centralizar(); else this.centralizar(0.7, 0.1); this.posicionou = true }
 
     // Mãos
     if (this.maosLigadas && detector && this.video.readyState >= 2 && this.video.currentTime !== this.ultimoQuadroVideo) {
@@ -685,6 +884,8 @@ export class Oficina {
       this.modelo.rotation.set(...e.giro)
       this.modelo.scale.setScalar(this.escalaBase * e.escala)
       if (centro) this.modelo.position.sub(centro.clone().multiplyScalar(this.escalaBase * e.escala).applyEuler(this.modelo.rotation))
+      this.modelo.position.add(this.baseModelo)
+      this.modelo.visible = this.modoMesa === 'fora' || this.modoMesa === 'design'
       this.explodido += (this.alvoExplodido - this.explodido) * 0.1
       const algumaSelecionada = ed.selecionada >= 0
       e.pecas.forEach((p, i) => {
@@ -733,6 +934,11 @@ export class Oficina {
         inst.mats.casca.uniforms.uOpac.value = opac * (sel ? 1.4 : 1)
       })
       for (let i = e.pecas.length; i < this.instancias.length; i++) this.instancias[i].pivo.visible = false
+    }
+    // A mesa (quando aberta) anda junto: cartões, prédio e a FRIDAY olhando para o celular
+    if (this.mesa && this.modoMesa !== 'fora') {
+      this.ancora.updateMatrixWorld()
+      this.mesa.animar(dt, this.tempo.value, this.mesa.raiz.worldToLocal(this.camera.position.clone()))
     }
     this.renderer.render(this.cena, this.camera)
   }

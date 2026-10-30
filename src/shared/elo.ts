@@ -125,6 +125,10 @@ export type PedidoElo =
   | { acao: 'ar'; ligar: boolean }
   /** Versão de um design salva na oficina de hologramas do celular (.glb em base64): entra na biblioteca do PC */
   | { acao: 'design'; nome: string; glb: string }
+  /** Mesa holográfica no celular: os cartões do PC, o prédio de um projeto, ou abrir um relatório no PC */
+  | { acao: 'mesa'; pedido: 'cartoes' | 'predio' | 'relatorio'; projeto?: string; id?: string }
+  /** Um design da biblioteca do PC (.glb em base64), para editar no celular */
+  | { acao: 'design_baixar'; nome: string }
 
 /** O que o PC manda para o celular pela escuta. */
 export type EventoParaCelular =

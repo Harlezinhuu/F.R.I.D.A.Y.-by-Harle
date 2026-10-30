@@ -30,6 +30,10 @@ export interface OpcoesElo {
   ar(ligar: boolean): Promise<unknown>
   /** Um design editado no celular chegou (.glb). */
   design(nome: string, glb: Buffer): { ok: boolean; mensagem: string }
+  /** Mesa holográfica no celular: cartões, prédio de um projeto ou abrir um relatório. */
+  mesa(pedido: string, projeto: string, id: string): Promise<unknown>
+  /** Um design da biblioteca do PC, para o celular editar. */
+  baixarDesign(nome: string): { ok: boolean; mensagem: string; nome?: string; glb?: string }
 }
 
 interface Arquivo { segredo: string; aparelhos: { nome: string; ultimaVez: string }[] }
@@ -177,6 +181,10 @@ async function tratar(p: PedidoElo): Promise<unknown> {
       return { ok: true }
     case 'ar':
       return await o.ar(p.ligar === true)
+    case 'mesa':
+      return await o.mesa(String(p.pedido ?? ''), String(p.projeto ?? ''), String(p.id ?? ''))
+    case 'design_baixar':
+      return o.baixarDesign(String(p.nome ?? ''))
     case 'design': {
       const glb = Buffer.from(String(p.glb ?? ''), 'base64')
       if (glb.length < 20 || glb.readUInt32LE(0) !== 0x46546c67) return { ok: false, mensagem: 'Esse arquivo não é um .glb.' }

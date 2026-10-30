@@ -85,7 +85,9 @@ function saudacao(): void {
 saudacao()
 
 const COR_ESTADO: Record<string, string> = { ouvindo: '#5FE1F2', falando: '#B7ADFF', pensando: '#B7ADFF', offline: '#FF7A8A', semMic: '#F2C14E', repouso: '#5FE1F2' }
+let estadoVoz = 'repouso'
 voz.aoEstado = (e, rotulo) => {
+  estadoVoz = e
   $('estadoTxt').textContent = rotulo
   $('pilulaTxt').textContent = e === 'repouso' ? 'PRONTA' : rotulo
   $('pilula').style.color = COR_ESTADO[e] ?? '#5FE1F2'
@@ -727,7 +729,8 @@ function aOficina(): Oficina {
   oficina ??= new Oficina({
     avisar,
     vibrar: () => { if (ajustes.vibrar) void Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}) },
-    aoFechar: () => {}
+    aoFechar: () => {},
+    estado: () => estadoVoz
   })
   return oficina
 }
@@ -738,6 +741,12 @@ async function usarOficina(a: Record<string, unknown>): Promise<{ ok: boolean; m
     // A câmera é uma só: os "olhos" da conversa desligam
     if (voz.olhosLigados) await voz.olhos(false)
     const o = aOficina()
+    // Mesa holográfica no celular
+    if (acao === 'mesa') return { ok: true, mensagem: `${await o.abrirMesa()} Diga em uma frase e lembre: tapa de lado passa, duas pinças rápidas abrem.` }
+    if (acao === 'proximo' || acao === 'anterior') return { ok: true, mensagem: o.passarCartao(acao === 'proximo' ? 1 : -1) }
+    if (acao === 'abrir_cartao') { if (o.modoMesa === 'fora') await o.abrirMesa(); return { ok: true, mensagem: await o.abrirCartao(String(a.qual ?? a.design ?? '').trim()) } }
+    if (acao === 'voltar') return { ok: true, mensagem: o.voltarParaOsCartoes() }
+    if (acao === 'sair_da_mesa') { o.sairDaMesa(); return { ok: true, mensagem: 'Mesa guardada.' } }
     if (acao === 'abrir' || !o.aberta || design) {
       const r = await o.abrir(design)
       if (acao === 'abrir' || /^Não achei/.test(r)) return { ok: !/^Não achei/.test(r), mensagem: `${r} Diga em uma frase e lembre: apontar e segurar seleciona, pinça arrasta, mão fechada gira, tapa joga fora.` }

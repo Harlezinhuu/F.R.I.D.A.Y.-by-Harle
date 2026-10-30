@@ -77,12 +77,13 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
   {
     name: 'oficina',
     description:
-      'Oficina de hologramas: abre um design 3D na câmera do celular para ele editar com a mão, como o Tony ("abre a oficina", "quero mexer no drone", "abre o Harle Bot na oficina"). Com ela aberta: selecionar uma peça pelo nome, tirar, duplicar, aumentar, diminuir, girar, pintar (cor), restaurar o original, desfazer, refazer, explodir, juntar, trazer (centralizar na frente dele), salvar com um nome ("salva como drone v2") e fechar. resumo diz o que mudou.',
+      'Oficina de hologramas: abre um design 3D na câmera do celular para ele editar com a mão, como o Tony ("abre a oficina", "quero mexer no drone", "abre o Harle Bot na oficina"). mesa abre a mesa holográfica em cima do móvel de verdade, com os cartões dos designs e, com o PC pareado, dos projetos e relatórios ("abre a mesa", "mostra a mesa aqui no celular"); proximo e anterior passam os cartões; abrir_cartao abre o da frente ou o que ele disser em qual (design vai para o editor, projeto vira prédio); voltar volta aos cartões; sair_da_mesa tira a mesa. Com a oficina aberta: selecionar uma peça pelo nome, tirar, duplicar, aumentar, diminuir, girar, pintar (cor), restaurar o original, desfazer, refazer, explodir, juntar, trazer (centralizar na frente dele), salvar com um nome ("salva como drone v2") e fechar. resumo diz o que mudou.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        acao: { type: 'STRING', description: 'O que fazer.', enum: ['abrir', 'selecionar', 'soltar', 'tirar', 'duplicar', 'aumentar', 'diminuir', 'girar', 'pintar', 'restaurar', 'desfazer', 'refazer', 'explodir', 'juntar', 'centralizar', 'salvar', 'resumo', 'fechar'] },
+        acao: { type: 'STRING', description: 'O que fazer.', enum: ['abrir', 'mesa', 'proximo', 'anterior', 'abrir_cartao', 'voltar', 'sair_da_mesa', 'selecionar', 'soltar', 'tirar', 'duplicar', 'aumentar', 'diminuir', 'girar', 'pintar', 'restaurar', 'desfazer', 'refazer', 'explodir', 'juntar', 'centralizar', 'salvar', 'resumo', 'fechar'] },
         design: { type: 'STRING', description: 'Qual design abrir (opcional).' },
+        qual: { type: 'STRING', description: 'Qual cartão abrir na mesa (nome do projeto, design ou relatório; opcional).' },
         peca: { type: 'STRING', description: 'Nome da peça (opcional; vazio = a selecionada).' },
         cor: { type: 'STRING', description: 'Cor em português, para pintar (vermelho, azul, dourado...).' },
         nome: { type: 'STRING', description: 'Nome da versão nova, para salvar.' }
@@ -171,6 +172,7 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     'Você também é a FRIDAY do PC: com o celular pareado, as ferramentas "pc_" agem no PC (abrir programas, volume, projeção 3D na tela grande, rotinas, tarefas de programação, bloquear ou desligar). Se o PC não responder, ofereça acordar_pc.',
     '"Projeta no PC", "joga pro PC" e "mostra na tela grande" usam pc_projetar. Com a câmera ligada, você vê o que ele mostra; para projetar o objeto no PC, use pc_projetar com o nome dele.',
     'Depois de avisar uma mensagem, "responde que..." usa responder_mensagem (confirme o texto antes).',
+    '"Abre a mesa" aqui no celular usa oficina com acao=mesa (a mesa aparece em cima do móvel, pela câmera); "passa", "abre esse", "volta" são da mesa enquanto ela estiver aberta. Para abrir a mesa na tela do PC, use pc_mesa.',
     '"Abre a oficina", "quero mexer no drone" ou "edita o Harle Bot" usam oficina: o holograma aparece na câmera e ele mexe com a mão. Com a oficina aberta, "tira isso", "aumenta", "pinta de vermelho", "desfaz" e "salva como..." são da oficina.',
     '"Mostra o HUD do PC" ou "quero ver o PC pela câmera" usa olhar_o_pc: a câmera vai para o monitor e os dados do PC flutuam em volta dele.',
     '"Liga o PC" (até da rua) usa acordar_pc. Se este celular é a central do quarto, "fica quieta" usa central com acao=quieta.',

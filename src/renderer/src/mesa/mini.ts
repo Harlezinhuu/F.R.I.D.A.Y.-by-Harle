@@ -99,6 +99,9 @@ export class MiniFriday {
     this.raiz.scale.setScalar(1.35)
   }
 
+  /** Tamanho das partículas (a mesa do celular é bem menor que a do PC). */
+  escalaDasParticulas(f: number): void { this.uni.uTam.value = 11 * f }
+
   /** Põe direto num lugar (sem andar). */
   colocar(p: THREE.Vector3): void {
     this.raiz.position.copy(p)

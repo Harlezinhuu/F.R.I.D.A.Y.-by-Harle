@@ -15,7 +15,9 @@ import { arquivoApps, carregarApps } from './apps'
 import * as winctl from './winctl'
 import * as visao from './visao'
 import { listarArquivos, pastaModelos } from './modelos3d'
-import { escolherEImportar, importarDoCelular, semearDesigns } from './designs'
+import { acharDesignPorNome, caminhoNaBiblioteca, escolherEImportar, importarDoCelular, semearDesigns } from './designs'
+import { cartoesDaMesa, predioDoProjeto } from './mesa'
+import { descreverPredio } from './logica/predio'
 import { aparelhosPareados, iniciarElo, encerrarElo, enviarParaCelular, registrarContextoPc } from './elo'
 import { configurarConsultas, retomarConsulta, type EventoConsulta } from './consultas'
 import { encerrarWhats, mostrarWhats } from './whatsweb'
@@ -354,6 +356,24 @@ app.whenReady().then(() => {
       mudouCentral()
     },
     ar: (ligar) => pedidoAr(ligar),
+    async mesa(pedido, projeto, id) {
+      if (pedido === 'cartoes') return { ok: true, cartoes: cartoesDaMesa() }
+      if (pedido === 'predio') {
+        try { const p = await predioDoProjeto(projeto); return { ok: true, predio: p, resumo: descreverPredio(p) } } catch (e) { return { ok: false, mensagem: (e as Error).message } }
+      }
+      if (pedido === 'relatorio') { const r = await executarFerramenta('mesa_relatorio', { id }); return { ok: r.ok, mensagem: r.mensagem } }
+      return { ok: false, mensagem: 'Pedido da mesa desconhecido.' }
+    },
+    baixarDesign(nome) {
+      const d = acharDesignPorNome(nome)
+      if (!d) return { ok: false, mensagem: `Não achei o design "${nome}" no PC.` }
+      try {
+        const dados = readFileSync(caminhoNaBiblioteca(d.arquivo))
+        if (!/\.glb$/i.test(d.arquivo)) return { ok: false, mensagem: `"${d.nome}" é ${d.arquivo.split('.').pop()}; o celular abre só .glb por enquanto.` }
+        if (dados.length > 12 * 1024 * 1024) return { ok: false, mensagem: `"${d.nome}" é grande demais para mandar ao celular.` }
+        return { ok: true, mensagem: d.nome, nome: d.nome, glb: dados.toString('base64') }
+      } catch (e) { return { ok: false, mensagem: (e as Error).message } }
+    },
     design(nome, glb) {
       const r = importarDoCelular(nome, glb)
       if (r.ok) avisarEmSegundoPlano(`Chegou do celular o design "${r.nome}". Diga "projeta o ${r.nome}" para ver.`, true)
