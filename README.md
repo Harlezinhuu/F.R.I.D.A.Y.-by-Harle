@@ -427,6 +427,15 @@ Quando ela pergunta, você responde falando ("a de quinta", "pode mandar", "pede
 
 Se a FRIDAY fechar no meio, ela continua de onde parou quando abrir de novo (até 24 horas). O WhatsApp não gosta de robôs mandando muitas mensagens: use para as suas consultas, não para disparos.
 
+## FRIDAY no mundo real (peças para imprimir)
+
+Em `hardware/` ficam dois projetos de desenho próprio, prontos para imprimir numa impressora comum (220 × 220 × 250 mm), já com os encaixes da eletrônica e sem precisar soldar:
+
+- **Núcleo**: luminária de mesa (ou de peito) com um anel de 16 LEDs atrás de um difusor gravado com a fita da FRIDAY e um ESP32 dentro.
+- **Capacete**: casco com crista, viseira que levanta com um micro servo, barra de luz na testa, grade sextavada na boca e casulos laterais com o servo e a plaquinha (ESP32-C3). Vem em 10 peças.
+
+Os arquivos de impressão (STL), a lista de compras, a ligação dos fios e a montagem estão em [`hardware/LEIA-ME.md`](hardware/LEIA-ME.md). Os dois também aparecem na biblioteca de designs: "projeta o capacete" ou "projeta o núcleo de mesa". Para gerar de novo depois de mudar uma medida: `npm run hardware`.
+
 ## Estrutura
 
 ```
@@ -437,6 +446,7 @@ src/
   shared/      tipos e a lista de ferramentas que a IA pode usar
 scripts/       download dos modelos (palavra de ativação e mãos)
 mobile/        app do celular (Vite + Capacitor), APK gerado pelo GitHub Actions
+hardware/      peças para imprimir (núcleo e capacete), modeladas em código
 ```
 
 ## Próximos passos

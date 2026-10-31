@@ -4,7 +4,7 @@
 // Uso: node scripts/gerar-designs.mjs   (precisa do three, que já é dependência do projeto)
 
 import * as THREE from 'three'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -236,7 +236,9 @@ const DESIGNS = [
 ]
 
 mkdirSync(PASTA, { recursive: true })
-const lista = []
+// Mantém os que vêm de outros geradores (as peças para imprimir, de hardware/gerar.ts)
+let lista = []
+try { lista = JSON.parse(readFileSync(join(PASTA, 'designs.json'), 'utf8')).filter((d) => !DESIGNS.some((n) => n.arquivo === d.arquivo)) } catch { /* primeira vez */ }
 for (const d of DESIGNS) {
   const dados = glb(d.nome, d.pecas)
   writeFileSync(join(PASTA, d.arquivo), dados)

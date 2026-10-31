@@ -55,5 +55,25 @@
       "falcão",
       "quadricóptero"
     ]
+  },
+  {
+    "arquivo": "nucleo-fisico.glb",
+    "nome": "núcleo de mesa (para imprimir)",
+    "apelidos": [
+      "núcleo físico",
+      "núcleo de verdade",
+      "núcleo impresso",
+      "luminária da friday"
+    ]
+  },
+  {
+    "arquivo": "capacete.glb",
+    "nome": "capacete da FRIDAY",
+    "apelidos": [
+      "capacete",
+      "elmo",
+      "viseira",
+      "capacete de verdade"
+    ]
   }
 ]
