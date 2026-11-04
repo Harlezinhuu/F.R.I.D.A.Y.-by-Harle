@@ -15,7 +15,7 @@ import { contextoDoPc, enviarContexto } from './elo'
 import { perguntaParaPrompt } from './consulta'
 import type { Explicacao, DadosExplicacao } from '../../src/renderer/src/explicacao/explicacao'
 
-const MODELO_VOZ = 'gemini-2.5-flash-native-audio-preview-12-2025'
+const MODELO_VOZ = 'gemini-3.8-live'
 const SILENCIO_MS = 25_000
 
 type Estado = EstadoFita

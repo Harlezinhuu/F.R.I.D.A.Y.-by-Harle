@@ -92,13 +92,24 @@ export function carregarFish(): FishConfig {
   }
 }
 
+/**
+ * Modelo do Gemini Live. Os de áudio da linha 2.5 e os "preview" antigos saíram do ar (ou não
+ * abrem mais para contas novas): quem ainda tem um deles no .env passa para o atual sozinho.
+ */
+export const MODELO_DE_VOZ = 'gemini-3.8-live'
+export function modeloDeVoz(doEnv?: string): string {
+  const m = (doEnv ?? '').trim()
+  if (!m || /^gemini-(2\.[05]|live-2\.5)|^gemini-3\.1-flash-live/.test(m)) return MODELO_DE_VOZ
+  return m
+}
+
 export function carregarConfig(): FridayConfig {
   const env = lerTudo()
 
   const modeloPath = join(resourcesDir(), 'models', MODELO_ATIVACAO_ARQUIVO)
   return {
     apiKey: env.GEMINI_API_KEY ?? '',
-    modelo: env.FRIDAY_MODELO || 'gemini-2.5-flash-native-audio-preview-12-2025',
+    modelo: modeloDeVoz(env.FRIDAY_MODELO),
     voz: env.FRIDAY_VOZ || 'Kore',
     nome: env.FRIDAY_NOME ?? '',
     silencioSegundos: Math.max(5, Number(env.FRIDAY_SILENCIO_SEGUNDOS) || 20),

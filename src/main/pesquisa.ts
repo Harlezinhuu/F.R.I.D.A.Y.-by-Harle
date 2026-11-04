@@ -16,7 +16,7 @@ import {
 } from './logica/pesquisa'
 import { markdown } from '../../mobile/src/markdown'
 
-const MODELO = 'gemini-2.5-flash'
+const MODELO = 'gemini-3.8-flash'
 
 export interface Pesquisa {
   id: number

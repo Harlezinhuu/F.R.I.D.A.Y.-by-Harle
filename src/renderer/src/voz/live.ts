@@ -49,7 +49,8 @@ export class SessaoLive {
       responseModalities: [Modality.AUDIO],
       systemInstruction: this.opcoes.instrucoes ? this.opcoes.instrucoes(memoria) : systemPrompt(this.cfg.nome, new Date(), memoria),
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.cfg.voz } } },
-      tools: [{ functionDeclarations: this.opcoes.ferramentas ?? TOOL_DECLARATIONS }],
+      // Nos modelos Live 3.x a ferramenta roda "em paralelo" por padrão; aqui ela espera o resultado
+      tools: [{ functionDeclarations: (this.opcoes.ferramentas ?? TOOL_DECLARATIONS).map((d) => ({ ...d, behavior: 'BLOCKING' })) }],
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       contextWindowCompression: { slidingWindow: {} }

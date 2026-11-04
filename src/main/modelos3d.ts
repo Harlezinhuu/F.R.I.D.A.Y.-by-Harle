@@ -208,7 +208,7 @@ async function daIa(p: Pedido): Promise<DadosModelo3D> {
   ].join('\n')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await (ai.models as any).generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     contents: pedido,
     config: { responseMimeType: 'application/json', responseSchema: ESQUEMA, thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4 }
   })

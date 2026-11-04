@@ -138,7 +138,10 @@ if (!g.includes('vosk-android')) {
 if (!g.includes('libc++_shared.so')) {
   g = g.replace(/android\s*\{/, (a) => `${a}\n    packagingOptions {\n        pickFirst 'lib/**/libc++_shared.so'\n        pickFirst 'lib/**/libjnidispatch.so'\n    }`)
 }
-const codigo = Number(process.env.GITHUB_RUN_NUMBER || 1)
+// Código da versão: sobe com a versão (0.11.0 > 0.10.x) e com a build, para o celular sempre
+// aceitar a atualização, venha ela de qualquer um dos repositórios.
+const [maior, menor, correcao] = String(pacote.version).split('.').map((n) => Number(n) || 0)
+const codigo = maior * 1_000_000 + menor * 10_000 + correcao * 100 + (Number(process.env.GITHUB_RUN_NUMBER || 1) % 100)
 g = g.replace(/versionCode\s+\d+/, `versionCode ${codigo}`).replace(/versionName\s+"[^"]*"/, `versionName "${pacote.version}"`)
 if (existsSync(join(app, 'friday.keystore')) && !g.includes('signingConfigs')) {
   g = g.replace(/(\n\s*buildTypes\s*\{)/, `

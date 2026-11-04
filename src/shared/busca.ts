@@ -7,7 +7,7 @@ import { GoogleGenAI } from '@google/genai'
 
 export interface ResultadoBusca { texto: string; fontes: { titulo: string; url: string }[] }
 
-const MODELO = 'gemini-2.5-flash'
+const MODELO = 'gemini-3.8-flash'
 
 export async function buscarNaInternet(chave: string, pergunta: string): Promise<ResultadoBusca> {
   if (!chave) throw new Error('Falta a chave do Gemini.')

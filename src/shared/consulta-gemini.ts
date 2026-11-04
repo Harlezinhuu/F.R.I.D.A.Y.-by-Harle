@@ -4,7 +4,7 @@
 import { GoogleGenAI } from '@google/genai'
 import type { Decisor } from './consulta'
 
-export function criarDecisor(chave: string, modelo = 'gemini-2.5-flash'): Decisor {
+export function criarDecisor(chave: string, modelo = 'gemini-3.8-flash'): Decisor {
   if (!chave) throw new Error('Falta a chave do Gemini.')
   const ai = new GoogleGenAI({ apiKey: chave })
   return async (sistema, conversa) => {

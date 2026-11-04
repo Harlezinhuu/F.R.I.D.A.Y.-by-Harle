@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai'
 import type { Mensagem } from './armazem'
 import { FERRAMENTAS_CELULAR, executar, instrucoes, memoriaParaPrompt, type Contexto } from './ferramentas'
 
-const MODELO = 'gemini-2.5-flash'
+const MODELO = 'gemini-3.8-flash'
 const HISTORICO = 40
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
