@@ -31,6 +31,9 @@ import { iniciarVigia } from './vigia'
 import { iniciarAssuntos } from './assuntos'
 import { iniciarBemEstar } from './bemestar'
 import { iniciarCheckup } from './raiox'
+import { iniciarNegocio } from './negocio'
+import { iniciarProspeccao } from './prospeccao'
+import { iniciarFinancas } from './financas'
 import { encerrarAr, pedidoAr } from './ar'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
@@ -415,6 +418,16 @@ app.whenReady().then(() => {
   iniciarAssuntos({ log: (t) => log('assuntos', t), avisar: (texto) => avisarTambemNoCelular(texto, false, 'NOTÍCIA NOVA') })
   // Bem-estar: pausa depois de horas seguidas e hora de dormir (só fala com você no PC)
   iniciarBemEstar((texto) => avisarEmSegundoPlano(texto, true, 'BEM-ESTAR'))
+  // O negócio de sites: lembretes para os clientes, pendências que esperam o seu "pode" e o resumo da noite
+  iniciarNegocio({
+    log: (t) => log('negocio', t),
+    avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'NEGÓCIO'),
+    qr: () => new Notification({ title: 'F.R.I.D.A.Y · conectar o WhatsApp', body: 'Para eu mandar os lembretes aos seus clientes, leia o QR do WhatsApp Web que abri (WhatsApp > Aparelhos conectados).' }).show()
+  })
+  // Sites dos clientes no ar (avisa se cair) e o relatório do começo do mês
+  iniciarProspeccao({ log: (t) => log('sites', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'SITES DOS CLIENTES') })
+  // Finanças: aviso de limite por categoria e o fechamento do mês no dia 1
+  iniciarFinancas({ avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'FINANÇAS') })
   // Check-up semanal do PC, num momento em que ele estiver à toa
   iniciarCheckup({ log: (t) => log('checkup', t), ocioso: () => powerMonitor.getSystemIdleTime(), avisar: (texto) => avisarEmSegundoPlano(texto, false, 'CHECK-UP DO PC') })
   // Pesquisa profunda: quando fica pronta (ou na hora marcada), ela conta no PC e manda para o celular

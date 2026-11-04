@@ -50,9 +50,11 @@ export interface Avisos {
   modoCarro: boolean
   /** Nome do Bluetooth do carro (vazio = qualquer som de carro) */
   carroNome: string
+  /** Avisos de compra e Pix do banco viram lançamentos nas finanças do PC (o app do banco nunca é tocado) */
+  compras: boolean
 }
 
-const AVISOS_PADRAO: Avisos = { ligacoes: true, soImportantes: false, mensagens: true, lerTexto: false, tratamento: 'Senhor', importantes: [], resumoManha: true, modoCarro: false, carroNome: '' }
+const AVISOS_PADRAO: Avisos = { ligacoes: true, soImportantes: false, mensagens: true, lerTexto: false, tratamento: 'Senhor', importantes: [], resumoManha: true, modoCarro: false, carroNome: '', compras: false }
 
 export async function lerAvisos(): Promise<Avisos> {
   const { value } = await Preferences.get({ key: 'avisos' })

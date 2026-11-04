@@ -265,3 +265,16 @@ export function cancelarTarefaAtual(): Tarefa | null {
   if (t) { Object.assign(t, { estado: 'cancelada', resumo: 'Cancelada antes de começar.', terminadaEm: new Date().toISOString() }); salvarTarefa(t) }
   return t ?? null
 }
+
+/** Coloca um projeto no projetos.json (se ainda não estiver), sem comandos liberados. Usado pela prévia dos sites dos clientes. */
+export function garantirProjeto(nome: string, pasta: string): void {
+  const arq = caminhoProjetos()
+  let lista: unknown[] = []
+  try { const l = JSON.parse(readFileSync(arq, 'utf8')); if (Array.isArray(l)) lista = l } catch { /* recomeça */ }
+  if (lista.some((p) => (p as { nome?: string })?.nome === nome)) return
+  lista.push({ nome, pasta, comandos: [] })
+  writeFileSync(arq, JSON.stringify(lista, null, 2), 'utf8')
+}
+
+/** Roda um comando git (para as prévias dos clientes). */
+export const gitNa = (pasta: string, args: string[]): Promise<string> => git(args, pasta)

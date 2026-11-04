@@ -808,13 +808,13 @@ async function iniciar(): Promise<void> {
 
   // ---------- Mesa holográfica ----------
 
-  const NOME_TIPO_MESA: Record<CartaoMesa['tipo'], string> = { projeto: 'projeto', design: 'design', relatorio: 'relatório' }
+  const NOME_TIPO_MESA: Record<CartaoMesa['tipo'], string> = { projeto: 'projeto', design: 'design', relatorio: 'relatório', cliente: 'cliente' }
   const descreverCartao = (c: CartaoMesa | null): string => c ? `${NOME_TIPO_MESA[c.tipo]} ${c.titulo} (${c.sub}; ${c.ficha.filter((l) => !/toque duplo/i.test(l)).join('; ')})` : 'nenhum'
 
   async function cartoesDaMesa(tipo: string): Promise<CartaoMesa[]> {
     const r = await window.friday.ferramenta('mesa_cartoes', {})
     const todos = (Array.isArray(r.dados) ? r.dados : []) as CartaoMesa[]
-    const so: Record<string, CartaoMesa['tipo']> = { projetos: 'projeto', designs: 'design', relatorios: 'relatorio' }
+    const so: Record<string, CartaoMesa['tipo']> = { projetos: 'projeto', designs: 'design', relatorios: 'relatorio', clientes: 'cliente' }
     return so[tipo] ? todos.filter((c) => c.tipo === so[tipo]) : todos
   }
 
@@ -839,6 +839,14 @@ async function iniciar(): Promise<void> {
       hud.registrarAcao(`Mesa: ${m.nome}`)
       return { ok: true, resultado: `${m.nome} em holograma na mesa, ${m.partes.length} peças: ${m.partes.slice(0, 10).map((p) => p.nome).join(', ')}. Comente em uma frase.` }
     }
+    if (c.tipo === 'cliente') {
+      // A pasta do cliente abre no PC e ela conta como ele está
+      const nome = c.titulo
+      void window.friday.ferramenta('cliente', { acao: 'abrir_pasta', nome })
+      const r = await window.friday.ferramenta('cliente', { acao: 'ver', nome })
+      if (r.card) hud.cartao(r.card, 15000)
+      return { ok: r.ok, resultado: `${r.mensagem} Abri a pasta dele. Conte em duas frases.` }
+    }
     const r = await window.friday.ferramenta('mesa_relatorio', { id: c.id.replace(/^relatorio:/, '') })
     return { ok: r.ok, resultado: r.mensagem }
   }
@@ -857,7 +865,7 @@ async function iniciar(): Promise<void> {
       hud.registrarAcao('Mesa holográfica')
       if (acao === 'abrir' && !qual) {
         const conta = (t: CartaoMesa['tipo']) => cartoes.filter((c) => c.tipo === t).length
-        return { ok: true, resultado: `Mesa aberta com ${cartoes.length} cartões: ${conta('projeto')} projetos, ${conta('design')} designs e ${conta('relatorio')} relatórios. Na frente: ${descreverCartao(mesa.atual)}. Diga em uma frase e lembre que ele pode passar com a mão.` }
+        return { ok: true, resultado: `Mesa aberta com ${cartoes.length} cartões: ${conta('projeto')} projetos, ${conta('design')} designs, ${conta('relatorio')} relatórios e ${conta('cliente')} clientes. Na frente: ${descreverCartao(mesa.atual)}. Diga em uma frase e lembre que ele pode passar com a mão.` }
       }
     }
     switch (acao) {

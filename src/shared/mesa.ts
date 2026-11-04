@@ -1,7 +1,7 @@
 // F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 // Mesa holográfica: o que o processo principal manda para o HUD (os cartões e a maquete de um projeto).
 
-export type TipoCartao = 'projeto' | 'design' | 'relatorio'
+export type TipoCartao = 'projeto' | 'design' | 'relatorio' | 'cliente'
 
 export interface CartaoMesa {
   id: string
@@ -11,6 +11,8 @@ export interface CartaoMesa {
   sub: string
   /** Até 4 linhas de ficha */
   ficha: string[]
+  /** Cor do contorno (a etapa do cliente); sem ela, a cor do tipo */
+  cor?: string
 }
 
 export type EstadoSala = 'ok' | 'mudado' | 'falha'

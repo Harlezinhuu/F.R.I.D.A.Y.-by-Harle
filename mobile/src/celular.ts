@@ -51,6 +51,10 @@ interface CelularPlugin {
 
   abertura(): Promise<{ assistente: boolean; central?: boolean }>
 
+  /** Avisos de compra e Pix do banco guardados até o PC anotar (só com "Anotar compras do banco" ligado) */
+  comprasPendentes(): Promise<{ compras: { titulo: string; texto: string; quando: number }[] }>
+  limparCompras(o: { ate: number }): Promise<void>
+
   centralEstado(): Promise<EstadoCentral>
   centralLigar(o: { ligar: boolean }): Promise<void>
   centralBaixarModelo(): Promise<void>

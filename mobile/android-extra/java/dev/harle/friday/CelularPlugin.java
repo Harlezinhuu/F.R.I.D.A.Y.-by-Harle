@@ -100,6 +100,29 @@ public class CelularPlugin extends Plugin {
 
     // ---------- Abertura pelo botão de assistente ----------
 
+    // ---------- Compras do banco (para as finanças do PC) ----------
+
+    @PluginMethod
+    public void comprasPendentes(PluginCall call) {
+        try {
+            JSObject r = new JSObject();
+            r.put("compras", FridayAvisos.compras(ctx()));
+            call.resolve(r);
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
+    @PluginMethod
+    public void limparCompras(PluginCall call) {
+        try {
+            FridayAvisos.limparCompras(ctx(), call.getLong("ate", 0L));
+            call.resolve();
+        } catch (Exception e) {
+            falhou(call, e);
+        }
+    }
+
     @PluginMethod
     public void abertura(PluginCall call) {
         try {

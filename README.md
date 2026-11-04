@@ -324,6 +324,41 @@ Os recados do PC para o celular com o app fechado (sirene e alerta da sentinela)
 
 O que fica de fora porque não existe de verdade (ou não deveria): voar de armadura, armas, autodestruição, invadir sistemas dos outros e reconstruir uma cena de crime a partir de vídeos de jornal.
 
+### Seu negócio de sites para lojas
+
+A FRIDAY ajuda a tocar a venda de sites: acha as lojas, estuda cada uma, monta a prévia, fecha dentro da sua tabela, cobra o material e vigia os sites no ar. **Dinheiro e assinatura sempre esperam o seu "pode"**, e o silêncio nunca conta como sim.
+
+| O quê | Como funciona | Como pedir |
+|---|---|---|
+| Achar clientes | Lojas perto de você que ainda não têm site, pelo mapa aberto (OpenStreetMap), das mais fáceis de contatar para as menos. Franquias ficam de fora | "Acha padarias sem site aqui perto" |
+| Ficha de cada cliente | Uma pasta por loja em Documentos › FRIDAY › Clientes (com fotos, documentos e relatórios) e um cartão na mesa holográfica, com a cor da etapa | "Anota a Padaria do João como cliente" |
+| Raio-X da loja | Pesquisa a loja na internet (avaliações, Instagram, concorrentes), lê as fotos e o logo e diz o que o site precisa ter, o pacote certo e as perguntas para fazer | "Faz o raio-X da Padaria do João" |
+| Prévia do site | Uma tarefa de programação monta a prévia seguindo a base de design (`resources/negocio/base-design.md`) e as metas de velocidade | "Monta a prévia da padaria" |
+| Proposta e contrato | PDFs prontos com o pacote, o prazo, a entrada de 50% e o Pix | "Gera o contrato da padaria" |
+| Fechar | Dentro da tabela (até 10% de desconto) ela fecha sozinha e calcula o prazo pela sua fila. Abaixo do mínimo, só com você | "Fechei com a padaria por 1.800" |
+| Dia a dia | De hora em hora: cobra o material, lembra de proposta parada, pede depoimento. Pedir indicação e mandar o relatório do mês ela pergunta antes (e, se você não responder em 24 h, faz a versão padrão). Às 21 h, o diário do que ela fez | "O que está esperando por mim?" |
+| Sites no ar | Olha os sites entregues a cada 30 minutos e avisa no celular se algum cair. No começo do mês, prepara o relatório de cada cliente com manutenção | (sozinha) |
+
+| Pacote | Preço | Prazo |
+|---|---|---|
+| Vitrine (uma página) | R$ 600 a 900 | ~3 dias de trabalho |
+| Site da loja | R$ 1.500 a 2.500 | ~7 dias |
+| Loja virtual | R$ 3.000 a 5.000 | ~14 dias |
+| Manutenção | R$ 100 a 250 por mês | |
+
+O que vai no contrato e nas mensagens sai do `.env` (`FRIDAY_NEGOCIO_NOME`, `_RESPONSAVEL`, `_DOCUMENTO`, `_CIDADE`, `_WHATSAPP`, `_EMAIL`, `_SITE`, `_PIX`), e `FRIDAY_SITES_POR_MES` diz quantos sites cabem na sua fila. As mensagens saem pelo WhatsApp Web do PC.
+
+Um aviso honesto: web design (CNAE 6201-5/02) não está na lista do MEI. O caminho comum é abrir uma empresa de uma pessoa só (SLU) como microempresa no Simples Nacional; com pró-labore de pelo menos 28% do faturamento (fator R), a alíquota começa em 6%. Aí a nota fiscal é obrigatória. Vale uma conversa com um contador antes do primeiro cliente; a FRIDAY lembra de emitir a nota, mas não emite.
+
+### Finanças e planilhas
+
+- **Gastos e entradas por voz**: "gastei 45 na padaria", "recebi 300 do freela". Ela descobre a categoria (mercado, comida, transporte, casa, saúde, assinaturas, trabalho…). Os pagamentos dos clientes entram sozinhos.
+- **Do banco, sem tocar no banco**: ligue em Ajustes › Avisos por voz › *Anotar compras do banco* no celular e os avisos de compra e Pix viram lançamentos no PC. Ela só lê o aviso (valor, lugar e data, sem número de cartão) e nunca abre nem mexe no app do banco. Fatura, limite, ofertas e compras recusadas ficam de fora.
+- **Limites por categoria**: "limite de 600 para comida". Ela avisa em 80% e quando passar, e no dia 1 faz o fechamento do mês.
+- **Planilhas do Excel**: "faz a planilha dos gastos do mês", "planilha dos clientes", "tabela de preços", ou qualquer uma ("faz uma planilha de estudos da semana com matéria, dia e horas"). Saem em Documentos › FRIDAY › Planilhas, com cabeçalho, filtro, formato de real e fórmulas, e abrem sozinhas.
+
+Os lançamentos ficam só no PC, na pasta de dados do app.
+
 ### Adicionando programas
 
 Pelo ícone na bandeja, escolha **Editar programas permitidos**. Cada programa tem um nome, apelidos (como você fala) e o alvo que o Windows abre:

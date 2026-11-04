@@ -189,6 +189,56 @@ public class FridayAvisos extends NotificationListenerService {
         Locutor.falar(this, frase, ligacao);
     }
 
+    // ---------- Compras do banco (fila até o PC anotar) ----------
+
+    /**
+     * Guarda o aviso do banco que fala em dinheiro ("R$"), para o PC virar lançamento. Fica no
+     * celular só até o PC receber; o app do banco nunca é aberto nem tocado. Número de cartão sai.
+     */
+    static void guardarCompra(Context c, String titulo, String texto, long quando) {
+        if (!(titulo + " " + texto).contains("R$")) return;
+        String limpo = texto.replaceAll("(?i)final\\s*\\d{3,4}", "final").replaceAll("\\d{4}[ .]?\\d{4}[ .]?\\d{4}[ .]?\\d{4}", "");
+        android.content.SharedPreferences sp = c.getSharedPreferences("friday_nativo", Context.MODE_PRIVATE);
+        synchronized (FridayAvisos.class) {
+            try {
+                JSONArray a = new JSONArray(sp.getString("compras", "[]"));
+                for (int i = 0; i < a.length(); i++) {
+                    JSONObject o = a.getJSONObject(i);
+                    if (o.optString("texto").equals(limpo) && Math.abs(o.optLong("quando") - quando) < 120_000L) return; // mesma notificação atualizada
+                }
+                a.put(new JSONObject().put("titulo", titulo.length() > 120 ? titulo.substring(0, 120) : titulo)
+                    .put("texto", limpo.length() > 400 ? limpo.substring(0, 400) : limpo).put("quando", quando));
+                JSONArray fim = new JSONArray();
+                for (int i = Math.max(0, a.length() - 80); i < a.length(); i++) fim.put(a.get(i));
+                sp.edit().putString("compras", fim.toString()).apply();
+            } catch (Exception ignorado) {
+                // fila estragada: recomeça
+                sp.edit().putString("compras", "[]").apply();
+            }
+        }
+    }
+
+    static JSONArray compras(Context c) {
+        try {
+            return new JSONArray(c.getSharedPreferences("friday_nativo", Context.MODE_PRIVATE).getString("compras", "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    /** Tira da fila o que o PC já anotou (tudo até `ate`). */
+    static void limparCompras(Context c, long ate) {
+        android.content.SharedPreferences sp = c.getSharedPreferences("friday_nativo", Context.MODE_PRIVATE);
+        synchronized (FridayAvisos.class) {
+            JSONArray a = compras(c), fica = new JSONArray();
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o != null && o.optLong("quando") > ate) fica.put(o);
+            }
+            sp.edit().putString("compras", fica.toString()).apply();
+        }
+    }
+
     // ---------- Mensagens guardadas (para responder por voz) ----------
 
     private static void guardar(Msg m) {
@@ -291,6 +341,13 @@ public class FridayAvisos extends NotificationListenerService {
             if (!podeFalar(importante)) return;
             String app = MENSAGENS.containsKey(pacote) ? MENSAGENS.get(pacote) : "";
             anunciar(Nomes.fraseLigacao(tratamento, quem, app), true);
+            return;
+        }
+
+        // ---------- Compras e Pix do banco (só se você ligou "Anotar compras do banco") ----------
+        if (FridayAcessibilidade.protegido(pacote)) {
+            if (cfg.optBoolean("compras", false)) guardarCompra(this, titulo, texto(ex.getCharSequence(Notification.EXTRA_BIG_TEXT)).isEmpty()
+                ? texto(ex.getCharSequence(Notification.EXTRA_TEXT)) : texto(ex.getCharSequence(Notification.EXTRA_BIG_TEXT)), sbn.getPostTime());
             return;
         }
 

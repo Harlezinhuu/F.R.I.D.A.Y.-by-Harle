@@ -258,7 +258,7 @@ export class Oficina {
       } catch { /* PC desligado ou longe: só os do celular */ }
     }
     const nomes = new Set(locais.map((c) => c.titulo.toLowerCase()))
-    const todos = [...doPc.filter((c) => c.tipo === 'projeto'), ...locais, ...doPc.filter((c) => c.tipo === 'design' && !nomes.has(c.titulo.toLowerCase())), ...doPc.filter((c) => c.tipo === 'relatorio')]
+    const todos = [...doPc.filter((c) => c.tipo === 'projeto'), ...locais, ...doPc.filter((c) => c.tipo === 'design' && !nomes.has(c.titulo.toLowerCase())), ...doPc.filter((c) => c.tipo === 'relatorio'), ...doPc.filter((c) => c.tipo === 'cliente')]
     return { cartoes: todos, pc }
   }
 
@@ -332,6 +332,12 @@ export class Oficina {
         this.dica('Mão fechada ou um dedo giram a mesa · duas pinças rápidas abrem os andares · tapa volta aos cartões')
         return `Prédio do ${c.titulo} na mesa. ${r.resumo ?? ''}`
       } catch (e) { return `O PC não respondeu (${(e as Error).message}).` }
+    }
+    if (c.tipo === 'cliente') {
+      try {
+        const r = await pedirPC<{ ok: boolean; mensagem: string }>({ acao: 'ferramenta', nome: 'cliente', args: { acao: 'ver', nome: c.titulo } }, 15_000)
+        return r.mensagem
+      } catch { return 'O PC não respondeu.' }
     }
     try {
       const r = await pedirPC<{ ok: boolean; mensagem: string }>({ acao: 'mesa', pedido: 'relatorio', id: c.id.replace(/^relatorio:/, '') }, 10_000)

@@ -79,8 +79,8 @@ export function painelTexto(linhas: string[], e: EstiloTexto, altura: number): T
   return s
 }
 
-const CORES_TIPO: Record<CartaoMesa['tipo'], string> = { projeto: '#5FE1F2', design: '#B7ADFF', relatorio: '#FFB547' }
-const NOME_TIPO: Record<CartaoMesa['tipo'], string> = { projeto: 'PROJETO', design: 'DESIGN', relatorio: 'RELATÓRIO' }
+const CORES_TIPO: Record<CartaoMesa['tipo'], string> = { projeto: '#5FE1F2', design: '#B7ADFF', relatorio: '#FFB547', cliente: '#5CF2A6' }
+const NOME_TIPO: Record<CartaoMesa['tipo'], string> = { projeto: 'PROJETO', design: 'DESIGN', relatorio: 'RELATÓRIO', cliente: 'CLIENTE' }
 
 /** Ícone desenhado do tipo: prédio (projeto), cubo (design), folha (relatório). */
 function icone(ctx: CanvasRenderingContext2D, tipo: CartaoMesa['tipo'], x: number, y: number, s: number, cor: string): void {
@@ -96,6 +96,11 @@ function icone(ctx: CanvasRenderingContext2D, tipo: CartaoMesa['tipo'], x: numbe
     const a = s * 0.42
     ctx.moveTo(x, y - a); ctx.lineTo(x + a, y - a / 2); ctx.lineTo(x + a, y + a / 2); ctx.lineTo(x, y + a); ctx.lineTo(x - a, y + a / 2); ctx.lineTo(x - a, y - a / 2); ctx.closePath()
     ctx.moveTo(x - a, y - a / 2); ctx.lineTo(x, y); ctx.lineTo(x + a, y - a / 2); ctx.moveTo(x, y); ctx.lineTo(x, y + a)
+  } else if (tipo === 'cliente') {
+    // Vitrine de loja: toldo e porta
+    ctx.moveTo(x - s * 0.42, y - s * 0.2); ctx.lineTo(x - s * 0.32, y - s * 0.42); ctx.lineTo(x + s * 0.32, y - s * 0.42); ctx.lineTo(x + s * 0.42, y - s * 0.2); ctx.closePath()
+    ctx.rect(x - s * 0.36, y - s * 0.2, s * 0.72, s * 0.62)
+    ctx.rect(x - s * 0.1, y + s * 0.1, s * 0.2, s * 0.32)
   } else {
     ctx.rect(x - s * 0.32, y - s * 0.45, s * 0.64, s * 0.9)
     for (let i = 0; i < 4; i++) { ctx.moveTo(x - s * 0.2, y - s * 0.22 + i * s * 0.16); ctx.lineTo(x + s * 0.2, y - s * 0.22 + i * s * 0.16) }
@@ -110,7 +115,7 @@ export function escreverCartao(c: CartaoMesa): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')!
-  const cor = CORES_TIPO[c.tipo]
+  const cor = c.cor ?? CORES_TIPO[c.tipo]
   const g = ctx.createLinearGradient(0, 0, W, H)
   g.addColorStop(0, 'rgba(10, 26, 54, .92)')
   g.addColorStop(1, 'rgba(14, 12, 40, .88)')

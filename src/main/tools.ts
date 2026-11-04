@@ -44,6 +44,15 @@ import { bemEstarLigado, ligarBemEstar, resumoBemEstar } from './bemestar'
 import { lerAssuntos, pararAssunto, vigiarAssunto } from './assuntos'
 import { responderCotacao } from '../shared/cotacao'
 import { recadoParaCelular } from './push'
+import { acharCliente, criarCliente, executarPendencia, lerClientes, pastaDoCliente, pendencias, pedirPermissao, regras, resolverPendencia, salvarCliente, diarioDeHoje, anotarNoDiario } from './negocio'
+import { fazerRaioX, gerarDocumento, lerRaioXSalvo, nomeDoArquivo, pacoteDoCliente, pedirPrevia, verPrevia } from './lojas'
+import { ETAPAS, PACOTES, acharPacote, avaliarPreco, nomeDaEtapa, pagamentosDoFechamento, prazoPara, resumoDoFunil, temCapacidade, type Etapa } from './logica/negocio'
+import { acharPendencia, resumoDasPendencias } from './logica/autonomia'
+import { raioXEmTexto } from './logica/raioxloja'
+import { adicionarDaLista, descartarDaLista, procurarLojas } from './prospeccao'
+import { apagarLancamento, definirOrcamento, entradaDeCliente, importarAvisos, lancar, lerFinancas, mesDe, nomeDoMes, resumo as resumoFinancas } from './financas'
+import { acharLancamento, doMes, reais as emReais } from './logica/financas'
+import { abaLivre, abasDeClientes, abasDeGastos, abasDePrecos, salvarPlanilha, tituloDosGastos } from './planilhas'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { acharAparelho, nomeDoAparelho } from './logica/rede'
@@ -657,6 +666,273 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     const moedas = Array.isArray(a.moedas) ? a.moedas.map(String) : str(a.moedas) ? str(a.moedas).split(/\s*,\s*|\s+e\s+/) : []
     const texto = await responderCotacao(moedas, num(a.valor), str(a.para))
     return { ok: true, mensagem: `${texto} (Fonte: AwesomeAPI.)`, card: { tipo: 'aviso', titulo: 'COTAÇÃO', texto } }
+  },
+
+  // ---------- Negócio: clientes ----------
+
+  async cliente(a) {
+    const acao = str(a.acao) || 'ver'
+    if (acao === 'listar') {
+      const cs = lerClientes()
+      const ativos = cs.filter((c) => c.etapa !== 'arquivado')
+      return {
+        ok: true,
+        mensagem: `${resumoDoFunil(cs)}${ativos.length ? ` Clientes: ${ativos.slice(0, 12).map((c) => `${c.nome} (${nomeDaEtapa(c.etapa).toLowerCase()})`).join('; ')}.` : ''}`,
+        card: { tipo: 'memoria', titulo: `CLIENTES · ${ativos.length}`, itens: ativos.slice(0, 8).map((c) => `${c.nome} · ${nomeDaEtapa(c.etapa)}${c.valor ? ` · R$ ${c.valor}` : ''}`) }
+      }
+    }
+    const nome = str(a.nome)
+    if (!nome) return falha('Faltou o nome da loja.')
+    if (acao === 'criar') {
+      const { cliente: c, novo } = criarCliente(nome)
+      Object.assign(c.contato, Object.fromEntries(['responsavel', 'whatsapp', 'telefone', 'instagram', 'email', 'endereco', 'cidade', 'documento'].filter((k) => str(a[k])).map((k) => [k, str(a[k])])))
+      if (str(a.segmento)) c.segmento = str(a.segmento)
+      if (str(a.site)) c.site = str(a.site)
+      salvarCliente(c, novo ? undefined : 'Dados atualizados.')
+      return { ok: true, mensagem: novo ? `Cliente ${c.nome} criado, com pasta em Documentos/FRIDAY/Clientes/${c.id}. Para o raio-X ficar melhor, ele pode colocar fotos da loja (e o logo, com "logo" no nome) na pasta fotos.` : `${c.nome} já existia; atualizei os dados.` }
+    }
+    const c = acharCliente(nome)
+    if (!c) return falha(`Não achei o cliente "${nome}". Diga "cria o cliente ${nome}".`)
+    switch (acao) {
+      case 'ver': {
+        const pend = pendencias().filter((p) => p.estado === 'aguardando' && p.cliente === c.id)
+        return {
+          ok: true,
+          mensagem: `${c.nome}: ${nomeDaEtapa(c.etapa)}${c.pacote ? `, pacote ${c.pacote} por R$ ${c.valor}` : ''}${c.mensalidade ? ` + R$ ${c.mensalidade}/mês` : ''}${c.prazo ? `, entrega até ${new Date(c.prazo).toLocaleDateString('pt-BR')}` : ''}. Contato: ${[c.contato.responsavel, c.contato.whatsapp || c.contato.telefone, c.contato.instagram].filter(Boolean).join(', ') || 'nenhum ainda'}. Último registro: ${c.historico[c.historico.length - 1]?.texto ?? ''}${pend.length ? ` Esperando você: ${pend.map((p) => p.texto).join('; ')}` : ''}`,
+          card: { tipo: 'memoria', titulo: c.nome.toUpperCase().slice(0, 30), itens: [nomeDaEtapa(c.etapa), ...c.historico.slice(-5).reverse().map((h) => h.texto)] }
+        }
+      }
+      case 'atualizar': {
+        for (const k of ['responsavel', 'whatsapp', 'telefone', 'instagram', 'email', 'endereco', 'cidade', 'documento'] as const) if (str(a[k])) c.contato[k] = str(a[k])
+        if (str(a.segmento)) c.segmento = str(a.segmento)
+        if (str(a.site)) c.site = str(a.site)
+        if (str(a.observacoes)) c.observacoes = `${c.observacoes}\n${str(a.observacoes)}`.trim()
+        salvarCliente(c, 'Dados atualizados.')
+        return { ok: true, mensagem: `Anotado na ficha da ${c.nome}.` }
+      }
+      case 'etapa': {
+        const e = ETAPAS.find((x) => x.id === str(a.etapa) || x.nome.toLowerCase() === str(a.etapa).toLowerCase())
+        if (!e) return falha(`Etapas: ${ETAPAS.map((x) => x.id).join(', ')}.`)
+        c.etapa = e.id as Etapa
+        const agora = new Date().toISOString()
+        if (e.id === 'proposta' && !c.propostaEnviadaEm) c.propostaEnviadaEm = agora
+        if (e.id === 'construcao' && !c.materialPedidoEm) c.materialPedidoEm = agora
+        if ((e.id === 'entregue' || e.id === 'manutencao') && !c.entregueEm) c.entregueEm = agora
+        salvarCliente(c, `Etapa: ${e.nome}.`)
+        return { ok: true, mensagem: `${c.nome} agora está em "${e.nome}".` }
+      }
+      case 'material_recebido':
+        c.materialRecebidoEm = new Date().toISOString()
+        if (c.etapa === 'fechado') c.etapa = 'construcao'
+        salvarCliente(c, 'Material recebido: o prazo começa a contar.')
+        return { ok: true, mensagem: `Anotado: o material da ${c.nome} chegou. Coloque as fotos na pasta dela para eu usar no site.` }
+      case 'pagamento_recebido': {
+        const p = c.pagamentos.find((x) => !x.pago && (!num(a.valor) || Math.abs(x.valor - num(a.valor)!) < 1)) ?? c.pagamentos.find((x) => !x.pago)
+        if (!p) return falha(`Não tem pagamento em aberto da ${c.nome}.`)
+        p.pago = true
+        p.aprovado = true
+        salvarCliente(c, `Pagamento recebido: ${p.descricao}, R$ ${p.valor}.`)
+        entradaDeCliente(c.nome, p.descricao, p.valor)
+        return { ok: true, mensagem: `Anotado: ${p.descricao} da ${c.nome} (R$ ${p.valor}) recebido. Lembre de emitir a nota; quando emitir, me diga "nota da ${c.nome} emitida".` }
+      }
+      case 'nota_emitida': {
+        const p = c.pagamentos.find((x) => x.pago && !x.notaEmitida)
+        if (!p) return falha('Não tem nota pendente para esse cliente.')
+        p.notaEmitida = true
+        salvarCliente(c, `Nota emitida: ${p.descricao}.`)
+        return { ok: true, mensagem: 'Nota anotada como emitida.' }
+      }
+      case 'abrir_pasta': {
+        const erro = await shell.openPath(pastaDoCliente(c.id))
+        return erro ? falha(erro) : { ok: true, mensagem: `Abri a pasta da ${c.nome}.` }
+      }
+      case 'arquivar':
+        c.etapa = 'arquivado'
+        salvarCliente(c, 'Arquivado.')
+        return { ok: true, mensagem: `${c.nome} foi para o arquivo.` }
+      default:
+        return falha('Ação de cliente desconhecida.')
+    }
+  },
+
+  async fechar_negocio(a) {
+    const c = acharCliente(str(a.cliente))
+    if (!c) return falha(`Não achei o cliente "${str(a.cliente)}".`)
+    const p = acharPacote(str(a.pacote)) ?? pacoteDoCliente(c)
+    const valor = num(a.valor) ?? p.base
+    const r = regras()
+    const av = avaliarPreco(p, valor, r)
+    if (!av.sozinha && a.confirmado !== true) {
+      return { ok: false, precisaConfirmacao: true, mensagem: `Precisa de confirmação: ${av.motivo}`, dados: { pergunta: `Fechar a ${c.nome} por R$ ${valor}, abaixo do mínimo de R$ ${av.minimo}?` } }
+    }
+    const lista = lerClientes()
+    const cheio = !temCapacidade(lista.filter((x) => x.id !== c.id), r)
+    const prazo = prazoPara(p, lista.filter((x) => x.id !== c.id), new Date(), r)
+    c.pacote = p.id
+    c.valor = valor
+    c.mensalidade = num(a.mensalidade) ?? c.mensalidade
+    c.prazo = prazo.toISOString()
+    c.etapa = 'fechado'
+    c.pagamentos = pagamentosDoFechamento(valor, new Date(), prazo, r)
+    salvarCliente(c, `Fechado: ${p.nome} por R$ ${valor} (${av.motivo}), entrega até ${prazo.toLocaleDateString('pt-BR')}.`)
+    anotarNoDiario(`Fechei com a ${c.nome}: ${p.nome}, R$ ${valor}, entrega até ${prazo.toLocaleDateString('pt-BR')}.`)
+    const contrato = await gerarDocumento(c, 'contrato').catch(() => '')
+    pedirPermissao('assinar', `Assinar o contrato da ${c.nome} (${p.nome}, R$ ${valor})`, { cliente: c.id })
+    pedirPermissao('aprovar_cobranca', `Cobrar a entrada de R$ ${c.pagamentos[0].valor} da ${c.nome}`, { cliente: c.id })
+    if (aparelhosPareados().length) enviarParaCelular({ tipo: 'evento', titulo: `Entrega do site: ${c.nome}`, inicioIso: new Date(prazo.setHours(9, 0, 0, 0)).toISOString(), fimIso: new Date(prazo.setHours(10, 0, 0, 0)).toISOString(), local: '', descricao: `${p.nome}, R$ ${valor}` })
+    return {
+      ok: true,
+      mensagem: `Fechado: ${c.nome}, ${p.nome}, R$ ${valor}${c.mensalidade ? ` + R$ ${c.mensalidade}/mês` : ''}, entrega até ${new Date(c.prazo).toLocaleDateString('pt-BR')}.${cheio ? ' Atenção: você já está no limite de sites do mês; o prazo foi esticado.' : ''}${contrato ? ` O contrato está pronto (${nomeDoArquivo(contrato)}).` : ''} Ficam esperando o seu "pode": assinar o contrato e cobrar a entrada de R$ ${c.pagamentos[0].valor}.`,
+      card: { tipo: 'aviso', titulo: 'NEGÓCIO FECHADO', texto: `${c.nome} · ${p.nome} · R$ ${valor}` }
+    }
+  },
+
+  async pendencias(a) {
+    const acao = str(a.acao) || 'listar'
+    const ps = pendencias()
+    if (acao === 'diario') {
+      const d = diarioDeHoje()
+      return { ok: true, mensagem: d.feitos.length ? `Hoje eu fiz sozinha: ${d.feitos.map((f) => f.replace(/ \[[^\]]+\]$/, '')).join('; ')}.${d.esperando ? ` E ${d.esperando} coisas esperam você.` : ''}` : `Hoje ainda não fiz nada sozinha.${d.esperando ? ` ${d.esperando} coisas esperam você.` : ''}` }
+    }
+    if (acao === 'listar') {
+      const abertas = ps.filter((p) => p.estado === 'aguardando')
+      return { ok: true, mensagem: resumoDasPendencias(ps), card: { tipo: 'memoria', titulo: `ESPERANDO VOCÊ · ${abertas.length}`, itens: abertas.slice(0, 8).map((p, i) => `${i + 1}. ${p.texto}`) } }
+    }
+    const p = acharPendencia(ps, str(a.alvo))
+    if (!p) return falha('Não achei essa pendência. Diga "o que está esperando por mim?" para ver a lista.')
+    const aprovar = acao === 'aprovar'
+    resolverPendencia(p.id, aprovar)
+    if (!aprovar) { anotarNoDiario(`Ele recusou: ${p.texto}.`); return { ok: true, mensagem: `Ok, não faço: ${p.texto}.` } }
+    const feito = await executarPendencia(p).catch((e) => `Aprovado, mas não consegui fazer: ${(e as Error).message}`)
+    anotarNoDiario(`Ele aprovou: ${p.texto}.`)
+    const lembrete = p.acao === 'aprovar_cobranca' ? ' Mande a cobrança pelo Pix e, quando cair, diga "recebi o pagamento da ' + (p.cliente ?? 'loja') + '".' : p.acao === 'assinar' ? ' O PDF do contrato está na pasta documentos do cliente.' : ''
+    return { ok: true, mensagem: `${feito}${lembrete}` }
+  },
+
+  async raio_x_loja(a) {
+    const nome = str(a.cliente)
+    let c = acharCliente(nome)
+    if (!c) {
+      if (!nome) return falha('Faltou o nome da loja.')
+      c = criarCliente(nome).cliente
+    }
+    if (str(a.instagram)) c.contato.instagram = str(a.instagram)
+    if (str(a.cidade)) c.contato.cidade = str(a.cidade)
+    salvarCliente(c)
+    const alvo = c
+    void fazerRaioX(alvo).then(
+      (r) => avisoVisao(`Raio-X da ${alvo.nome} pronto: ${r.resumo} Recomendo o pacote ${r.pacote}. ${r.perguntas.length ? `Tenho ${r.perguntas.length} perguntas para o dono.` : ''} Está em raio-x.md, na pasta da loja.`, true),
+      (e) => avisoVisao(`O raio-X da ${alvo.nome} não deu certo: ${(e as Error).message}`, false)
+    )
+    return { ok: true, mensagem: `Comecei o raio-X da ${c.nome} (internet, avaliações, concorrentes e as fotos da pasta dela). Leva uns 30 a 60 segundos; eu aviso.`, card: { tipo: 'aviso', titulo: 'RAIO-X DA LOJA', texto: `${c.nome} · analisando…` } }
+  },
+
+  async ver_raio_x(a) {
+    const c = acharCliente(str(a.cliente))
+    if (!c) return falha('Não achei esse cliente.')
+    const r = lerRaioXSalvo(c)
+    if (!r) return falha(`Ainda não fiz o raio-X da ${c.nome}.`)
+    return { ok: true, mensagem: `Fale o essencial em poucas frases: ${raioXEmTexto(c.nome, r).slice(0, 3500)}` }
+  },
+
+  async previa_site(a) {
+    const c = acharCliente(str(a.cliente))
+    if (!c) return falha('Não achei esse cliente.')
+    return { ok: true, mensagem: str(a.acao) === 'ver' ? await verPrevia(c) : await pedirPrevia(c) }
+  },
+
+  async documento_cliente(a) {
+    const c = acharCliente(str(a.cliente))
+    if (!c) return falha('Não achei esse cliente.')
+    const tipo = str(a.tipo) === 'contrato' ? 'contrato' : 'proposta'
+    const arq = await gerarDocumento(c, tipo)
+    if (tipo === 'proposta' && (c.etapa === 'prospectado' || c.etapa === 'raio_x' || c.etapa === 'previa')) { c.etapa = 'proposta'; c.propostaEnviadaEm = new Date().toISOString(); salvarCliente(c, 'Proposta pronta.') }
+    return { ok: true, mensagem: `${tipo === 'proposta' ? 'Proposta' : 'Contrato'} pronto e aberto: ${nomeDoArquivo(arq)}, na pasta documentos da ${c.nome}.${tipo === 'contrato' ? ' É um modelo: vale revisar uma vez com um advogado ou contador.' : ''}` }
+  },
+
+  async prospectar(a) {
+    const acao = str(a.acao) || 'lista'
+    if (acao === 'adicionar') return { ok: true, mensagem: adicionarDaLista(str(a.alvo), a.mensagem !== false) }
+    if (acao === 'descartar') return { ok: true, mensagem: descartarDaLista(str(a.alvo)) }
+    const raio = Math.min(15, Math.max(0.5, num(a.raio_km) ?? 3))
+    const { lojas, onde } = await procurarLojas(str(a.ramo), raio, str(a.lugar))
+    if (!lojas.length) return { ok: true, mensagem: `Não achei loja sem site${str(a.ramo) ? ` de ${str(a.ramo)}` : ''} num raio de ${raio} km de ${onde} no mapa aberto (ele não tem todas as lojas). Tente um raio maior ou outro ramo.` }
+    return {
+      ok: true,
+      mensagem: `Lojas sem site perto de ${onde} (das mais fáceis de contatar para as menos): ${lojas.map((l, i) => `${i + 1}) ${l.nome}, ${l.segmento}, a ${l.distanciaKm} km${l.telefone ? ', tem telefone' : ''}${l.instagram ? ', tem Instagram' : ''}`).join('; ')}. Ele pode dizer "adiciona a 2" (vira cliente e a primeira mensagem fica esperando o pode dele) ou "tira a 3". O mapa aberto não tem todas as lojas; vale confirmar no Google se elas não têm site mesmo.`,
+      card: { tipo: 'memoria', titulo: `LOJAS SEM SITE · ${onde.toUpperCase().slice(0, 20)}`, itens: lojas.map((l, i) => `${i + 1}. ${l.nome} · ${l.segmento} · ${l.distanciaKm} km`) }
+    }
+  },
+
+  async financas(a) {
+    const acao = str(a.acao) || 'resumo'
+    const mesPedido = /^\d{4}-\d{2}$/.test(str(a.mes)) ? str(a.mes) : mesDe()
+    switch (acao) {
+      case 'gasto':
+      case 'entrada': {
+        const valor = num(a.valor)
+        if (!valor || valor <= 0) return falha('Quanto foi?')
+        const { lancamento: l, alerta } = lancar({ valor, tipo: acao === 'gasto' ? 'saida' : 'entrada', descricao: str(a.descricao), categoria: str(a.categoria), data: str(a.data) })
+        return { ok: true, mensagem: `Anotado: ${l.tipo === 'entrada' ? 'entrou' : 'gasto de'} ${emReais(l.valor)}, ${l.descricao} (${l.categoria}).${alerta ? ` ${alerta}` : ''}` }
+      }
+      case 'resumo':
+        return { ok: true, mensagem: resumoFinancas(mesPedido) }
+      case 'listar': {
+        const ls = doMes(lerFinancas().lancamentos, mesPedido).slice(-12).reverse()
+        if (!ls.length) return { ok: true, mensagem: `Nada anotado em ${nomeDoMes(mesPedido)}.` }
+        return {
+          ok: true, mensagem: `Últimos de ${nomeDoMes(mesPedido)}: ${ls.map((l) => `${l.data.slice(8)}/${l.data.slice(5, 7)} ${l.tipo === 'entrada' ? '+' : '−'}${emReais(l.valor)} ${l.descricao}`).join('; ')}.`,
+          card: { tipo: 'memoria', titulo: `FINANÇAS · ${nomeDoMes(mesPedido).toUpperCase()}`, itens: ls.map((l) => `${l.tipo === 'entrada' ? '+' : '−'} ${emReais(l.valor)} · ${l.descricao} · ${l.categoria}`) }
+        }
+      }
+      case 'orcamento': {
+        const cat = str(a.categoria)
+        if (!cat) {
+          const o = lerFinancas().orcamento
+          const ks = Object.keys(o)
+          return { ok: true, mensagem: ks.length ? `Limites do mês: ${ks.map((k) => `${k} ${emReais(o[k])}`).join(', ')}.` : 'Nenhum limite definido ainda. Diga, por exemplo, "limite de 600 para comida".' }
+        }
+        const o = definirOrcamento(cat, num(a.valor) ?? 0)
+        return { ok: true, mensagem: o[cat.toLowerCase()] ? `Limite de ${cat.toLowerCase()}: ${emReais(o[cat.toLowerCase()])} por mês. Aviso quando chegar a 80%.` : `Tirei o limite de ${cat.toLowerCase()}.` }
+      }
+      case 'apagar': {
+        const l = acharLancamento(lerFinancas().lancamentos, str(a.alvo) || str(a.descricao))
+        if (!l) return falha('Não achei esse lançamento.')
+        if (a.confirmado !== true) return { ok: true, precisaConfirmacao: true, mensagem: `Apagar ${l.tipo === 'entrada' ? 'a entrada' : 'o gasto'} de ${emReais(l.valor)}, ${l.descricao}, do dia ${l.data.slice(8)}/${l.data.slice(5, 7)}? Confirme com ele e chame de novo com confirmado: true.` }
+        apagarLancamento(l.id)
+        return { ok: true, mensagem: `Apaguei: ${l.descricao}, ${emReais(l.valor)}.` }
+      }
+      case 'importar': {
+        const avisos = Array.isArray(a.avisos) ? (a.avisos as { titulo?: unknown; texto?: unknown; quando?: unknown }[]) : []
+        const { novos } = importarAvisos(avisos)
+        return { ok: true, mensagem: novos.length ? `Anotei ${novos.length} ${novos.length === 1 ? 'movimento' : 'movimentos'} do banco: ${novos.slice(0, 4).map((l) => `${l.descricao} ${emReais(l.valor)}`).join(', ')}.` : 'Nada novo do banco.', dados: { novos: novos.length } }
+      }
+    }
+    return falha('Ação desconhecida.')
+  },
+
+  async planilha(a) {
+    const tipo = str(a.tipo) || 'livre'
+    const mes = /^\d{4}-\d{2}$/.test(str(a.mes)) ? str(a.mes) : mesDe()
+    let titulo = str(a.titulo)
+    let abas
+    if (tipo === 'gastos') { abas = abasDeGastos(mes); titulo ||= tituloDosGastos(mes) }
+    else if (tipo === 'clientes') { abas = abasDeClientes(); titulo ||= `Clientes ${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}` }
+    else if (tipo === 'precos') { abas = abasDePrecos(); titulo ||= 'Tabela de preços' }
+    else {
+      const colunas = Array.isArray(a.colunas) ? a.colunas.map((c) => String(c)).filter(Boolean).slice(0, 40) : []
+      if (!colunas.length) return falha('Diga as colunas da planilha.')
+      const linhas = Array.isArray(a.linhas) ? (a.linhas as unknown[]).map((l) => (Array.isArray(l) ? l : [l])) : []
+      titulo ||= 'Planilha'
+      abas = [abaLivre(titulo, colunas, linhas, a.total === true)]
+    }
+    const arq = await salvarPlanilha(titulo, abas, a.abrir !== false)
+    return { ok: true, mensagem: `Planilha "${titulo}" pronta${a.abrir !== false ? ' e aberta' : ''} (Documentos > FRIDAY > Planilhas).`, dados: { arquivo: arq } }
+  },
+
+  async tabela_precos() {
+    const r = regras()
+    return { ok: true, mensagem: `${PACOTES.map((p) => `${p.nome}: R$ ${p.base} a ${p.maximo} (mínimo que fecho sozinha: R$ ${Math.round(p.base * (1 - r.descontoMaximo))})`).join('; ')}. Manutenção: R$ 100 a 250 por mês. Entrada de ${r.entrada}%, ${r.rodadas} rodadas de ajuste, até ${r.sitesPorMes} sites por mês.` }
   },
 
   // ---------- Cadê meu celular e sentinela ----------
