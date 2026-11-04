@@ -155,20 +155,3 @@ export function maosDoPc(aoPrecisarQr: () => void): Maos {
     limites: 'Você vê os botões das mensagens e as listas que abrem na tela (tocar funciona).'
   }
 }
-
-let mandando: Promise<void> = Promise.resolve()
-
-/**
- * Manda uma mensagem avulsa (lembrete para um cliente do seu negócio), uma de cada vez.
- * Usa a mesma sessão do WhatsApp Web da FRIDAY; se ela ainda não estiver conectada, avisa para ler o QR.
- */
-export function mandarWhatsApp(numero: string, texto: string, aoPrecisarQr: () => void): Promise<void> {
-  const vez = mandando.then(async () => {
-    await conectar(aoPrecisarQr)
-    await abrirConversa(numero)
-    await enviarTexto(texto)
-    soltar()
-  })
-  mandando = vez.catch(() => {})
-  return vez
-}

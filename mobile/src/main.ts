@@ -641,7 +641,6 @@ async function mostrarAvisos(): Promise<void> {
   $<HTMLInputElement>('avLerTexto').checked = avisos.lerTexto
   $<HTMLInputElement>('avTratamento').value = avisos.tratamento
   $<HTMLInputElement>('avResumo').checked = avisos.resumoManha
-  $<HTMLInputElement>('avCompras').checked = avisos.compras
   $<HTMLInputElement>('avCarro').checked = avisos.modoCarro
   $<HTMLInputElement>('avCarroNome').value = avisos.carroNome
   $('avCarroCampo').hidden = !avisos.modoCarro
@@ -657,14 +656,13 @@ async function mostrarAvisos(): Promise<void> {
     }
   } catch { /* versão antiga do app, sem o código nativo */ }
 }
-const opcaoAviso = (id: string, campo: 'ligacoes' | 'soImportantes' | 'mensagens' | 'lerTexto' | 'resumoManha' | 'compras') =>
+const opcaoAviso = (id: string, campo: 'ligacoes' | 'soImportantes' | 'mensagens' | 'lerTexto' | 'resumoManha') =>
   $(id).addEventListener('change', (e) => { if (!avisos) return; avisos[campo] = (e.target as HTMLInputElement).checked; void guardarAvisos() })
 opcaoAviso('avLigacoes', 'ligacoes')
 opcaoAviso('avSoImportantes', 'soImportantes')
 opcaoAviso('avMensagens', 'mensagens')
 opcaoAviso('avLerTexto', 'lerTexto')
 opcaoAviso('avResumo', 'resumoManha')
-opcaoAviso('avCompras', 'compras')
 $('avCarro').addEventListener('change', async (e) => {
   if (!avisos) return
   avisos.modoCarro = (e.target as HTMLInputElement).checked
@@ -928,23 +926,7 @@ void App.addListener('backButton', () => {
 void App.addListener('resume', () => {
   if (telaAtual === 'ajustes') { void mostrarControle(); void mostrarAvisos(); void mostrarPc(); void mostrarCentral() }
   if (nativo()) escutarPC(eventoDoPc)
-  void mandarCompras()
 })
-
-/** Compras e Pix que o banco avisou viram lançamentos no PC; a fila só esvazia quando o PC anota. */
-let mandandoCompras = false
-async function mandarCompras(): Promise<void> {
-  if (!nativo() || mandandoCompras) return
-  mandandoCompras = true
-  try {
-    if (!(await lerAvisos()).compras || !(await lerElo())) return
-    const { compras } = await Celular.comprasPendentes()
-    if (!compras.length) return
-    const ate = Math.max(...compras.map((c) => c.quando))
-    const r = await pedirPC<{ ok: boolean }>({ acao: 'ferramenta', nome: 'financas', args: { acao: 'importar', avisos: compras } }, 15_000)
-    if (r.ok) await Celular.limparCompras({ ate })
-  } catch { /* PC longe: tenta na próxima vez */ } finally { mandandoCompras = false }
-}
 // Fora do app, a escuta do PC para (a não ser no meio de uma conversa por voz)
 void App.addListener('pause', () => { if (!voz.ativo) pararEscuta() })
 
@@ -973,7 +955,6 @@ if (nativo()) void Celular.abertura().then((a) => { if (a.assistente) void chama
 // A memória do celular e a do PC se juntam toda vez que o app abre (e ele pega o endereço de casa)
 void sincronizarMemoria()
 void sincronizarCasa()
-void mandarCompras()
 // Central do quarto: se ela devia estar ligada e não está (o Android fechou), religa
 if (nativo()) {
   void lerCentral().then(async (c) => {

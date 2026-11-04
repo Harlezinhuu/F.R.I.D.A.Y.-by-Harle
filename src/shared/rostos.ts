@@ -56,8 +56,7 @@ export const SO_DONO = new Set([
   'tarefa_programacao', 'cancelar_tarefa', 'status_tarefas', 'listar_projetos',
   'criar_rotina', 'apagar_rotina', 'parear_celular', 'mandar_para_celular',
   'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta', 'ligar_de_fora', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro', 'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'explicar_codigo', 'anotar_bug', 'rede_de_casa', 'mesa', 'designs', 'ver_janela', 'clicar_janela', 'digitar_janela', 'tecla_janela', 'rolar_janela',
-  'raio_x', 'bem_estar', 'vigiar_assunto', 'achar_celular', 'sentinela', 'protocolo',
-  'cliente', 'fechar_negocio', 'pendencias', 'raio_x_loja', 'ver_raio_x', 'previa_site', 'documento_cliente', 'tabela_precos', 'prospectar', 'financas', 'planilha'
+  'raio_x', 'bem_estar', 'vigiar_assunto', 'achar_celular', 'sentinela', 'protocolo'
 ])
 
 export function podeUsar(ferramenta: string, papel: Papel | null): boolean {

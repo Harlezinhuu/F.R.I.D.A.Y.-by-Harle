@@ -278,7 +278,7 @@ export class Mesa {
   private atualizarContador(): void {
     if (this.contador) { this.raiz.remove(this.contador); this.contador.geometry.dispose(); ((this.contador.material as THREE.MeshBasicMaterial).map)?.dispose() }
     if (!this.cartoes.length) { this.contador = null; return }
-    const tipo = { projeto: 'PROJETO', design: 'DESIGN', relatorio: 'RELATÓRIO', cliente: 'CLIENTE' }[this.atual!.tipo]
+    const tipo = { projeto: 'PROJETO', design: 'DESIGN', relatorio: 'RELATÓRIO' }[this.atual!.tipo]
     this.contador = textoPlano([`${String(this.indice + 1).padStart(2, '0')} / ${String(this.cartoes.length).padStart(2, '0')}  ·  ${tipo}`], { tamanho: 30, cor: '#9FE9FF', fonte: 'JetBrains Mono', espacamento: 4 }, 2.6)
     this.contador.position.set(0, 0.006, 1.32)
     this.contador.visible = this.modo === 'cartoes'

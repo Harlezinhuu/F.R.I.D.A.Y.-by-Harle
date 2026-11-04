@@ -13,8 +13,6 @@ import { pesquisas } from './pesquisa'
 import { ultimasFalhas } from './programacao'
 import { EXTENSOES_CODIGO, PASTAS_FORA, lerGitStatus, montarPredio } from './logica/predio'
 import type { CartaoMesa, Predio } from '../shared/mesa'
-import { lerClientes, pendencias } from './negocio'
-import { ETAPAS, nomeDaEtapa } from './logica/negocio'
 
 const MAX_ARQUIVOS = 3000
 const MAX_BYTES_LINHAS = 512 * 1024
@@ -50,26 +48,6 @@ export function cartoesDaMesa(): CartaoMesa[] {
       ficha: [d.apelidos.length ? `Também: ${d.apelidos.slice(0, 3).join(', ')}` : '', `Importado ${quando(Date.parse(d.importadoEm) || Date.now())}`, 'Toque duplo: projeta na mesa'].filter(Boolean)
     })
   }
-  // A pasta Clientes: um cartão por cliente ativo, com a cor da etapa
-  try {
-    const abertas = pendencias().filter((p) => p.estado === 'aguardando')
-    for (const c of lerClientes().filter((x) => x.etapa !== 'arquivado')) {
-      const esperando = abertas.filter((p) => p.cliente === c.id).length
-      cartoes.push({
-        id: `cliente:${c.id}`,
-        tipo: 'cliente',
-        titulo: c.nome,
-        sub: [nomeDaEtapa(c.etapa), c.valor ? `R$ ${c.valor.toLocaleString('pt-BR')}` : '', c.mensalidade ? `+ R$ ${c.mensalidade}/mês` : ''].filter(Boolean).join(' · '),
-        cor: ETAPAS.find((e) => e.id === c.etapa)?.cor,
-        ficha: [
-          c.prazo ? `Entrega: ${new Date(c.prazo).toLocaleDateString('pt-BR')}` : c.segmento || '',
-          esperando ? `Esperando você: ${esperando}` : '',
-          c.historico[c.historico.length - 1]?.texto.slice(0, 60) ?? '',
-          'Toque duplo: abre a pasta'
-        ].filter(Boolean)
-      })
-    }
-  } catch { /* sem clientes */ }
   try {
     for (const r of pesquisas().filter((x) => x.estado === 'pronta').slice(-8).reverse()) {
       cartoes.push({ id: `relatorio:${r.id}`, tipo: 'relatorio', titulo: (r.titulo || r.tema).slice(0, 60), sub: 'Pesquisa profunda', ficha: [quando(r.criadaEm), r.foco ? `Foco: ${r.foco.slice(0, 60)}` : '', 'Toque duplo: abre o relatório'].filter(Boolean) })

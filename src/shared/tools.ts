@@ -5,14 +5,13 @@
 type Simples = { type: 'STRING' | 'NUMBER' | 'BOOLEAN'; description: string; enum?: string[] }
 type Lista = { type: 'ARRAY'; description: string; items: { type: 'OBJECT'; properties: Record<string, Simples>; required?: string[] } }
 type ListaSimples = { type: 'ARRAY'; description: string; items: Simples }
-type Tabela = { type: 'ARRAY'; description: string; items: { type: 'ARRAY'; description: string; items: Simples } }
 
 export interface ToolDeclaration {
   name: string
   description: string
   parameters?: {
     type: 'OBJECT'
-    properties: Record<string, Simples | Lista | ListaSimples | Tabela>
+    properties: Record<string, Simples | Lista | ListaSimples>
     required?: string[]
   }
 }
@@ -27,8 +26,7 @@ export const TOOLS_REMOTAS = [
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
   'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro',
   'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa', 'mesa',
-  'ameacas', 'raio_x', 'cotacao', 'vigiar_assunto', 'sentinela', 'protocolo', 'bem_estar',
-  'cliente', 'fechar_negocio', 'pendencias', 'raio_x_loja', 'ver_raio_x', 'previa_site', 'documento_cliente', 'tabela_precos', 'prospectar', 'financas', 'planilha'
+  'ameacas', 'raio_x', 'cotacao', 'vigiar_assunto', 'sentinela', 'protocolo', 'bem_estar'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -472,13 +470,13 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   {
     name: 'mesa',
     description:
-      'Mesa holográfica no HUD: um arquivo de cartões com os projetos, designs, relatórios e clientes dele (a pasta Clientes: um cartão por loja, com a cor da etapa; abrir o cartão abre a pasta e conta como ele está). abrir ("abre a mesa", "mostra meus projetos na mesa"); proximo e anterior passam os cartões; abrir_cartao abre o da frente ou o que ele disser em qual (projeto vira prédio: pastas são andares, arquivos são salas, vermelho é teste falhando; design vira holograma; relatório abre no PC): "mostra o prédio do Harle Bot", "coloca a turbina na mesa"; explodir e juntar abrem e fecham as peças ou os andares; voltar volta para os cartões; fechar fecha a mesa.',
+      'Mesa holográfica no HUD: um arquivo de cartões com os projetos, designs e relatórios dele. abrir ("abre a mesa", "mostra meus projetos na mesa"); proximo e anterior passam os cartões; abrir_cartao abre o da frente ou o que ele disser em qual (projeto vira prédio: pastas são andares, arquivos são salas, vermelho é teste falhando; design vira holograma; relatório abre no PC): "mostra o prédio do Harle Bot", "coloca a turbina na mesa"; explodir e juntar abrem e fecham as peças ou os andares; voltar volta para os cartões; fechar fecha a mesa.',
     parameters: {
       type: 'OBJECT',
       properties: {
         acao: { type: 'STRING', description: 'O que fazer.', enum: ['abrir', 'proximo', 'anterior', 'abrir_cartao', 'voltar', 'explodir', 'juntar', 'fechar'] },
         qual: { type: 'STRING', description: 'Nome do projeto, design ou relatório (opcional; vazio = o cartão da frente).' },
-        tipo: { type: 'STRING', description: 'Só um tipo de cartão (opcional).', enum: ['tudo', 'projetos', 'designs', 'relatorios', 'clientes'] }
+        tipo: { type: 'STRING', description: 'Só um tipo de cartão (opcional).', enum: ['tudo', 'projetos', 'designs', 'relatorios'] }
       },
       required: ['acao']
     }
@@ -697,134 +695,6 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   { name: 'fechar_visao_deus', description: 'Fecha a Visão de Deus e desliga o servidor dela.' },
   {
-    name: 'cliente',
-    description:
-      'Clientes do negócio de sites para lojas (cada um com uma pasta em Documentos/FRIDAY/Clientes): criar ("anota a padaria do João como cliente, WhatsApp 11 9..."), ver, listar ("como estão os clientes?"), atualizar dados, mudar a etapa, material_recebido, pagamento_recebido (só quando ELE disser que o dinheiro caiu), nota_emitida, abrir_pasta e arquivar.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        acao: { type: 'STRING', description: 'Padrão: ver.', enum: ['criar', 'ver', 'listar', 'atualizar', 'etapa', 'material_recebido', 'pagamento_recebido', 'nota_emitida', 'abrir_pasta', 'arquivar'] },
-        nome: { type: 'STRING', description: 'Nome da loja.' },
-        etapa: { type: 'STRING', description: 'Para acao=etapa.', enum: ['prospectado', 'raio_x', 'previa', 'proposta', 'fechado', 'construcao', 'entregue', 'manutencao', 'arquivado'] },
-        responsavel: { type: 'STRING', description: 'Nome do dono ou de quem cuida.' },
-        whatsapp: { type: 'STRING', description: 'WhatsApp da loja.' },
-        telefone: { type: 'STRING', description: 'Telefone.' },
-        instagram: { type: 'STRING', description: 'Instagram (@...).' },
-        email: { type: 'STRING', description: 'E-mail.' },
-        endereco: { type: 'STRING', description: 'Endereço.' },
-        cidade: { type: 'STRING', description: 'Cidade.' },
-        documento: { type: 'STRING', description: 'CNPJ ou CPF da loja (para o contrato).' },
-        segmento: { type: 'STRING', description: 'Ramo: padaria, pet shop...' },
-        site: { type: 'STRING', description: 'Site atual ou o publicado.' },
-        observacoes: { type: 'STRING', description: 'Algo a anotar.' },
-        valor: { type: 'NUMBER', description: 'Para pagamento_recebido: o valor que caiu.' }
-      },
-      required: ['acao']
-    }
-  },
-  {
-    name: 'fechar_negocio',
-    description:
-      'Fecha preço e prazo com um cliente. Ela pode fechar sozinha dentro da tabela (até 10% de desconto); abaixo do mínimo precisa de confirmação. Calcula o prazo pela capacidade dele, gera o contrato e deixa esperando o "pode" dele para assinar e cobrar a entrada (dinheiro e assinatura nunca andam sozinhos).',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        cliente: { type: 'STRING', description: 'Nome da loja.' },
-        pacote: { type: 'STRING', description: 'vitrine, site ou loja.', enum: ['vitrine', 'site', 'loja'] },
-        valor: { type: 'NUMBER', description: 'Valor combinado (padrão: o da tabela).' },
-        mensalidade: { type: 'NUMBER', description: 'Manutenção mensal combinada (0 = sem).' },
-        confirmado: { type: 'BOOLEAN', description: 'true só se ele confirmou um valor abaixo do mínimo.' }
-      },
-      required: ['cliente']
-    }
-  },
-  {
-    name: 'pendencias',
-    description: 'O que está esperando o "pode" dele (cobranças, assinaturas, mensagens para lojas novas) e o diário do que ela fez sozinha. "O que está esperando por mim?", "pode mandar a cobrança da padaria", "não manda esse", "o que você fez hoje?".',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        acao: { type: 'STRING', description: 'Padrão: listar.', enum: ['listar', 'aprovar', 'recusar', 'diario'] },
-        alvo: { type: 'STRING', description: 'Qual: número da lista ("a 2") ou palavras dela ("cobrança da padaria").' }
-      }
-    }
-  },
-  {
-    name: 'raio_x_loja',
-    description: 'Raio-X de uma loja antes de oferecer o site: pesquisa o que é público (Instagram, avaliações do Google, site atual, concorrentes) e usa as fotos e o logo que ele colocou na pasta do cliente. Entrega identidade, produtos, elogios e reclamações, pacote recomendado, estrutura do site, efeito-assinatura e perguntas para o dono. Leva uns 30 a 60 segundos e ela avisa.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        cliente: { type: 'STRING', description: 'Nome da loja (cria o cliente se ainda não existir).' },
-        instagram: { type: 'STRING', description: 'Instagram da loja, se ele souber.' },
-        cidade: { type: 'STRING', description: 'Cidade da loja.' }
-      },
-      required: ['cliente']
-    }
-  },
-  { name: 'ver_raio_x', description: 'Conta o raio-X já feito de uma loja.', parameters: { type: 'OBJECT', properties: { cliente: { type: 'STRING', description: 'Nome da loja.' } }, required: ['cliente'] } },
-  {
-    name: 'previa_site',
-    description: 'Prévia do site de uma loja: criar (o Claude Code monta o rascunho em segundo plano, seguindo o raio-X e a base de design) ou ver (abre a prévia pronta no navegador).',
-    parameters: { type: 'OBJECT', properties: { cliente: { type: 'STRING', description: 'Nome da loja.' }, acao: { type: 'STRING', description: 'Padrão: criar.', enum: ['criar', 'ver'] } }, required: ['cliente'] }
-  },
-  {
-    name: 'documento_cliente',
-    description: 'Gera a proposta ou o contrato da loja em PDF (na pasta do cliente) e abre.',
-    parameters: { type: 'OBJECT', properties: { cliente: { type: 'STRING', description: 'Nome da loja.' }, tipo: { type: 'STRING', description: 'Qual documento.', enum: ['proposta', 'contrato'] } }, required: ['cliente', 'tipo'] }
-  },
-  { name: 'tabela_precos', description: 'Diz a tabela de preços dos sites e as regras de fechamento.' },
-  {
-    name: 'financas',
-    description:
-      'Finanças dele: anotar gasto ou entrada ("gastei 45 na padaria", "recebi 300 do freela"), resumo do mês ("quanto gastei esse mês?"), últimos lançamentos, limite por categoria ("limite de 600 para comida"; ela avisa em 80% e 100%) e apagar um lançamento (precisa confirmar). Os pagamentos dos clientes entram sozinhos. Ela só anota; nunca paga nem mexe no banco.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        acao: { type: 'STRING', description: 'Padrão: resumo.', enum: ['gasto', 'entrada', 'resumo', 'listar', 'orcamento', 'apagar'] },
-        valor: { type: 'NUMBER', description: 'Valor em reais (para gasto, entrada e limite; limite 0 tira).' },
-        descricao: { type: 'STRING', description: 'Onde ou com o quê ("padaria", "Uber", "freela do site").' },
-        categoria: { type: 'STRING', description: 'Opcional: mercado, comida, transporte, casa, saúde, assinaturas, trabalho, educação, lazer, compras, outros. Vazio = ela descobre.' },
-        data: { type: 'STRING', description: 'AAAA-MM-DD (padrão hoje).' },
-        mes: { type: 'STRING', description: 'AAAA-MM para resumo/listar (padrão o mês atual).' },
-        alvo: { type: 'STRING', description: 'Para apagar: "o último", "o do ifood", "o de 45".' },
-        confirmado: { type: 'BOOLEAN', description: 'Para apagar, depois que ele confirmar.' }
-      }
-    }
-  },
-  {
-    name: 'planilha',
-    description:
-      'Cria uma planilha do Excel (.xlsx) e abre: "gastos" (do mês, com resumo por categoria em fórmulas), "clientes", "precos" (tabela de preços dos sites) ou "livre" (qualquer uma que ele pedir: você monta as colunas e as linhas; números, datas AAAA-MM-DD e fórmulas como "=SOMA(B2:B9)" são reconhecidos). Salva em Documentos > FRIDAY > Planilhas.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        tipo: { type: 'STRING', description: 'Qual planilha (padrão livre).', enum: ['gastos', 'clientes', 'precos', 'livre'] },
-        titulo: { type: 'STRING', description: 'Nome da planilha (vira o nome do arquivo).' },
-        mes: { type: 'STRING', description: 'Para gastos: AAAA-MM (padrão o mês atual).' },
-        colunas: { type: 'ARRAY', items: { type: 'STRING', description: 'Título da coluna.' }, description: 'Para livre: os títulos das colunas.' },
-        linhas: { type: 'ARRAY', items: { type: 'ARRAY', description: 'Uma linha.', items: { type: 'STRING', description: 'O valor de uma coluna.' } }, description: 'Para livre: as linhas, cada uma com um valor por coluna (em texto).' },
-        total: { type: 'BOOLEAN', description: 'Para livre: põe uma linha de total somando as colunas de número.' },
-        abrir: { type: 'BOOLEAN', description: 'Abrir depois de criar (padrão true).' }
-      }
-    }
-  },
-  {
-    name: 'prospectar',
-    description: 'Acha lojas perto dele que ainda não têm site, pelo mapa aberto (OpenStreetMap), das mais fáceis de contatar para as menos ("acha padarias sem site aqui perto"). Depois: adicionar uma da lista (vira cliente; a primeira mensagem fica esperando o "pode" dele) ou descartar.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        acao: { type: 'STRING', description: 'Padrão: lista.', enum: ['lista', 'adicionar', 'descartar'] },
-        ramo: { type: 'STRING', description: 'Tipo de loja (padaria, pet shop, roupa, salão, açaí...). Vazio = todas.' },
-        raio_km: { type: 'NUMBER', description: 'Raio em km (padrão 3, até 15).' },
-        lugar: { type: 'STRING', description: 'Bairro ou cidade (padrão: onde ele está).' },
-        alvo: { type: 'STRING', description: 'Para adicionar/descartar: o número na lista ou o nome.' },
-        mensagem: { type: 'BOOLEAN', description: 'Para adicionar: preparar a primeira mensagem (padrão true).' }
-      }
-    }
-  },
-  {
     name: 'protocolo',
     description:
       'Ativa um protocolo ("ativa o protocolo X", "protocolo de saída"). Prontos: bloqueio (corta o som e tranca o PC), saida (bloqueio + modo sentinela, para quando ele sai de casa) e chegada (desliga a sentinela, dá as boas-vindas e roda a rotina "chegada" dele). Qualquer outro nome roda a rotina salva com esse nome.',
@@ -933,7 +803,6 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',
-    'Negócio de sites para lojas: cliente (fichas e etapas), raio_x_loja (antes de oferecer), previa_site, documento_cliente (proposta e contrato), fechar_negocio (preço dentro da tabela ela fecha sozinha), pendencias e prospectar (lojas sem site perto dele). Finanças dele: financas (anotar gasto/entrada, resumo do mês, limites) e planilha (gera .xlsx de gastos, clientes, preços ou qualquer uma). Pagar, cobrar, assinar e mandar mensagem para loja que ainda não é cliente: só com o "pode" dele. Nunca diga que um pagamento caiu sem ele dizer.',
     'Ativar um protocolo ("ativa o protocolo de saída", "protocolo bloqueio") usa protocolo. Ao sair de casa, ofereça o protocolo de saída (tranca o PC e liga a sentinela).',
     'Quando ele chegar em casa, ela já dá as boas-vindas sozinha se souber qual é o celular dele (rede_de_casa com acao=meu_celular).',
     'Perguntas sobre por que o PC está lento, temperatura, disco, bateria ou segurança do PC usam raio_x. Você só lê: diga o que fazer, não faça nada sozinha.',
