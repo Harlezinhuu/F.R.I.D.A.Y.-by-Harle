@@ -12,7 +12,9 @@ export interface FridayApi {
   aoLembrete(cb: (l: Lembrete, atrasado: boolean) => void): void
   aoTarefa(cb: (t: TarefaResumo) => void): void
   /** Aviso que chega depois que uma ação em segundo plano termina */
-  aoAviso(cb: (texto: string, ok: boolean) => void): void
+  aoAviso(cb: (texto: string, ok: boolean, titulo?: string) => void): void
+  /** O seu celular voltou para o Wi-Fi de casa: você chegou */
+  aoChegada(cb: (aparelho: string) => void): void
   /** Fala uma frase pelo Fish Audio; resolve quando todo o áudio foi recebido */
   fishFalar(id: number, texto: string): Promise<{ ok: boolean; erro?: string }>
   fishCancelar(): void

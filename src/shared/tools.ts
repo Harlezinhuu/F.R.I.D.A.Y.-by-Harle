@@ -17,7 +17,7 @@ export interface ToolDeclaration {
 }
 
 /** Ferramentas resolvidas no próprio HUD, sem passar pelo processo principal. */
-export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular', 'cadastrar_rosto', 'rostos', 'mesa'] as const
+export const TOOLS_DO_HUD = ['mostrar_painel', 'minimizar', 'projetar', 'controlar_projecao', 'gestos', 'encerrar_conversa', 'modo_foco', 'encerrar_foco', 'diagnostico', 'executar_rotina', 'mostrar_cena', 'explicar', 'mandar_para_celular', 'cadastrar_rosto', 'rostos', 'mesa', 'sentinela', 'protocolo'] as const
 
 /** Ferramentas do PC que o celular pareado pode pedir pelo elo (o resto fica só no PC). */
 export const TOOLS_REMOTAS = [
@@ -25,7 +25,8 @@ export const TOOLS_REMOTAS = [
   'listar_arquivos', 'abrir_arquivo', 'listar_rotinas', 'executar_rotina', 'projetar', 'controlar_projecao', 'visao_deus', 'fechar_visao_deus',
   'tarefa_programacao', 'status_tarefas', 'energia_pc', 'modo_foco', 'minimizar', 'mostrar_painel',
   'responder_consulta', 'andamento_consulta', 'buscar_nos_meus_arquivos', 'abrir_achado', 'segundo_cerebro',
-  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa', 'mesa'
+  'pesquisa_profunda', 'pesquisas', 'rodar_testes', 'revisar_codigo', 'anotar_bug', 'rede_de_casa', 'mesa',
+  'ameacas', 'raio_x', 'cotacao', 'vigiar_assunto', 'sentinela', 'protocolo', 'bem_estar'
 ]
 
 const CAMINHO = 'Caminho começando pela pasta pessoal: "downloads/arquivo.pdf", "área de trabalho/projetos", "documentos", "imagens", "músicas" ou "vídeos".'
@@ -143,7 +144,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   {
     name: 'criar_rotina',
     description:
-      'Cria ou atualiza uma rotina com nome ("modo trabalho": abre o Chrome, abre o Spotify, diz bom trabalho). Passos permitidos: abrir_app, fechar_app, volume, midia, pesquisar_web, abrir_site, status_sistema, clima, capturar_tela, modo_foco, mostrar_painel, dizer {texto}, esperar {segundos até 60}. Se tiver fechar_app, peça confirmação e chame de novo com confirmado=true.',
+      'Cria ou atualiza uma rotina com nome ("modo trabalho": abre o Chrome, abre o Spotify, diz bom trabalho). Passos permitidos: abrir_app, fechar_app, volume, midia, pesquisar_web, abrir_site, status_sistema, clima, capturar_tela, modo_foco, mostrar_painel, ameacas, cotacao {moedas}, raio_x, buscar_na_internet {pergunta}, bem_estar, dizer {texto}, esperar {segundos até 60}. Uma rotina chamada "chegada" roda sozinha quando ele chega em casa. Se tiver fechar_app, peça confirmação e chame de novo com confirmado=true.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -167,7 +168,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'executar_rotina',
-    description: 'Executa uma rotina salva. Use quando o usuário disser o nome de uma rotina ("modo trabalho").',
+    description: 'Executa uma rotina salva. Use quando o usuário disser o nome de uma rotina ("modo trabalho"). Para "ativa o protocolo X", use protocolo.',
     parameters: { type: 'OBJECT', properties: { nome: { type: 'STRING', description: 'Nome da rotina.' } }, required: ['nome'] }
   },
   { name: 'listar_rotinas', description: 'Lista as rotinas salvas.' },
@@ -460,7 +461,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     parameters: {
       type: 'OBJECT',
       properties: {
-        acao: { type: 'STRING', description: 'O que fazer. Padrão: listar.', enum: ['listar', 'varrer', 'apelidar', 'esquecer', 'uso'] },
+        acao: { type: 'STRING', description: 'O que fazer. Padrão: listar. meu_celular = marcar qual é o celular dele (para as boas-vindas quando ele chegar em casa).', enum: ['listar', 'varrer', 'apelidar', 'esquecer', 'uso', 'meu_celular'] },
         alvo: { type: 'STRING', description: 'Qual aparelho: IP, final do IP ("37"), nome ou fabricante.' },
         apelido: { type: 'STRING', description: 'O nome que ele quer dar ao aparelho.' }
       }
@@ -693,6 +694,61 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     }
   },
   { name: 'fechar_visao_deus', description: 'Fecha a Visão de Deus e desliga o servidor dela.' },
+  {
+    name: 'protocolo',
+    description:
+      'Ativa um protocolo ("ativa o protocolo X", "protocolo de saída"). Prontos: bloqueio (corta o som e tranca o PC), saida (bloqueio + modo sentinela, para quando ele sai de casa) e chegada (desliga a sentinela, dá as boas-vindas e roda a rotina "chegada" dele). Qualquer outro nome roda a rotina salva com esse nome.',
+    parameters: { type: 'OBJECT', properties: { nome: { type: 'STRING', description: 'Nome do protocolo, como ele falou ("bloqueio", "saída", "chegada", "festa").' } }, required: ['nome'] }
+  },
+  {
+    name: 'sentinela',
+    description: 'Modo sentinela: vigia pela webcam enquanto ele está fora. Se alguém aparecer, tira uma foto (fica só no PC, em Imagens/FRIDAY/Sentinela) e avisa no celular. Se reconhecer o rosto dele, desliga sozinha. "liga a sentinela", "vigia o quarto", "desliga a sentinela".',
+    parameters: { type: 'OBJECT', properties: { ligar: { type: 'BOOLEAN', description: 'true liga, false desliga.' } }, required: ['ligar'] }
+  },
+  {
+    name: 'achar_celular',
+    description: 'Faz o celular pareado tocar alto (mesmo no silencioso), vibrar e piscar a lanterna, para achar ("cadê meu celular?", "toca meu celular"). Funciona com o app fechado e até fora de casa.'
+  },
+  {
+    name: 'ameacas',
+    description:
+      'Vigia de ameaças com dados reais: asteroides passando perto da Terra (NASA), tempestade solar (NOAA), terremotos perto dele (USGS) e tempo severo na cidade dele. "alguma ameaça hoje?", "tem asteroide passando perto?", "o sol está calmo?". Também liga ou desliga os avisos automáticos.',
+    parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'Padrão: olhar.', enum: ['olhar', 'ligar', 'desligar'] } } }
+  },
+  {
+    name: 'raio_x',
+    description:
+      'Raio-X do PC (só leitura, não muda nada): o que está deixando lento, memória, processos pesados, espaço e saúde dos discos, temperaturas, bateria, há quanto tempo não reinicia, programas que abrem com o Windows, e a segurança (antivírus, firewall, atualizações). "por que o PC está lento?", "faz um check-up", "meu PC está seguro?".',
+    parameters: { type: 'OBJECT', properties: { foco: { type: 'STRING', description: 'O que olhar. Padrão: geral.', enum: ['geral', 'lento', 'seguranca'] } } }
+  },
+  {
+    name: 'bem_estar',
+    description: 'Bem-estar: quanto tempo ele ficou no PC hoje e sem pausa ("quanto tempo eu fiquei no PC?"), ou liga/desliga os lembretes de pausa e de hora de dormir.',
+    parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'Padrão: estado.', enum: ['estado', 'ligar', 'desligar'] } } }
+  },
+  {
+    name: 'vigiar_assunto',
+    description: 'Vigia um assunto na internet e avisa quando sair notícia nova ("me avisa se sair notícia do GTA 6", "fica de olho no preço da RTX 5070"). Também lista ou para de vigiar.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'Padrão: vigiar.', enum: ['vigiar', 'listar', 'parar'] },
+        tema: { type: 'STRING', description: 'O assunto, como ele falou.' }
+      }
+    }
+  },
+  {
+    name: 'cotacao',
+    description: 'Cotação de moedas e cripto em reais agora (dólar, euro, libra, iene, peso, bitcoin, ethereum...) ou conversão ("quanto é 50 dólares em reais?").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        moedas: { type: 'ARRAY', description: 'Moedas pelo nome ("dólar", "euro", "bitcoin"). Para converter, só a moeda de origem.', items: { type: 'STRING', description: 'Moeda.' } },
+        valor: { type: 'NUMBER', description: 'Só para converter: o valor na moeda de origem.' },
+        para: { type: 'STRING', description: 'Só para converter: moeda de destino. Padrão: real.' }
+      }
+    }
+  },
   { name: 'diagnostico', description: 'Confere como a FRIDAY está: cérebro, voz, microfone, palavra de ativação, internet, controle do Windows ("como você está?", "status", "diagnóstico").' },
   {
     name: 'mostrar_painel',
@@ -747,6 +803,11 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Pedidos de "pesquisa a fundo", "pesquisa completa" ou "me entrega um relatório" usam pesquisa_profunda (leva alguns minutos e ela avisa quando terminar); perguntas rápidas continuam em buscar_na_internet.',
     'Com o celular pareado, ele pode ligar o PC pelo celular, até de fora de casa; para deixar isso pronto, use ligar_de_fora.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano. Se o começo da conversa trouxer uma pergunta da consulta, ou chegar um aviso da consulta, pergunte a ele e passe a resposta em responder_consulta.',
+    'Ativar um protocolo ("ativa o protocolo de saída", "protocolo bloqueio") usa protocolo. Ao sair de casa, ofereça o protocolo de saída (tranca o PC e liga a sentinela).',
+    'Quando ele chegar em casa, ela já dá as boas-vindas sozinha se souber qual é o celular dele (rede_de_casa com acao=meu_celular).',
+    'Perguntas sobre por que o PC está lento, temperatura, disco, bateria ou segurança do PC usam raio_x. Você só lê: diga o que fazer, não faça nada sozinha.',
+    'Cotações e conversões de moeda usam cotacao (mais rápido e exato que buscar_na_internet).',
+    'Os avisos de pausa e de hora de dormir são cuidado, não sermão: se ele disser que está bem, aceite.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])

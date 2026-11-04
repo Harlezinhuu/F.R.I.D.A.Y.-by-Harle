@@ -28,6 +28,11 @@ export async function previsao(lugar: string | undefined, cidadePadrao: string, 
   return { texto: resumir(p, dia), cartao: cartaoClima(p), previsao: p }
 }
 
+/** Onde você está: a cidade do .env (FRIDAY_CIDADE) ou, sem ela, a localização aproximada pelo IP. */
+export async function meuLocal(cidadePadrao: string): Promise<Local> {
+  return cidadePadrao ? await acharLocal(cidadePadrao, buscar) : await localPorIp()
+}
+
 /** Compatível com o uso antigo (saudação): só o cartão de hoje. */
 export async function buscarClima(cidade: string | undefined, cidadePadrao: string): Promise<Clima> {
   return (await previsao(cidade, cidadePadrao, 1)).cartao

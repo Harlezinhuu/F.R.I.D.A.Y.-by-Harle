@@ -65,6 +65,17 @@ final class Porteiro {
     }
 
     /**
+     * Tópico dos recados do PC para o celular ("cadê meu celular", alerta do modo sentinela).
+     * Separado do porteiro, para a central não tocar a sirene no lugar do seu celular.
+     */
+    static String topicoCelular(String segredo) throws Exception {
+        byte[] h = MessageDigest.getInstance("SHA-256").digest(("friday-celular|" + segredo).getBytes(StandardCharsets.UTF_8));
+        StringBuilder s = new StringBuilder("friday-c");
+        for (int i = 0; i < 16; i++) s.append(String.format("%02x", h[i] & 0xff));
+        return s.toString();
+    }
+
+    /**
      * Primeira vez que este recado aparece? Só o pedido "acordar" (que faz algo) passa por aqui:
      * o mesmo recado copiado e mandado de novo não liga o PC duas vezes.
      */

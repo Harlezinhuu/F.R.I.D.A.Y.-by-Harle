@@ -20,6 +20,7 @@ import { Maos } from './gestos/maos'
 import type { Comando } from './gestos/gestos'
 import type { CartaoMesa, Predio } from '../../shared/mesa'
 import { Rostos } from './rostos/rostos'
+import { Sentinela } from './sentinela'
 import { filtrarAmostras, podeUsar, quemEsta, reconhecer, type Cadastro, type Papel, type Reconhecimento } from '../../shared/rostos'
 
 const LIMIAR_FALA = 0.02 // nível RMS a partir do qual consideramos que alguém está falando
@@ -121,6 +122,110 @@ async function iniciar(): Promise<void> {
       console.warn('[rostos] não deu para olhar:', (e as Error).message)
       return null
     }
+  }
+
+  // ---------- Modo sentinela ----------
+
+  let alertasDaSentinela = 0
+  /** Alguém apareceu na frente da câmera com a sentinela ligada. */
+  async function alguemNaFrente(foto: HTMLCanvasElement): Promise<'continuar' | 'parar'> {
+    let quem = ''
+    if (rostos && cadastroRostos.pessoas.length) {
+      try {
+        const a = await rostos.analisar(foto)
+        const r = a ? reconhecer(a.descritor, cadastroRostos.pessoas, cfg.rostos?.limiar) : null
+        if (r && Math.max(a!.real, a!.vivo) >= 0.3) {
+          if (r.pessoa.papel === 'dono') {
+            const vistos = alertasDaSentinela
+            alertasDaSentinela = 0
+            hud.cartao({ tipo: 'aviso', titulo: 'SENTINELA DESLIGADA', texto: `Bem-vindo de volta, ${r.pessoa.nome}.` }, 10000)
+            sons.feito()
+            void avisar(`Bem-vindo de volta, ${r.pessoa.nome}. Desliguei a sentinela.${vistos ? ` Enquanto você estava fora, apareceu alguém ${vistos === 1 ? 'uma vez' : `${vistos} vezes`}; as fotos estão em Imagens, FRIDAY, Sentinela.` : ' Ninguém apareceu por aqui.'}`)
+            return 'parar'
+          }
+          quem = r.pessoa.nome
+        }
+      } catch (e) {
+        console.warn('[sentinela] reconhecimento', (e as Error).message)
+      }
+    }
+    alertasDaSentinela++
+    sons.alerta()
+    const r = await window.friday.ferramenta('sentinela_alerta', { foto: foto.toDataURL('image/jpeg', 0.75), quem })
+    hud.cartao({ tipo: 'aviso', titulo: 'SENTINELA', texto: r.mensagem }, 15000)
+    return 'continuar'
+  }
+  const sentinela = new Sentinela(alguemNaFrente)
+
+  async function usarSentinela(ligar: boolean): Promise<Record<string, unknown>> {
+    if (!ligar) {
+      const estava = sentinela.ativa
+      sentinela.desligar()
+      const n = alertasDaSentinela
+      alertasDaSentinela = 0
+      return { ok: true, resultado: estava ? `Sentinela desligada.${n ? ` Apareceu alguém ${n} ${n === 1 ? 'vez' : 'vezes'}; as fotos estão em Imagens/FRIDAY/Sentinela.` : ' Ninguém apareceu.'}` : 'A sentinela não estava ligada.' }
+    }
+    try {
+      await sentinela.ligar()
+    } catch (e) {
+      return { ok: false, resultado: `Não consegui abrir a webcam: ${(e as Error).message}` }
+    }
+    hud.cartao({ tipo: 'aviso', titulo: 'MODO SENTINELA', texto: 'Vigiando pela webcam. A imagem fica só no PC.' }, 10000)
+    const reconhece = !!(rostos && cadastroRostos.pessoas.length)
+    return { ok: true, resultado: `Modo sentinela ligado: em 20 segundos começo a vigiar pela webcam. Se alguém aparecer, tiro uma foto (fica só no PC) e aviso no celular.${reconhece ? ' Se for ele, eu reconheço o rosto e desligo sozinha.' : ' Como não tenho o rosto dele cadastrado, quando ele voltar é só dizer "desliga a sentinela".'}` }
+  }
+
+  /** Protocolos: bloqueio (tranca e silencia), saída (bloqueio + sentinela), chegada; outro nome roda a rotina. */
+  async function usarProtocolo(nome: string): Promise<Record<string, unknown>> {
+    const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    const trancar = async (): Promise<string[]> => {
+      const feitos: string[] = []
+      const v = await window.friday.ferramenta('volume', { acao: 'mudo' })
+      if (v.ok) feitos.push('som cortado')
+      // Tranca depois de ela terminar de falar
+      window.setTimeout(() => void window.friday.ferramenta('energia_pc', { acao: 'bloquear' }), 6000)
+      feitos.push('PC trancando em 6 segundos')
+      return feitos
+    }
+    if (/^(bloqueio|trancar|lockdown|celeiro|barn)/.test(n)) {
+      const f = await trancar()
+      hud.cartao({ tipo: 'aviso', titulo: 'PROTOCOLO DE BLOQUEIO', texto: f.join(' · ') }, 8000)
+      return { ok: true, resultado: `Protocolo de bloqueio: ${f.join(', ')}. Confirme em uma frase curta.` }
+    }
+    if (/^(saida|sair|ausencia|fora)/.test(n)) {
+      const s = await usarSentinela(true)
+      const f = await trancar()
+      hud.cartao({ tipo: 'aviso', titulo: 'PROTOCOLO DE SAÍDA', texto: ['sentinela ligada', ...f].join(' · ') }, 8000)
+      return { ok: s.ok === true, resultado: `Protocolo de saída: ${s.ok ? 'sentinela ligada' : String(s.resultado)}, ${f.join(', ')}. Despeça-se em uma frase.` }
+    }
+    if (/^(chegada|voltei|cheguei)/.test(n)) return await chegou('', true)
+    return await executarRotina(nome)
+  }
+
+  /** Você chegou (o celular voltou para o Wi-Fi, ou pediu o protocolo de chegada). */
+  async function chegou(aparelho: string, pedido = false): Promise<Record<string, unknown>> {
+    const partes: string[] = []
+    if (sentinela.ativa) {
+      const r = await usarSentinela(false)
+      partes.push(String(r.resultado))
+    }
+    // Protocolo de chegada: a rotina "chegada" dele, se existir
+    const rotina = await window.friday.ferramenta('obter_rotina', { nome: 'chegada' })
+    let dizer = ''
+    if (rotina.ok && /chegada/i.test(String(rotina.mensagem))) {
+      const r = await executarRotina(String(rotina.mensagem))
+      partes.push(String(r.resultado))
+      dizer = String(r.dizer ?? '')
+    }
+    const nome = cfg.nome ? `, ${cfg.nome}` : ''
+    const texto = `Bem-vindo de volta${nome}.${dizer ? ` ${dizer}` : ''}${partes.length ? ` ${partes.join(' ')}` : ''}`
+    if (!pedido) {
+      console.log(`[chegada] ${aparelho} voltou para o Wi-Fi`)
+      hud.cartao({ tipo: 'aviso', titulo: 'BEM-VINDO DE VOLTA', texto: partes.join(' · ') || 'Seu celular voltou para o Wi-Fi.' }, 10000)
+      sons.feito()
+      void avisar(texto)
+    }
+    return { ok: true, resultado: `${texto} (Fale isso naturalmente.)` }
   }
 
   /** Cadastro com a prévia da câmera no canto. */
@@ -633,6 +738,10 @@ async function iniciar(): Promise<void> {
       resposta = await gerirRostos(args)
     } else if (nome === 'mesa') {
       resposta = await usarMesa(args)
+    } else if (nome === 'sentinela') {
+      resposta = await usarSentinela(args.ligar !== false)
+    } else if (nome === 'protocolo') {
+      resposta = await usarProtocolo(String(args.nome ?? ''))
     } else if (nome === 'mostrar_cena') {
       // Responde na hora para a fala não esperar; a foto aparece quando chegar
       const termo = String(args.termo ?? '').trim()
@@ -1008,6 +1117,7 @@ async function iniciar(): Promise<void> {
     }
   }
 
+  const INFORMATIVAS = new Set(['clima', 'ameacas', 'cotacao', 'raio_x', 'buscar_na_internet', 'bem_estar', 'status_sistema'])
   async function executarRotina(nome: string): Promise<Record<string, unknown>> {
     const r = await window.friday.ferramenta('obter_rotina', { nome })
     if (!r.ok) { sons.erro(); return { ok: false, resultado: r.mensagem } }
@@ -1022,6 +1132,8 @@ async function iniciar(): Promise<void> {
       // fechar_app já foi confirmado quando a rotina foi criada
       const res = await window.friday.ferramenta(p.ferramenta, p.ferramenta === 'fechar_app' ? { ...p.argumentos, confirmado: true } : p.argumentos)
       if (res.ok) { feitos.push(res.mensagem); hud.registrarAcao(res.mensagem) } else erros.push(res.mensagem)
+      // Passos que trazem informação (clima, ameaças, cotação...): ela conta o resultado
+      if (res.ok && INFORMATIVAS.has(p.ferramenta)) falas.push(res.mensagem.replace(/ Fale os pontos.*$/, ''))
     }
     hud.cartao({ tipo: 'rotina', nome: rotina.nome, passos: [...feitos, ...erros.map((e) => `falhou: ${e}`)].join(' · ') || 'feito' })
     erros.length ? sons.erro() : sons.feito()
@@ -1200,9 +1312,11 @@ async function iniciar(): Promise<void> {
   })
 
   // Ação em segundo plano terminou (ex.: a Visão de Deus acabou de instalar)
-  window.friday.aoAviso((texto, ok) => {
+  window.friday.aoChegada((aparelho) => { void chegou(aparelho) })
+
+  window.friday.aoAviso((texto, ok, titulo) => {
     ok ? sons.feito() : sons.alerta()
-    hud.cartao({ tipo: 'aviso', titulo: ok ? 'PRONTO' : 'ATENÇÃO', texto }, 12000)
+    hud.cartao({ tipo: 'aviso', titulo: titulo || (ok ? 'PRONTO' : 'ATENÇÃO'), texto }, 12000)
     // No meio de uma conversa, ela mesma conta (em vez de falar por cima com a voz do Windows)
     if (conversando && live.aberta) { live.dizer(`(Aviso em segundo plano. Conte isto para ele em poucas palavras: ${texto})`); return }
     void avisar(texto)

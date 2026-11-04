@@ -10,7 +10,8 @@ export interface Passo {
 /** Ferramentas que podem entrar numa rotina. Apagar e mover arquivos nunca entram. */
 export const FERRAMENTAS_DE_ROTINA = new Set([
   'abrir_app', 'fechar_app', 'volume', 'midia', 'pesquisar_web', 'abrir_site', 'status_sistema',
-  'clima', 'capturar_tela', 'modo_foco', 'mostrar_painel', 'dizer', 'esperar'
+  'clima', 'capturar_tela', 'modo_foco', 'mostrar_painel', 'dizer', 'esperar',
+  'ameacas', 'cotacao', 'raio_x', 'buscar_na_internet', 'bem_estar'
 ])
 
 /** Passos que precisam de confirmação na hora de criar a rotina. */

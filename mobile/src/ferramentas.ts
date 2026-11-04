@@ -7,6 +7,7 @@ import { TOOL_DECLARATIONS, TOOLS_REMOTAS, type ToolDeclaration } from '../../sr
 import { checarFato, ehRepetido, encontrarPorTrecho, paraPrompt, CATEGORIAS, type Categoria, type Fato } from '../../src/main/logica/memoria'
 import { acharLocal, buscarPrevisao, resumir, type Local } from '../../src/shared/tempo'
 import { buscarNaInternet, paraFala } from '../../src/shared/busca'
+import { responderCotacao } from '../../src/shared/cotacao'
 import { lerAjustes, lerAvisos, lerLista, salvarAvisos, salvarLista } from './armazem'
 import { Celular, explicarErro, garantir, nativo } from './celular'
 import { lerCasa, pareado, pedirPC, sincronizarMemoria } from './elo'
@@ -20,7 +21,7 @@ import {
 const NOMES = [
   'criar_lembrete', 'criar_timer', 'listar_lembretes', 'cancelar_lembrete', 'clima', 'buscar_na_internet', 'pesquisar_web', 'abrir_site',
   'memorizar', 'o_que_sabe', 'esquecer', 'projetar', 'controlar_projecao', 'encerrar_conversa', 'explicar',
-  'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta'
+  'marcar_consulta', 'responder_consulta', 'andamento_consulta', 'lugar_de_consulta', 'cotacao'
 ]
 
 const S = (description: string, e?: string[]) => ({ type: 'STRING' as const, description, ...(e ? { enum: e } : {}) })
@@ -44,6 +45,20 @@ const FERRAMENTAS_TELEFONE: ToolDeclaration[] = [
     parameters: { type: 'OBJECT', properties: { hora: S('Hora, ex.: "06:30" ou "19h".'), rotulo: S('Nome do alarme (opcional).'), dias: S('Repetição: vazio = uma vez, "dias úteis", "todo dia", "fim de semana" ou dias como "segunda e quarta".') }, required: ['hora'] }
   },
   { name: 'bateria', description: 'Diz quanto de bateria o celular tem e se está carregando.' },
+  {
+    name: 'emergencia',
+    description:
+      'Emergência ("Friday, emergência", "preciso de ajuda"): manda a localização dele por SMS para o contato de emergência e, se ele pedir, liga para o SAMU (192), os Bombeiros (193) ou a Polícia (190). Antes, diga em uma frase o que vai fazer e só chame com confirmado=true depois que ele confirmar. Também serve para definir ou ver o contato de emergência.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: S('Padrão: acionar.', ['acionar', 'definir_contato', 'ver']),
+        contato: S('Para definir_contato: nome do contato ou número.'),
+        servico: S('Para quem ligar depois de mandar a localização. Padrão: nenhum.', ['nenhum', 'samu', 'bombeiros', 'policia']),
+        confirmado: CONFIRMADO
+      }
+    }
+  },
   {
     name: 'ajustes_celular',
     description: 'Abre um ajuste do Android. Wi-Fi, Bluetooth e dados não podem ser ligados direto por apps: abra o painel e, com o controle da tela ativo, toque no botão certo.',
@@ -175,6 +190,8 @@ export function instrucoes(nome: string, memoria: string, extra = ''): string {
     '"Abre a mesa" aqui no celular usa oficina com acao=mesa (a mesa aparece em cima do móvel, pela câmera); "passa", "abre esse", "volta" são da mesa enquanto ela estiver aberta. Para abrir a mesa na tela do PC, use pc_mesa.',
     '"Abre a oficina", "quero mexer no drone" ou "edita o Harle Bot" usam oficina: o holograma aparece na câmera e ele mexe com a mão. Com a oficina aberta, "tira isso", "aumenta", "pinta de vermelho", "desfaz" e "salva como..." são da oficina.',
     '"Mostra o HUD do PC" ou "quero ver o PC pela câmera" usa olhar_o_pc: a câmera vai para o monitor e os dados do PC flutuam em volta dele.',
+    '"Emergência", "preciso de ajuda" ou "chama o SAMU" usam emergencia: confirme em uma frase curta e aja; em emergência, fale pouco e com calma.',
+    'Cotações e conversões de moeda usam cotacao. "Liga a sentinela do PC", "protocolo de saída", "como está o PC?" (raio-X), "alguma ameaça hoje?" e "me avisa se sair notícia de..." usam pc_sentinela, pc_protocolo, pc_raio_x, pc_ameacas e pc_vigiar_assunto.',
     '"Liga o PC" (até da rua) usa acordar_pc. Se este celular é a central do quarto, "fica quieta" usa central com acao=quieta.',
     'Para marcar consulta ou exame ("marca um ortopedista semana que vem"), use marcar_consulta: você conversa com o plano ou a clínica pelo WhatsApp em segundo plano e pergunta antes de escolher horário ou confirmar. Quando a consulta te perguntar algo, pergunte a ele e passe a resposta em responder_consulta (ou pc_responder_consulta, se quem está marcando é o PC).',
     extra,
@@ -345,6 +362,11 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
         return ctx.abrirAr ? await ctx.abrirAr() : { ok: false, mensagem: 'O HUD em realidade aumentada abre pela tela do app.' }
       case 'marcar_consulta': case 'responder_consulta': case 'andamento_consulta': case 'lugar_de_consulta':
         return await consulta(nome, a)
+      case 'cotacao': {
+        const moedas = Array.isArray(a.moedas) ? a.moedas.map(String) : []
+        const valor = typeof a.valor === 'number' && Number.isFinite(a.valor) ? a.valor : null
+        return { ok: true, mensagem: `${await responderCotacao(moedas, valor, str(a.para))} (Fonte: AwesomeAPI.)` }
+      }
       default:
         if (nome.startsWith('pc_') || nome === 'acordar_pc' || nome === 'sincronizar_com_pc') return await noPc(nome, a)
         if (FERRAMENTAS_TELEFONE.some((t) => t.name === nome) || FERRAMENTAS_MENSAGENS.some((t) => t.name === nome)) return await telefone(nome, a)
@@ -359,6 +381,61 @@ export async function executar(nome: string, a: Record<string, unknown>, ctx: Co
 async function esquecidos(textos: string[]): Promise<void> {
   await salvarLista('memoria_esquecida', [...(await lerLista<string>('memoria_esquecida')), ...textos].slice(-500))
   void sincronizarMemoria()
+}
+
+// ---------- Emergência ----------
+
+const SERVICOS: Record<string, { nome: string; numero: string }> = {
+  samu: { nome: 'o SAMU', numero: '192' }, bombeiros: { nome: 'os Bombeiros', numero: '193' }, policia: { nome: 'a Polícia', numero: '190' }
+}
+
+/** Onde ele está agora (GPS), em até 12 segundos. */
+function ondeEstou(): Promise<{ lat: number; lon: number; precisao: number } | null> {
+  return new Promise((ok) => {
+    if (!navigator.geolocation) return ok(null)
+    navigator.geolocation.getCurrentPosition(
+      (p) => ok({ lat: p.coords.latitude, lon: p.coords.longitude, precisao: Math.round(p.coords.accuracy) }),
+      () => ok(null),
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
+    )
+  })
+}
+
+async function emergencia(a: Record<string, unknown>): Promise<Resultado> {
+  const acao = str(a.acao) || 'acionar'
+  const [salvo] = await lerLista<{ nome: string; numero: string }>('emergencia')
+  if (acao === 'ver') return { ok: true, mensagem: salvo ? `O contato de emergência é ${salvo.nome} (${salvo.numero}).` : 'Ainda não tem contato de emergência. Pergunte quem deve ser.' }
+  if (acao === 'definir_contato') {
+    const d = await destino(str(a.contato))
+    if ('ok' in d) return d
+    await salvarLista('emergencia', [{ nome: d.nome, numero: d.numero }])
+    return { ok: true, mensagem: `Pronto: em uma emergência, mando a sua localização para ${d.nome}.` }
+  }
+  const servico = SERVICOS[str(a.servico)] ?? null
+  if (!salvo && !servico) return { ok: false, mensagem: 'Não tenho contato de emergência. Pergunte para quem mandar a localização (e salve com acao=definir_contato) ou se é para ligar para o 192, 193 ou 190.' }
+  if (a.confirmado !== true) {
+    const plano = [salvo ? `mandar a sua localização por SMS para ${salvo.nome}` : '', servico ? `ligar para ${servico.nome} (${servico.numero})` : ''].filter(Boolean).join(' e ')
+    return { ok: false, confirmar: `Emergência: ${plano}?`, mensagem: `Precisa de confirmação: ${plano}. Pergunte em uma frase curta e, se ele confirmar, chame de novo com confirmado=true. Se ele não responder ou parecer não conseguir falar, não insista.` }
+  }
+  const feitos: string[] = []
+  if (salvo) {
+    const onde = await ondeEstou()
+    const link = onde ? `https://maps.google.com/?q=${onde.lat.toFixed(6)},${onde.lon.toFixed(6)}` : ''
+    const texto = `EMERGÊNCIA: preciso de ajuda.${link ? ` Estou aqui: ${link} (precisão de ${onde!.precisao} m).` : ' Não consegui pegar a localização.'} (Mensagem enviada pela minha assistente FRIDAY.)`
+    try {
+      await garantir('sms')
+      await Celular.sms({ numero: salvo.numero, texto })
+      feitos.push(`mandei ${link ? 'a sua localização' : 'o pedido de ajuda (sem localização)'} para ${salvo.nome}`)
+    } catch (e) {
+      feitos.push(`o SMS para ${salvo.nome} não saiu (${explicarErro(e)})`)
+    }
+  }
+  if (servico) {
+    await garantir('telefone')
+    await Celular.ligar({ numero: servico.numero })
+    feitos.push(`estou ligando para ${servico.nome}`)
+  }
+  return { ok: true, mensagem: `${feitos.join(' e ')}. Diga isso em uma frase calma.` }
 }
 
 // ---------- A FRIDAY do PC, pelo elo ----------
@@ -527,6 +604,7 @@ async function telefone(nome: string, a: Record<string, unknown>): Promise<Resul
       await Celular.alarme({ ...hm, rotulo: str(a.rotulo) || 'FRIDAY', dias })
       return { ok: true, mensagem: `Alarme para ${String(hm.hora).padStart(2, '0')}:${String(hm.minuto).padStart(2, '0')}${dias.length ? ` (${str(a.dias)})` : ''}.` }
     }
+    case 'emergencia': return await emergencia(a)
     case 'bateria': {
       const b = await Celular.bateria()
       return { ok: true, mensagem: `Bateria em ${b.nivel}%${b.carregando ? ', carregando' : ''}.` }

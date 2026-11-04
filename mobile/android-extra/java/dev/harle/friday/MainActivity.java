@@ -20,11 +20,15 @@ public class MainActivity extends BridgeActivity {
     static final String EXTRA_CENTRAL = "friday_central";
     /** Aberta para religar a central (o celular reiniciou) */
     static final String EXTRA_LIGAR_CENTRAL = "friday_ligar_central";
+    /** Aberta pela notificação da sirene ("cadê meu celular"): achou, para o som */
+    static final String EXTRA_ACHEI = "friday_achei";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(CelularPlugin.class);
         super.onCreate(savedInstanceState);
+        // Recados do PC enquanto o app estiver vivo (com os avisos por voz ligados, mesmo fechado)
+        Recados.ligar(this);
         tratar(getIntent());
     }
 
@@ -34,8 +38,16 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Abriu o app: achou o celular
+        if (Sirene.tocando()) Sirene.parar();
+    }
+
     private void tratar(Intent i) {
         if (i == null) return;
+        if (i.getBooleanExtra(EXTRA_ACHEI, false)) Sirene.parar();
         if (i.getBooleanExtra(EXTRA_CENTRAL, false)) mostrarPorCima(true);
         if (i.getBooleanExtra(EXTRA_LIGAR_CENTRAL, false)) {
             i.removeExtra(EXTRA_LIGAR_CENTRAL);

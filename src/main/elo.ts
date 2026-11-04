@@ -111,6 +111,9 @@ export async function desparear(): Promise<void> {
 
 export const aparelhosPareados = (): string[] => dados.aparelhos.map((a) => a.nome)
 
+/** O segredo do pareamento (para os recados lacrados que vão pelo serviço de avisos). */
+export const segredoDoElo = (): string => dados.segredo
+
 /** O app do celular está aberto e escutando o PC agora? */
 export const celularEscutando = (): boolean => Date.now() - ultimaEscuta < 40_000
 

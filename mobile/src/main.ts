@@ -201,6 +201,14 @@ function eventoDoPc(e: EventoParaCelular): void {
     else if (e.consulta === 'fim') definirPerguntaDoPc('')
     if (e.consulta) void avisoDeConsulta(e.consulta === 'pergunta' ? 'pergunta' : 'fim', e.texto, true, 'pc_responder_consulta')
     else avisoDoPc(e.texto)
+  } else if (e.tipo === 'tocar') {
+    // "Cadê meu celular?" pedido no PC, com o app aberto
+    if (nativo()) void Celular.sirene({ ligar: true, texto: 'A FRIDAY do PC está te procurando.' }).catch(() => {})
+    voz.aoAcao('ESTOU AQUI', 'O PC pediu para eu tocar', 'Toque para parar')
+  } else if (e.tipo === 'foto') {
+    // Modo sentinela do PC: alguém apareceu na frente da câmera
+    voz.aoAcao('SENTINELA DO PC', e.texto.slice(0, 90), '')
+    mostrarFotoDoPc(e.texto, e.jpeg)
   } else if (e.tipo === 'evento') {
     // Consulta marcada no PC: entra na agenda daqui
     void (async () => {
@@ -213,6 +221,20 @@ function eventoDoPc(e: EventoParaCelular): void {
       }
     })()
   }
+}
+
+/** Foto da sentinela do PC: aparece por cima, toque para fechar. */
+function mostrarFotoDoPc(texto: string, jpeg: string): void {
+  const caixa = document.createElement('div')
+  caixa.className = 'foto-do-pc'
+  const img = document.createElement('img')
+  img.src = `data:image/jpeg;base64,${jpeg}`
+  img.alt = texto
+  const legenda = document.createElement('p')
+  legenda.textContent = texto
+  caixa.append(img, legenda)
+  caixa.addEventListener('click', () => caixa.remove())
+  document.body.append(caixa)
 }
 
 /** Aviso qualquer da FRIDAY do PC (ex.: a pesquisa profunda ficou pronta): ela fala aqui. */

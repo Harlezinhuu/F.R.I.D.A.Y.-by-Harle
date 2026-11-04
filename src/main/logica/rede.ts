@@ -49,6 +49,8 @@ export interface Aparelho {
   host: string
   primeiraVez: number
   ultimaVez: number
+  /** O celular do dono: quando ele volta para o Wi-Fi, é você chegando em casa */
+  dono?: boolean
 }
 
 /** Junta o que foi visto agora com os conhecidos. Devolve a lista nova e quem apareceu pela primeira vez. */
@@ -68,6 +70,14 @@ export function atualizar(conhecidos: Aparelho[], vistos: (Visto & { host: strin
     if (!primeiraVarredura) novos.push(novo)
   }
   return { aparelhos: [...porMac.values()].sort((x, y) => y.ultimaVez - x.ultimaVez), novos }
+}
+
+/**
+ * Você chegou em casa? O celular do dono foi visto agora depois de pelo menos `ausenciaMin` minutos
+ * fora do Wi-Fi. (Celular dormindo às vezes some da rede por um tempo: por isso a ausência longa.)
+ */
+export function chegou(antes: Aparelho | undefined, vistoAgora: boolean, agora: number, ausenciaMin = 60): boolean {
+  return !!antes?.dono && vistoAgora && agora - antes.ultimaVez >= ausenciaMin * 60_000
 }
 
 /** Como ela chama o aparelho: o apelido que você deu, o nome na rede ou o fabricante. */

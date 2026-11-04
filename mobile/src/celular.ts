@@ -83,6 +83,8 @@ interface CelularPlugin {
   salvarContato(o: { nome: string; numero: string }): Promise<void>
   ligar(o: { numero: string }): Promise<void>
   sms(o: { numero: string; texto: string }): Promise<void>
+  /** "Cadê meu celular": sirene no volume máximo (ligar=false para) */
+  sirene(o: { ligar: boolean; texto?: string }): Promise<void>
   whatsapp(o: { numero: string; texto: string; enviar: boolean }): Promise<{ enviado: boolean }>
   criarEvento(o: { titulo: string; inicio: number; fim: number; local: string; descricao: string; diaInteiro: boolean }): Promise<{ id: number }>
   eventos(o: { de: number; ate: number }): Promise<{ eventos: Evento[] }>

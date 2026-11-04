@@ -33,6 +33,7 @@ A FRIDAY fica discreta no canto da tela. Quando você diz **"Friday"**, o HUD se
 - **Central do quarto:** um celular antigo na tomada vira o "Echo Dot" da FRIDAY: ouve "Friday" sozinho (sem mandar nada para a internet antes disso), acende a tela, conversa e volta a dormir. Enquanto ele está no ar, o PC fica só nas mãos. E ele é o porteiro que liga o PC quando você pede da rua.
 - **Uma FRIDAY só no PC e no celular:** pareados, os avisos do celular saem no PC quando você está nele, o celular manda no PC (e liga o PC pela rede), a memória e a conversa continuam de um no outro, e os hologramas passam de uma tela para a outra.
 - **Consultas pelo WhatsApp:** "marca um ortopedista semana que vem à tarde" e ela conversa com o robô (ou a atendente) do plano de saúde ou da clínica, em segundo plano, no PC e no celular. Antes de escolher horário, confirmar ou passar um dado que você não liberou, ela para e te pergunta. Marcado, vai para a agenda.
+- **Como nos filmes:** boas-vindas quando você chega em casa, protocolos (bloqueio, saída), modo sentinela pela webcam, vigia de ameaças (asteroides, Sol, terremotos, tempo severo), raio-X do PC com check-up semanal, lembretes de pausa, vigiar um assunto, cadê meu celular, emergência e cotações.
 - **Visão de Deus:** um globo 3D com aviões, satélites, navios, terremotos, câmeras públicas e radar de chuva ao vivo, aberto e controlado por voz.
 - **Clima de qualquer lugar do mundo** (cidade, bairro, região, estado, país ou ponto turístico), agora e até 16 dias, e **busca na internet** pelo Google para notícias, jogos, preços e qualquer fato atual.
 - **Saudação ao abrir** com o clima e os lembretes do dia, no máximo uma vez a cada 4 horas.
@@ -301,6 +302,27 @@ Camadas: aviões, aviões militares, satélites, navios, terremotos, câmeras p�
 Só dados públicos de lugares, veículos e eventos. A FRIDAY não localiza nem rastreia pessoas.
 
 O globo é o [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view), de Bilawal Sidhu, sob licença MIT. Ele não faz parte deste repositório: é baixado do projeto original na primeira vez que você pede.
+
+### Como nos filmes
+
+O que o JARVIS e a FRIDAY fazem nos filmes e que dá para funcionar de verdade, com dados reais:
+
+| Nos filmes | Aqui | Como pedir |
+|---|---|---|
+| "Bem-vindo de volta, senhor" | Quando o seu celular volta para o Wi-Fi de casa, ela dá as boas-vindas, desliga a sentinela e roda a sua rotina "chegada" | Uma vez: "o 37 é o meu celular" |
+| Protocolos (House Party, Barn Door) | **Protocolos**: bloqueio (corta o som e tranca o PC), saída (bloqueio + sentinela), chegada, e qualquer rotina sua vira protocolo | "Ativa o protocolo de saída" |
+| A FRIDAY anunciando quem chegou | **Modo sentinela**: com você fora, ela vigia pela webcam. Se alguém aparecer, tira uma foto (fica só no PC) e avisa no celular, mesmo com o app fechado. Se for você (com o rosto cadastrado), desliga sozinha | "Liga a sentinela" |
+| "Something's entering the atmosphere" | **Vigia de ameaças**: asteroides passando perto (NASA), tempestade solar (NOAA), terremotos perto de você (USGS) e tempo severo. Olha a cada 3 horas e só avisa o que é novo e sério | "Alguma ameaça hoje?" |
+| Diagnóstico da armadura | **Raio-X do PC**: o que está deixando lento, memória, disco, temperaturas, bateria e segurança (antivírus, firewall, atualizações). Só lê, não muda nada. E um check-up sozinha uma vez por semana | "Por que o PC está lento?" |
+| "Seus sinais vitais, senhor" | **Bem-estar**: avisa depois de 2 horas seguidas sem pausa e quando já passou da 1 da manhã | "Quanto tempo fiquei no PC hoje?" |
+| Monitorando as notícias | **Vigiar um assunto**: ela procura a cada 3 horas e avisa só manchete nova | "Me avisa se sair notícia do GTA 6" |
+| Achar o que sumiu | **Cadê meu celular**: toca no volume máximo (mesmo no silencioso), vibra e pisca a lanterna, com o app fechado e até fora de casa | "Cadê meu celular?" |
+| Chamando ajuda | **Emergência** (no celular): manda a sua localização por SMS para o contato de emergência e liga para o 192, 193 ou 190, depois de confirmar | "Friday, emergência" |
+| Cálculos na hora | **Cotações e conversões**: dólar, euro, libra, bitcoin… | "Quanto é 50 dólares em reais?" |
+
+Os recados do PC para o celular com o app fechado (sirene e alerta da sentinela) vão pelo mesmo serviço público de avisos do porteiro (ntfy), lacrados com a chave do pareamento: o serviço só vê texto embaralhado. No celular, eles chegam pelo serviço dos avisos por voz (ligue em Ajustes › Avisos por voz). Tudo pode ser desligado: "desliga a vigia de ameaças", "para de me lembrar de pausa", ou no `.env` com `FRIDAY_VIGIA=0`, `FRIDAY_BEMESTAR=0` e `FRIDAY_CHECKUP=0` (e `FRIDAY_PAUSA_MIN`, `FRIDAY_DORMIR` para ajustar os horários).
+
+O que fica de fora porque não existe de verdade (ou não deveria): voar de armadura, armas, autodestruição, invadir sistemas dos outros e reconstruir uma cena de crime a partir de vídeos de jornal.
 
 ### Adicionando programas
 

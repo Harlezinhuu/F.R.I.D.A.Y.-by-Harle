@@ -139,3 +139,7 @@ export type EventoParaCelular =
   | { tipo: 'aviso'; texto: string; consulta?: 'pergunta' | 'fim' }
   /** Consulta marcada no PC: entra na agenda do celular */
   | { tipo: 'evento'; titulo: string; inicioIso: string; fimIso: string; local: string; descricao: string }
+  /** "Cadê meu celular?": toca a sirene */
+  | { tipo: 'tocar' }
+  /** Modo sentinela: alguém apareceu na frente do PC (foto em JPEG, base64) */
+  | { tipo: 'foto'; texto: string; jpeg: string }

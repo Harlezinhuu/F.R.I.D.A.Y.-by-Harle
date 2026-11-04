@@ -110,6 +110,8 @@ public class FridayAvisos extends NotificationListenerService {
         conectado = true;
         instancia = this;
         ligarBluetooth();
+        // Recados do PC ("cadê meu celular", alertas do modo sentinela) chegam mesmo com o app fechado
+        Recados.ligar(this);
     }
 
     @Override
@@ -117,6 +119,7 @@ public class FridayAvisos extends NotificationListenerService {
         conectado = false;
         instancia = null;
         desligarBluetooth();
+        Recados.desligar();
     }
 
     @Override

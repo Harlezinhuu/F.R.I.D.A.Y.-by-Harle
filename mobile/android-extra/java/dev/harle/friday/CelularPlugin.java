@@ -396,6 +396,17 @@ public class CelularPlugin extends Plugin {
         }
     }
 
+    // ---------- Cadê meu celular ----------
+
+    /** Toca a sirene (o PC pediu e o app estava aberto). */
+    @PluginMethod
+    public void sirene(PluginCall call) {
+        boolean ligar = call.getBoolean("ligar", true);
+        if (ligar) Sirene.tocar(ctx(), call.getString("texto", ""));
+        else Sirene.parar();
+        call.resolve();
+    }
+
     // ---------- Porteiro: do celular da rua ----------
 
     /** Pede ao porteiro (a central em casa) para ligar o PC. Devolve quem respondeu, ou vazio. */

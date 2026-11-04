@@ -21,7 +21,7 @@ const manifesto = join(app, 'src', 'main', 'AndroidManifest.xml')
 let m = readFileSync(manifesto, 'utf8')
 if (!m.includes('xmlns:tools=')) m = m.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ')
 const permissoes = [
-  'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'CAMERA', 'ACCESS_COARSE_LOCATION', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'WAKE_LOCK',
+  'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS', 'CAMERA', 'ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'VIBRATE', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'WAKE_LOCK',
   // Controle do celular
   'READ_CONTACTS', 'WRITE_CONTACTS', 'CALL_PHONE', 'SEND_SMS', 'READ_CALENDAR', 'WRITE_CALENDAR', 'ACCESS_NOTIFICATION_POLICY',
   'FOREGROUND_SERVICE', 'FOREGROUND_SERVICE_MICROPHONE', 'BLUETOOTH_CONNECT'

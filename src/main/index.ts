@@ -27,6 +27,10 @@ import { iniciarCerebro } from './cerebro'
 import { iniciarPesquisas } from './pesquisa'
 import { encerrarReserva, ollamaPronto, responderReserva } from './reserva'
 import { iniciarRede } from './rede'
+import { iniciarVigia } from './vigia'
+import { iniciarAssuntos } from './assuntos'
+import { iniciarBemEstar } from './bemestar'
+import { iniciarCheckup } from './raiox'
 import { encerrarAr, pedidoAr } from './ar'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
@@ -323,10 +327,15 @@ app.whenReady().then(() => {
   }
 
   // Avisos que chegam depois que a ferramenta já respondeu (ex.: a Visão de Deus terminou de instalar)
-  const avisarEmSegundoPlano = (texto: string, ok: boolean): void => {
+  const avisarEmSegundoPlano = (texto: string, ok: boolean, titulo?: string): void => {
     log('aviso', texto)
-    win?.webContents.send('aviso', texto, ok)
-    if (!ok) new Notification({ title: 'F.R.I.D.A.Y', body: texto }).show()
+    win?.webContents.send('aviso', texto, ok, titulo)
+    if (!ok) new Notification({ title: titulo ? `F.R.I.D.A.Y · ${titulo.toLowerCase()}` : 'F.R.I.D.A.Y', body: texto }).show()
+  }
+  /** Aviso que também vai para o celular se você não estiver no PC. */
+  const avisarTambemNoCelular = (texto: string, serio: boolean, titulo: string): void => {
+    avisarEmSegundoPlano(texto, !serio, titulo)
+    if (aparelhosPareados().length && powerMonitor.getSystemIdleState(120) !== 'active') enviarParaCelular({ tipo: 'aviso', texto })
   }
   configurarFerramentas({ janela: () => win, avisar: avisarEmSegundoPlano })
 
@@ -393,8 +402,21 @@ app.whenReady().then(() => {
     avisar(texto) {
       avisarEmSegundoPlano(texto, false)
       if (aparelhosPareados().length && powerMonitor.getSystemIdleState(120) !== 'active') enviarParaCelular({ tipo: 'aviso', texto })
+    },
+    // Seu celular voltou para o Wi-Fi: você chegou em casa (boas-vindas e protocolo de chegada)
+    chegou(aparelho) {
+      log('rede', `chegada: ${aparelho} voltou para o Wi-Fi`)
+      win?.webContents.send('chegada', aparelho)
     }
   })
+  // Vigia de ameaças (asteroides, Sol, terremotos, tempo severo): só avisa o que é novo e sério
+  iniciarVigia({ log: (t) => log('vigia', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'VIGIA DE AMEAÇAS') })
+  // Assuntos vigiados: notícia nova sobre o que você pediu
+  iniciarAssuntos({ log: (t) => log('assuntos', t), avisar: (texto) => avisarTambemNoCelular(texto, false, 'NOTÍCIA NOVA') })
+  // Bem-estar: pausa depois de horas seguidas e hora de dormir (só fala com você no PC)
+  iniciarBemEstar((texto) => avisarEmSegundoPlano(texto, true, 'BEM-ESTAR'))
+  // Check-up semanal do PC, num momento em que ele estiver à toa
+  iniciarCheckup({ log: (t) => log('checkup', t), ocioso: () => powerMonitor.getSystemIdleTime(), avisar: (texto) => avisarEmSegundoPlano(texto, false, 'CHECK-UP DO PC') })
   // Pesquisa profunda: quando fica pronta (ou na hora marcada), ela conta no PC e manda para o celular
   iniciarPesquisas({
     log: (t) => log('pesquisa', t),

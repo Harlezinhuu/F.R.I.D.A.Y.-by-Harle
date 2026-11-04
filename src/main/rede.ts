@@ -14,11 +14,11 @@ import { join } from 'node:path'
 import { variavel } from './config'
 import { descobrirUpnp, pedirUpnp } from './ligar-de-fora'
 import { acharServico, campoSoap } from './logica/upnp'
-import { atualizar, fabricante, lerArp, lerOui, mbps, nomeDoAparelho, type Aparelho } from './logica/rede'
+import { atualizar, chegou, fabricante, lerArp, lerOui, mbps, nomeDoAparelho, type Aparelho } from './logica/rede'
 
 interface Guardado { aparelhos: Aparelho[]; varreduras: number; rede: string }
 
-let opcoes: { avisar(texto: string): void; log(t: string): void } = { avisar() {}, log() {} }
+let opcoes: { avisar(texto: string): void; log(t: string): void; chegou?(aparelho: string): void } = { avisar() {}, log() {} }
 let oui: Record<string, string> = {}
 let varrendo = false
 
@@ -101,7 +101,10 @@ export async function varrerRede(): Promise<{ aparelhos: Aparelho[]; novos: Apar
     const g = ler()
     // Mudou de rede (outra casa, outro roteador): começa a aprender de novo
     const outraRede = g.rede && g.rede !== rede.nome
-    const r = atualizar(outraRede ? [] : g.aparelhos, comNome, Date.now(), g.varreduras === 0 || !!outraRede)
+    const agora = Date.now()
+    const donoAntes = g.aparelhos.find((a) => a.dono)
+    const r = atualizar(outraRede ? [] : g.aparelhos, comNome, agora, g.varreduras === 0 || !!outraRede)
+    if (!outraRede && chegou(donoAntes, comNome.some((v) => v.mac === donoAntes?.mac), agora)) opcoes.chegou?.(nomeDoAparelho(donoAntes!))
     salvar({ aparelhos: r.aparelhos.slice(0, 300), varreduras: (outraRede ? 0 : g.varreduras) + 1, rede: rede.nome })
     for (const n of r.novos) {
       opcoes.log(`aparelho novo: ${n.mac} ${n.ip} ${n.fabricante}`)
@@ -114,6 +117,54 @@ export async function varrerRede(): Promise<{ aparelhos: Aparelho[]; novos: Apar
 }
 
 export const aparelhosConhecidos = (): Aparelho[] => ler().aparelhos
+
+/** Marca qual é o seu celular (só um): é por ele que ela sabe que você chegou em casa. */
+export function marcarDono(mac: string): void {
+  const g = ler()
+  for (const a of g.aparelhos) a.dono = a.mac === mac
+  salvar(g)
+}
+
+/** Estado do vizinho na rede (Get-NetNeighbor: o estado vem sempre em inglês, em qualquer Windows). */
+function vizinho(ip: string): Promise<{ mac: string; estado: string } | null> {
+  if (process.platform !== 'win32' || !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return Promise.resolve(null)
+  const cmd = `Get-NetNeighbor -IPAddress ${ip} -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { "$($_.LinkLayerAddress) $($_.State)" }`
+  return new Promise((ok) => execFile('powershell.exe', ['-NoProfile', '-Command', cmd], { windowsHide: true, timeout: 10_000 }, (_e, out) => {
+    const [mac, estado] = String(out ?? '').trim().split(/\s+/)
+    ok(mac && estado ? { mac: mac.replace(/-/g, ':').toUpperCase(), estado } : null)
+  }))
+}
+
+/**
+ * Olhada rápida (a cada 2 minutos) só no seu celular: cutuca o último endereço dele e vê se ele
+ * respondeu. Assim a chegada é percebida em minutos, sem varrer a rede inteira toda hora.
+ */
+async function sondarDono(): Promise<void> {
+  if (varrendo) return
+  const g = ler()
+  const dono = g.aparelhos.find((a) => a.dono)
+  if (!dono || !minhaRede()) return
+  const sock = createSocket('udp4')
+  sock.on('error', () => {})
+  try {
+    await new Promise<void>((ok) => sock.bind(0, () => ok()))
+    for (let i = 0; i < 3; i++) { sock.send(Buffer.from([0]), 9, dono.ip); await esperar(400) }
+    await esperar(1200)
+  } finally {
+    try { sock.close() } catch { /* já fechado */ }
+  }
+  // A tabela ARP do Windows guarda o endereço por um tempo mesmo sem resposta: aqui só vale
+  // o estado "alcançável" (o celular respondeu agora há pouco)
+  const viz = await vizinho(dono.ip)
+  const visto = viz && viz.mac === dono.mac && /^(Reachable|Delay|Probe)$/i.test(viz.estado) ? { ip: dono.ip } : null
+  if (!visto) return
+  const agora = Date.now()
+  const voltou = chegou(dono, true, agora)
+  dono.ultimaVez = agora
+  dono.ip = visto.ip
+  salvar(g)
+  if (voltou) opcoes.chegou?.(nomeDoAparelho(dono))
+}
 
 export function apelidar(mac: string, apelido: string): void {
   const g = ler()
@@ -176,4 +227,5 @@ export function iniciarRede(o: typeof opcoes): void {
   const passar = () => void varrerRede().catch((e) => opcoes.log(`varredura: ${(e as Error).message}`))
   setTimeout(passar, 2 * 60_000)
   setInterval(passar, 10 * 60_000)
+  setInterval(() => void sondarDono().catch((e) => opcoes.log(`chegada: ${(e as Error).message}`)), 2 * 60_000)
 }

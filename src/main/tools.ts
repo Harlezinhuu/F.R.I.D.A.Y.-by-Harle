@@ -2,7 +2,7 @@
 // Execução das ferramentas que a IA pede. Cada uma devolve uma mensagem curta para a IA
 // e, quando faz sentido, um cartão para o HUD mostrar.
 
-import { shell, type BrowserWindow } from 'electron'
+import { Notification, app, nativeImage, shell, type BrowserWindow } from 'electron'
 import type { ItemDiagnostico, ToolResult } from '../shared/types'
 import { carregarApps, encontrarApp, abrir, fechar } from './apps'
 import { lerVolume, definirVolume, definirMudo, teclaMidia } from './winctl'
@@ -37,7 +37,15 @@ import * as controle from './controle'
 import { cartoesDaMesa, predioDoProjeto } from './mesa'
 import { descreverPredio } from './logica/predio'
 import { escolherEImportar, lerDesigns, removerDesign, renomearDesign, acharDesignPorNome } from './designs'
-import { aparelhosConhecidos, apelidar, esquecerAparelho, usoDaInternet, varrerRede } from './rede'
+import { aparelhosConhecidos, apelidar, esquecerAparelho, marcarDono, usoDaInternet, varrerRede } from './rede'
+import { ligarVigia, relatorioDeAmeacas, vigiaLigada } from './vigia'
+import { raioX, resumoFalado } from './raiox'
+import { bemEstarLigado, ligarBemEstar, resumoBemEstar } from './bemestar'
+import { lerAssuntos, pararAssunto, vigiarAssunto } from './assuntos'
+import { responderCotacao } from '../shared/cotacao'
+import { recadoParaCelular } from './push'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { acharAparelho, nomeDoAparelho } from './logica/rede'
 import { anotarBug, explicarCodigo, instalarRevisora, pedidoComIssue, revisarCodigo, rodarTestes } from './programacao'
 import { acharLugar, cancelarConsulta, consultaAtual, iniciarConsulta, lugares, perguntaPendente, removerLugar, responderConsulta, salvarLugar } from './consultas'
@@ -563,9 +571,14 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     }
     const lista = aparelhosConhecidos()
     if (!lista.length) return { ok: true, mensagem: 'Ainda não olhei a rede. Diga "olha quem está no Wi-Fi" para eu ver agora.' }
-    if (acao === 'apelidar' || acao === 'esquecer') {
+    if (acao === 'apelidar' || acao === 'esquecer' || acao === 'meu_celular') {
       const ap = acharAparelho(str(a.alvo), lista)
       if (!ap) return falha('Não achei esse aparelho. Diga o final do IP (ex.: "o 37").')
+      if (acao === 'meu_celular') {
+        marcarDono(ap.mac)
+        if (!ap.apelido) apelidar(ap.mac, 'meu celular')
+        return { ok: true, mensagem: `Anotado: o ${ap.ip} (${nomeDoAparelho(ap)}) é o celular dele. Quando ele sair e voltar para o Wi-Fi, eu dou as boas-vindas e rodo a rotina "chegada", se ele tiver uma.` }
+      }
       if (acao === 'esquecer') { esquecerAparelho(ap.mac); return { ok: true, mensagem: `Esqueci ${nomeDoAparelho(ap)}. Se ele voltar, eu aviso como novo.` } }
       const apelido = str(a.apelido)
       if (!apelido) return falha('Faltou o nome.')
@@ -579,6 +592,107 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
       mensagem: `${ligados.length} aparelhos no Wi-Fi agora: ${ligados.map((x) => `${nomeDoAparelho(x)} (${x.ip})`).join('; ')}.${fora ? ` E ${fora} que já passaram por aqui (o último: ${nomeDoAparelho(lista.find((x) => !ligados.includes(x))!)}, ${hora(lista.find((x) => !ligados.includes(x))!.ultimaVez)}).` : ''}`,
       card: { tipo: 'memoria', titulo: 'NO SEU WI-FI', itens: ligados.slice(0, 12).map((x) => `${nomeDoAparelho(x)} · ${x.ip}`) }
     }
+  },
+
+  // ---------- Vigia de ameaças, raio-X, bem-estar, assuntos, cotações ----------
+
+  async ameacas(a) {
+    const acao = str(a.acao) || 'olhar'
+    if (acao === 'ligar' || acao === 'desligar') {
+      ligarVigia(acao === 'ligar')
+      return { ok: true, mensagem: acao === 'ligar' ? 'Vigia de ameaças ligada: olho a cada 3 horas e aviso só o que for novo e sério.' : 'Vigia de ameaças desligada. Ainda dá para perguntar quando quiser.' }
+    }
+    const r = await relatorioDeAmeacas()
+    return {
+      ok: true,
+      mensagem: `${r.texto}${vigiaLigada() ? '' : ' (Os avisos automáticos estão desligados.)'}`,
+      card: { tipo: 'memoria', titulo: 'VIGIA DE AMEAÇAS', itens: r.itens.length ? r.itens : ['Nada sério no radar.'] }
+    }
+  },
+
+  async raio_x(a) {
+    const foco = (['lento', 'seguranca'].includes(str(a.foco)) ? str(a.foco) : 'geral') as 'geral' | 'lento' | 'seguranca'
+    const { achados } = await raioX()
+    const lista = achados.filter((x) => foco === 'geral' || (foco === 'lento' ? ['desempenho', 'sistema', 'disco', 'temperatura'] : ['seguranca', 'sistema']).includes(x.area))
+    const marca = (g: number) => (g === 2 ? '✖ ' : g === 1 ? '▲ ' : '✓ ')
+    return {
+      ok: true,
+      mensagem: `${resumoFalado(achados, foco)} Fale os pontos mais importantes e o que fazer, em poucas frases. Você só olhou: não mudou nada no PC.`,
+      card: { tipo: 'memoria', titulo: foco === 'seguranca' ? 'RAIO-X · SEGURANÇA' : foco === 'lento' ? 'RAIO-X · DESEMPENHO' : 'RAIO-X DO PC', itens: lista.slice(0, 8).map((x) => marca(x.gravidade) + x.texto.slice(0, 120)) }
+    }
+  },
+
+  async bem_estar(a) {
+    const acao = str(a.acao) || 'estado'
+    if (acao === 'ligar' || acao === 'desligar') {
+      ligarBemEstar(acao === 'ligar')
+      return { ok: true, mensagem: acao === 'ligar' ? 'Lembretes de pausa e de hora de dormir ligados.' : 'Desliguei os lembretes de pausa e de hora de dormir.' }
+    }
+    return { ok: true, mensagem: `${resumoBemEstar()}${bemEstarLigado() ? '' : ' (Os lembretes de pausa estão desligados.)'}` }
+  },
+
+  async vigiar_assunto(a) {
+    const acao = str(a.acao) || 'vigiar'
+    if (acao === 'listar') {
+      const l = lerAssuntos()
+      return { ok: true, mensagem: l.length ? `Estou de olho em: ${l.map((x) => x.tema).join(', ')}.` : 'Não estou vigiando nenhum assunto.' }
+    }
+    const tema = str(a.tema)
+    if (!tema) return falha('Faltou dizer o assunto.')
+    if (acao === 'parar') {
+      const x = pararAssunto(tema)
+      return x ? { ok: true, mensagem: `Parei de vigiar ${x.tema}.` } : falha(`Não estou vigiando "${tema}".`)
+    }
+    if (!carregarConfig().apiKey) return falha('Falta a chave do Gemini.')
+    const r = await vigiarAssunto(tema)
+    const agora = r.manchetes.length ? ` O que saiu nos últimos dias: ${r.manchetes.slice(0, 3).map((m) => m.texto).join('; ')}.` : ' Nos últimos dias não saiu nada.'
+    return {
+      ok: true,
+      mensagem: `${r.jaTinha ? 'Já estava de olho' : 'Combinado: vou vigiar'} ${tema}, olhando a cada 3 horas, e aviso quando sair notícia nova.${agora}`,
+      card: { tipo: 'memoria', titulo: `DE OLHO · ${tema.toUpperCase().slice(0, 30)}`, itens: r.manchetes.slice(0, 5).map((m) => m.texto) }
+    }
+  },
+
+  async cotacao(a) {
+    const moedas = Array.isArray(a.moedas) ? a.moedas.map(String) : str(a.moedas) ? str(a.moedas).split(/\s*,\s*|\s+e\s+/) : []
+    const texto = await responderCotacao(moedas, num(a.valor), str(a.para))
+    return { ok: true, mensagem: `${texto} (Fonte: AwesomeAPI.)`, card: { tipo: 'aviso', titulo: 'COTAÇÃO', texto } }
+  },
+
+  // ---------- Cadê meu celular e sentinela ----------
+
+  async achar_celular() {
+    if (!aparelhosPareados().length) return falha('Nenhum celular pareado. Diga "pareia o celular" primeiro.')
+    const aberto = enviarParaCelular({ tipo: 'tocar' })
+    const longe = await recadoParaCelular({ acao: 'tocar' })
+    if (!aberto && !longe) return falha('Não consegui alcançar o celular: o app está fechado e o serviço de avisos não respondeu.')
+    return { ok: true, mensagem: 'Fiz o celular tocar no volume máximo (mesmo no silencioso), por até um minuto. Ele para quando abrir o app ou tocar em "Achei".', card: { tipo: 'aviso', titulo: 'CADÊ MEU CELULAR', texto: 'Tocando…' } }
+  },
+
+  /** Uso interno do HUD: alguém apareceu na frente da webcam com a sentinela ligada. */
+  async sentinela_alerta(a) {
+    const foto = str(a.foto)
+    const m = foto.match(/^data:image\/jpeg;base64,(.+)$/)
+    if (!m) return falha('Sem foto.')
+    const pasta = join(app.getPath('pictures'), 'FRIDAY', 'Sentinela')
+    mkdirSync(pasta, { recursive: true })
+    const agora = new Date()
+    const nome = `sentinela-${agora.toISOString().slice(0, 19).replace(/[:T]/g, '-')}.jpg`
+    const dados = Buffer.from(m[1], 'base64')
+    writeFileSync(join(pasta, nome), dados)
+    const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const quem = str(a.quem)
+    const texto = quem ? `${quem} apareceu na frente do PC às ${hora}.` : `Alguém apareceu na frente do PC às ${hora}. A foto ficou em Imagens/FRIDAY/Sentinela.`
+    try {
+      const n = new Notification({ title: 'F.R.I.D.A.Y · sentinela', body: texto, icon: nativeImage.createFromBuffer(dados).resize({ width: 256 }) })
+      n.on('click', () => void shell.openPath(join(pasta, nome)))
+      n.show()
+    } catch { /* sem notificação */ }
+    if (aparelhosPareados().length) {
+      enviarParaCelular({ tipo: 'foto', texto, jpeg: m[1] })
+      void recadoParaCelular({ acao: 'alerta', texto })
+    }
+    return { ok: true, mensagem: texto }
   },
 
   // ---------- Pesquisa profunda ----------
