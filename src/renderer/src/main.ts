@@ -768,7 +768,7 @@ async function iniciar(): Promise<void> {
       }
       if (r.card) hud.cartao(r.card)
       // Ela usa o Windows por você: a foto da tela vai para a IA ver o que a lista de itens não diz
-      const foto = nome === 'ver_janela' ? (r.dados as { imagem?: string } | undefined)?.imagem : undefined
+      const foto = nome === 'ver_janela' || nome === 'olhar_tela' ? (r.dados as { imagem?: string } | undefined)?.imagem : undefined
       if (foto) live.enviarImagem(foto)
       // Guardar na memória acontece em silêncio, sem som de "feito"
       const silenciosa = nome === 'memorizar'

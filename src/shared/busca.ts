@@ -9,7 +9,7 @@ export interface ResultadoBusca { texto: string; fontes: { titulo: string; url: 
 
 const MODELO = 'gemini-3.8-flash'
 
-export async function buscarNaInternet(chave: string, pergunta: string): Promise<ResultadoBusca> {
+export async function buscarNaInternet(chave: string, pergunta: string, modelo = MODELO): Promise<ResultadoBusca> {
   if (!chave) throw new Error('Falta a chave do Gemini.')
   const p = pergunta.trim()
   if (!p) throw new Error('Faltou dizer o que buscar.')
@@ -17,7 +17,7 @@ export async function buscarNaInternet(chave: string, pergunta: string): Promise
   const hoje = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await ai.models.generateContent({
-    model: MODELO,
+    model: modelo,
     contents: p,
     config: {
       tools: [{ googleSearch: {} }],

@@ -78,3 +78,6 @@ export function filtrarAmostras(amostras: number[][], minimo = 3): number[][] {
   const corte = Math.max(...notas.map((n) => n.media)) - 0.15
   return notas.filter((n) => n.media >= corte).map((n) => n.a).slice(0, 6)
 }
+
+// Coisas pessoais e da própria FRIDAY: só o dono
+for (const f of ['autocuidado', 'agenda', 'emails', 'olhar_tela', 'github', 'relatorio_semana']) SO_DONO.add(f)

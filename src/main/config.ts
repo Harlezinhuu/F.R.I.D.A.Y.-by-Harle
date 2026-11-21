@@ -1,6 +1,6 @@
 // F.R.I.D.A.Y — © 2026 Ahmad Mourad (Harle). Todos os direitos reservados. Veja LICENSE.
 import { app } from 'electron'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FridayConfig } from '../shared/types'
 import type { FishConfig } from './fish'
@@ -97,11 +97,25 @@ export function carregarFish(): FishConfig {
  * abrem mais para contas novas): quem ainda tem um deles no .env passa para o atual sozinho.
  */
 export const MODELO_DE_VOZ = 'gemini-3.8-live'
+export const MODELO_TEXTO = 'gemini-3.8-flash'
+
+/** Trocas de modelo que o autocuidado fez sozinho (quando o Google tira um modelo do ar). */
+const arquivoTrocas = (): string => join(app.getPath('userData'), 'modelos.json')
+export function trocasDeModelo(): { texto?: string; voz?: string } {
+  try { return JSON.parse(readFileSync(arquivoTrocas(), 'utf8')) } catch { return {} }
+}
+export function salvarTrocaDeModelo(t: { texto?: string; voz?: string }): void {
+  try { writeFileSync(arquivoTrocas(), JSON.stringify({ ...trocasDeModelo(), ...t }, null, 2)) } catch { /* sem disco */ }
+}
+
 export function modeloDeVoz(doEnv?: string): string {
   const m = (doEnv ?? '').trim()
-  if (!m || /^gemini-(2\.[05]|live-2\.5)|^gemini-3\.1-flash-live/.test(m)) return MODELO_DE_VOZ
+  if (!m || /^gemini-(2\.[05]|live-2\.5)|^gemini-3\.1-flash-live/.test(m)) return trocasDeModelo().voz || MODELO_DE_VOZ
   return m
 }
+
+/** Modelo de texto (pesquisas, buscas, consultas): o atual, ou o que o autocuidado trocou. */
+export const modeloTexto = (): string => trocasDeModelo().texto || MODELO_TEXTO
 
 export function carregarConfig(): FridayConfig {
   const env = lerTudo()

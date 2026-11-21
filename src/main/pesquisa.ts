@@ -8,7 +8,7 @@ import { app, shell } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { GoogleGenAI } from '@google/genai'
-import { carregarConfig } from './config'
+import { carregarConfig, modeloTexto } from './config'
 import { buscarNoCerebro } from './cerebro'
 import {
   lerPlano, nomeDoArquivo, numerarFontes, paginaHtml, promptParte, promptPlano, promptRelatorio, relatorioCompleto, resumoFalado,
@@ -16,7 +16,6 @@ import {
 } from './logica/pesquisa'
 import { markdown } from '../../mobile/src/markdown'
 
-const MODELO = 'gemini-3.8-flash'
 
 export interface Pesquisa {
   id: number
@@ -71,7 +70,7 @@ async function gerar(ai: GoogleGenAI, prompt: string, busca: boolean, json = fal
   for (let tentativa = 0; ; tentativa++) {
     try {
       return await ai.models.generateContent({
-        model: MODELO,
+        model: modeloTexto(),
         contents: prompt,
         config: { ...(busca ? { tools: [{ googleSearch: {} }] } : {}), ...(json ? { responseMimeType: 'application/json' } : {}), temperature: 0.3 }
       })

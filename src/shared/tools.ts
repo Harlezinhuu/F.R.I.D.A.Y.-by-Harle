@@ -749,6 +749,50 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       }
     }
   },
+  { name: 'relatorio_semana', description: 'O resumo da semana dele: código e projetos, tarefas do Claude Code, GitHub, o que vem na próxima semana (agenda e lembretes), a saúde da FRIDAY e o que mais estiver ligado. Ela faz sozinha no domingo à noite; use quando ele pedir ("como foi minha semana?").' },
+  {
+    name: 'github',
+    description: 'Os projetos dele no GitHub (só leitura): "resumo" diz builds quebrados, issues e pull requests abertos e estrelas; "dicas" diz o que melhorar para o portfólio ficar mais forte para recrutador (README, descrição, tópicos, demonstração). Ela também avisa sozinha quando um build quebra ou alguém abre issue.',
+    parameters: { type: 'OBJECT', properties: { acao: { type: 'STRING', description: 'Padrão: resumo.', enum: ['resumo', 'dicas'] } } }
+  },
+  {
+    name: 'olhar_tela',
+    description: 'Ela olha a tela do PC agora e responde sobre o que está lá: "isso aqui", "explica esse erro", "o que é isso?", "resume essa página", "o que eu faço nessa tela?". Funciona em qualquer programa (inclusive terminal e código) só para ver e explicar, sem mexer. Não olha cofre de senhas nem páginas de banco ou pagamento.',
+    parameters: { type: 'OBJECT', properties: { pergunta: { type: 'STRING', description: 'O que ele quer saber da tela (as palavras dele).' } } }
+  },
+  {
+    name: 'agenda',
+    description: 'Agenda do Google dele: ver ("o que eu tenho amanhã?", "minha semana"), criar compromisso ("marca dentista sexta às 15h") — sem convidados, ela nunca manda convite —, conectar (abre o login do Google uma vez) e desconectar. Ela avisa 15 minutos antes de cada compromisso e dá o resumo da manhã.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'Padrão: ver.', enum: ['ver', 'criar', 'conectar', 'desconectar'] },
+        periodo: { type: 'STRING', description: 'Para ver (padrão hoje).', enum: ['hoje', 'amanha', 'semana', 'proximos'] },
+        titulo: { type: 'STRING', description: 'Para criar: o nome do compromisso.' },
+        inicio: { type: 'STRING', description: 'Para criar: AAAA-MM-DDTHH:MM (hora local) ou AAAA-MM-DD (dia inteiro).' },
+        fim: { type: 'STRING', description: 'Para criar (opcional): mesmo formato.' },
+        duracao_min: { type: 'NUMBER', description: 'Para criar, se não tiver fim (padrão 60).' },
+        local: { type: 'STRING', description: 'Para criar (opcional).' },
+        descricao: { type: 'STRING', description: 'Para criar (opcional).' }
+      }
+    }
+  },
+  {
+    name: 'emails',
+    description: 'Gmail dele, só leitura: os e-mails novos que importam (sem propaganda) ou procurar ("tem e-mail da faculdade?", "o banco mandou alguma coisa?"). Ela nunca manda, apaga ou marca e-mails.',
+    parameters: { type: 'OBJECT', properties: { busca: { type: 'STRING', description: 'O que procurar (remetente ou assunto). Vazio = os novos importantes.' } } }
+  },
+  {
+    name: 'autocuidado',
+    description: 'A saúde da própria FRIDAY: chave e modelos do Gemini (ela troca sozinha um modelo que saiu do ar), versão nova no GitHub, disco, erros que se repetem e backup. "estado" mostra o último check-up; "checar" faz um agora; "atualizar" baixa a versão nova e reinicia (precisa confirmar); "consertar" pede ao Claude Code o conserto do erro que mais se repete (precisa confirmar; fica numa branch para revisar). Ex.: "você está bem?", "tem atualização?", "pode se atualizar".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        acao: { type: 'STRING', description: 'Padrão: estado.', enum: ['estado', 'checar', 'atualizar', 'consertar'] },
+        confirmado: { type: 'BOOLEAN', description: 'Para atualizar ou consertar, depois que ele confirmar.' }
+      }
+    }
+  },
   { name: 'diagnostico', description: 'Confere como a FRIDAY está: cérebro, voz, microfone, palavra de ativação, internet, controle do Windows ("como você está?", "status", "diagnóstico").' },
   {
     name: 'mostrar_painel',
@@ -809,7 +853,12 @@ export function systemPrompt(nome: string, agora: Date, memoria = ''): string {
     'Cotações e conversões de moeda usam cotacao (mais rápido e exato que buscar_na_internet).',
     'Os avisos de pausa e de hora de dormir são cuidado, não sermão: se ele disser que está bem, aceite.',
     'A Visão de Deus mostra lugares, veículos e eventos públicos. Ela nunca localiza nem rastreia pessoas: se pedirem isso, recuse em uma frase.',
+    'Quando ele falar de algo que está na tela ("isso aqui", "esse erro", "essa página"), use olhar_tela antes de responder. Agenda e e-mail do Google: agenda e emails (e-mail só leitura). Sua própria saúde e atualização: autocuidado.',
     `Agora é ${data} (horário de Brasília). Use isso para calcular horários de lembretes.`,
     ...(memoria ? ['', 'O que você já sabe sobre o usuário (use com naturalidade, sem recitar):', memoria] : [])
   ].join('\n')
 }
+
+// Ferramentas novas que o celular também pode pedir ao PC (ficam fora da lista de cima para os
+// módulos crescerem sem conflito)
+TOOLS_REMOTAS.push('autocuidado', 'agenda', 'emails', 'olhar_tela', 'github', 'relatorio_semana')

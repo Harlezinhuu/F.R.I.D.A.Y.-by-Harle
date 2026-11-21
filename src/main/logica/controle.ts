@@ -15,6 +15,30 @@ const PAGINA_PROIBIDA = /(?<![\p{L}\d])(banco|bank|banking|internet banking|ita[
 
 const semExe = (p: string): string => p.trim().toLowerCase().replace(/\.exe$/, '')
 
+const SENHAS = /^(keepass\w*|bitwarden|1password|lastpass|dashlane|nordpass|credentialuibroker|logonui|lockapp|consent)$/i
+
+/**
+ * Pode OLHAR a tela agora (só ver e explicar, sem mexer)? Vale para qualquer programa, inclusive
+ * terminal e código, menos cofre de senhas, tela de login do Windows e páginas de banco/pagamento.
+ */
+export function podeOlhar(processo: string, titulo: string): { ok: true } | { ok: false; motivo: string } {
+  const proc = semExe(processo)
+  if (SENHAS.test(proc)) return { ok: false, motivo: 'Na frente está um cofre de senhas ou uma tela de login. Essa eu não olho.' }
+  if (/^(friday|electron)$/.test(proc)) return { ok: false, motivo: 'A janela da frente sou eu. Clique no que você quer que eu veja e me peça de novo.' }
+  if (NAVEGADORES.test(proc) && PAGINA_PROIBIDA.test(titulo)) return { ok: false, motivo: 'Essa tela parece de banco, pagamento ou login. Essa eu não olho, para os seus dados não saírem do PC.' }
+  if (/\b(nubank|ita[uú]|bradesco|santander|caixa|inter|c6|picpay|mercado ?pago|banco)\b/i.test(proc)) return { ok: false, motivo: 'Isso parece o app do banco. Esse eu não olho.' }
+  return { ok: true }
+}
+
+/** Contexto da janela: "app.ts - meu-projeto - Visual Studio Code" → arquivo e projeto. */
+export function contextoDaJanela(processo: string, titulo: string): string {
+  const proc = semExe(processo)
+  const vs = titulo.match(/^(?:●\s*)?(.+?) - (.+?) - (Visual Studio Code|Cursor|Code - Insiders)$/)
+  if (vs) return `No ${vs[3]}: arquivo ${vs[1]}, projeto ${vs[2]}.`
+  if (NAVEGADORES.test(proc)) return `No navegador, na página "${titulo.replace(/ [-–—] (Google Chrome|Microsoft​? Edge|Mozilla Firefox|Brave|Opera)$/, '')}".`
+  return `Programa ${processo || 'desconhecido'}${titulo ? `, janela "${titulo}"` : ''}.`
+}
+
 /** Pode mexer na janela da frente? `permitidos` = processos da lista de programas (apps.json). */
 export function podeControlar(processo: string, titulo: string, permitidos: string[]): { ok: true } | { ok: false; motivo: string } {
   const proc = semExe(processo)

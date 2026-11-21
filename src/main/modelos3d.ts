@@ -12,7 +12,7 @@ import { GoogleGenAI } from '@google/genai'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 import type { DadosModelo3D } from '../shared/types'
-import { carregarConfig } from './config'
+import { carregarConfig, modeloTexto } from './config'
 import { NASA_MODELOS } from './dados/nasa'
 import { acharNasa, acharArquivo, nomeNasa, semHtml, validarPrimitivas } from './logica/modelos'
 import { acharDesign, embutirGltf } from './logica/designs'
@@ -208,7 +208,7 @@ async function daIa(p: Pedido): Promise<DadosModelo3D> {
   ].join('\n')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await (ai.models as any).generateContent({
-    model: 'gemini-3.8-flash',
+    model: modeloTexto(),
     contents: pedido,
     config: { responseMimeType: 'application/json', responseSchema: ESQUEMA, thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4 }
   })

@@ -6,7 +6,7 @@ import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { buscarNaInternet } from '../shared/busca'
-import { carregarConfig } from './config'
+import { carregarConfig, modeloTexto } from './config'
 import { lerManchetes, mesmaNoticia, novas, perguntaDoAssunto, type Manchete } from './logica/assuntos'
 
 export interface Assunto { tema: string; criadoEm: number; vistas: string[]; ultimaVez: number }
@@ -22,7 +22,7 @@ export function lerAssuntos(): Assunto[] {
 const salvar = (l: Assunto[]): void => { try { writeFileSync(arquivo(), JSON.stringify(l, null, 2)) } catch { /* sem disco */ } }
 
 async function manchetesDe(tema: string): Promise<Manchete[]> {
-  const r = await buscarNaInternet(carregarConfig().apiKey, perguntaDoAssunto(tema))
+  const r = await buscarNaInternet(carregarConfig().apiKey, perguntaDoAssunto(tema), modeloTexto())
   return lerManchetes(r.texto)
 }
 

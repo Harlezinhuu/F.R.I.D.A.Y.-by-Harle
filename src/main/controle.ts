@@ -46,15 +46,15 @@ function contarPasso(): string | null {
 }
 
 /** Foto da tela (sem o HUD na frente), pequena, para ela ver o que a lista de itens não diz. */
-async function fotoDaTela(win: BrowserWindow | null): Promise<string> {
+export async function fotoDaTela(win: BrowserWindow | null, largura = 1280, qualidade = 60): Promise<string> {
   const d = screen.getPrimaryDisplay()
-  const escala = Math.min(1, 1280 / d.size.width)
+  const escala = Math.min(1, largura / d.size.width)
   win?.setOpacity(0)
   await esperar(150)
   try {
     const fontes = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(d.size.width * escala), height: Math.round(d.size.height * escala) } })
     const f = fontes.find((x) => x.display_id === String(d.id)) ?? fontes[0]
-    return f && !f.thumbnail.isEmpty() ? f.thumbnail.toJPEG(60).toString('base64') : ''
+    return f && !f.thumbnail.isEmpty() ? f.thumbnail.toJPEG(qualidade).toString('base64') : ''
   } finally {
     win?.setOpacity(1)
   }

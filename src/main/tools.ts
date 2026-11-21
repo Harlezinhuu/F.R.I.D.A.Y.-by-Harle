@@ -5,7 +5,9 @@
 import { Notification, app, nativeImage, shell, type BrowserWindow } from 'electron'
 import type { ItemDiagnostico, ToolResult } from '../shared/types'
 import { carregarApps, encontrarApp, abrir, fechar } from './apps'
-import { lerVolume, definirVolume, definirMudo, teclaMidia } from './winctl'
+import { lerVolume, definirVolume, definirMudo, teclaMidia, janelaAtiva } from './winctl'
+import { GoogleGenAI } from '@google/genai'
+import { contextoDaJanela, podeOlhar } from './logica/controle'
 import { statusSistema } from './system'
 import { criarLembrete, listarLembretes, cancelarLembretes, lembretesDeHoje } from './reminders'
 import { ehRepeticao, descreverRepeticao, type Repeticao } from './logica/recorrencia'
@@ -15,7 +17,12 @@ import * as arquivos from './arquivos'
 import { capturarTela } from './captura'
 import { buscarClima, previsao } from './clima'
 import { buscarNaInternet, paraFala } from '../shared/busca'
-import { carregarConfig, carregarFish } from './config'
+import { carregarConfig, carregarFish, modeloTexto } from './config'
+import { atualizarAgora, checarSaude, pedirConserto, ultimaSaude } from './autocuidado'
+import { resumoDaSaude } from './logica/autocuidado'
+import { dicasGithub, resumoGithub } from './github'
+import { gerarRelatorio } from './relatorio'
+import { agendaEmTexto, compromissos, conectarGoogle, criarCompromisso, desconectarGoogle, emailsEmTexto, emailsNovos, googleConectado, googleConfigurado } from './google'
 import { memorizar, listarFatos, esquecer, esquecerTudo, definirAprendizado, memoriaAtiva, memoriaParaPrompt } from './memoria'
 import { buscarCena } from './cenas'
 import { pedirTarefa, statusTarefas, cancelarTarefaAtual, lerProjetos } from './tarefas'
@@ -87,6 +94,9 @@ const falha = (mensagem: string): ToolResult => ({ ok: false, mensagem })
 /** Última busca do segundo cérebro ("abre o segundo") */
 let ultimosAchados: AchadoDoCerebro[] = []
 const dataCurta = (ms: number): string => (ms ? new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '')
+
+/** Aviso de fundo (a agenda conecta depois que ele autoriza no navegador). */
+const notificarAgenda = (texto: string): void => { try { new Notification({ title: 'F.R.I.D.A.Y', body: texto }).show() } catch { /* sem notificação */ } }
 
 const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
   async listar_apps() {
@@ -939,7 +949,7 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
   // ---------- Internet ----------
 
   async buscar_na_internet(a) {
-    const r = await buscarNaInternet(carregarConfig().apiKey, str(a.pergunta))
+    const r = await buscarNaInternet(carregarConfig().apiKey, str(a.pergunta), modeloTexto())
     return { ok: true, mensagem: paraFala(r), card: { tipo: 'pesquisa', consulta: str(a.pergunta) } }
   },
 
@@ -948,6 +958,98 @@ const FERRAMENTAS: Record<string, (a: Args) => Promise<ToolResult>> = {
     let clima = null
     try { clima = await buscarClima(undefined, carregarConfig().cidade) } catch { /* sem clima, segue */ }
     return { ok: true, mensagem: '', dados: { clima, lembretes: lembretesDeHoje().map((l) => ({ texto: l.texto, hora: fmtHora(l.quandoIso) })) } }
+  },
+
+  async relatorio_semana() {
+    const r = await gerarRelatorio()
+    return { ok: true, mensagem: `${r.texto} Salvei o completo em Documentos > FRIDAY > Relatórios.`, card: { tipo: 'memoria', titulo: 'SEMANA', itens: r.secoes.map((s) => `${s.titulo}: ${s.resumo || `${s.linhas.length} itens`}`) } }
+  },
+
+  async github(a) {
+    if (str(a.acao) === 'dicas') {
+      const ds = await dicasGithub()
+      return { ok: true, mensagem: ds.length ? `Para o portfólio ficar mais forte: ${ds.slice(0, 5).join(' ')}` : 'Seus projetos públicos estão bem apresentados: README, descrição e tópicos em dia.', card: ds.length ? { tipo: 'memoria', titulo: 'DICAS PARA O PORTFÓLIO', itens: ds } : undefined }
+    }
+    const r = await resumoGithub()
+    const quebrados = Object.entries(r.cis).filter(([, c]) => c === 'falhou').map(([n]) => n)
+    return { ok: true, mensagem: r.texto, card: { tipo: 'memoria', titulo: 'GITHUB', itens: r.repos.filter((x) => !x.fork && !x.arquivado).slice(0, 8).map((x) => `${quebrados.includes(x.nome) ? '! ' : ''}${x.nome} · ${x.estrelas}★${x.abertos ? ` · ${x.abertos} abertos` : ''}`) } }
+  },
+
+  async olhar_tela(a) {
+    const j = await janelaAtiva().catch(() => ({ titulo: '', processo: '' }))
+    const p = podeOlhar(j.processo, j.titulo)
+    if (!p.ok) return falha(p.motivo)
+    const imagem = await controle.fotoDaTela(janela(), 1920, 70)
+    if (!imagem) return falha('O Windows não entregou a imagem da tela.')
+    const contexto = contextoDaJanela(j.processo, j.titulo)
+    const cfg = carregarConfig()
+    if (!cfg.apiKey) return falha('Falta a chave do Gemini.')
+    const ai = new GoogleGenAI({ apiKey: cfg.apiKey })
+    const pedido = str(a.pergunta) || 'O que tem na tela e o que importa aqui?'
+    const r = await ai.models.generateContent({
+      model: modeloTexto(),
+      contents: [{ role: 'user', parts: [
+        { inlineData: { mimeType: 'image/jpeg', data: imagem } },
+        { text: `Esta é a tela do PC dele agora. ${contexto}\nO pedido dele: ${pedido}\nResponda em português do Brasil, direto e curto, como quem está do lado dele olhando a mesma tela. Se for um erro, diga a causa provável e o que fazer. Se "isso" for ambíguo, fale do que está em destaque (a janela da frente, o texto selecionado, o erro). Nunca repita senhas, números de cartão ou documentos que aparecerem.` }
+      ] }]
+    })
+    return { ok: true, mensagem: (r.text ?? '').trim() || 'Não consegui entender a tela.', dados: { imagem, contexto } }
+  },
+
+  async agenda(a) {
+    const acao = str(a.acao) || 'ver'
+    if (acao === 'conectar') {
+      if (!googleConfigurado()) return falha('Falta configurar o Google no .env (GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET). O passo a passo está no README, em "Agenda e e-mail".')
+      void conectarGoogle().then((conta) => notificarAgenda(`Agenda e e-mail ligados${conta ? ` (${conta})` : ''}.`), (e) => notificarAgenda(`Não liguei a agenda: ${(e as Error).message}`))
+      return { ok: true, mensagem: 'Abri o navegador: é só entrar na conta do Google e autorizar. Eu aviso quando ligar.' }
+    }
+    if (acao === 'desconectar') { desconectarGoogle(); return { ok: true, mensagem: 'Desliguei a agenda e o e-mail e apaguei a chave de acesso deste PC.' } }
+    if (!googleConectado()) return falha('A agenda ainda não está ligada. Diga "conecta minha agenda do Google".')
+    if (acao === 'criar') {
+      const c = await criarCompromisso({ titulo: str(a.titulo), inicio: str(a.inicio), fim: str(a.fim) || undefined, duracaoMin: num(a.duracao_min) ?? undefined, local: str(a.local), descricao: str(a.descricao) })
+      return { ok: true, mensagem: `Marquei na agenda: ${agendaEmTexto([c])}` }
+    }
+    const agora = new Date()
+    const zero = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+    const periodo = str(a.periodo) || 'hoje'
+    const [de, dias] = periodo === 'amanha' ? [new Date(zero.getTime() + 86_400_000), 1] : periodo === 'semana' ? [agora, 7] : periodo === 'proximos' ? [agora, 30] : [agora, 1]
+    const ate = periodo === 'hoje' ? new Date(zero.getTime() + 86_400_000) : new Date((de as Date).getTime() + (dias as number) * 86_400_000)
+    let cs = await compromissos(de as Date, ate)
+    if (periodo === 'proximos') cs = cs.slice(0, 5)
+    return { ok: true, mensagem: agendaEmTexto(cs, agora), card: cs.length ? { tipo: 'memoria', titulo: 'AGENDA', itens: cs.slice(0, 8).map((c) => `${c.inicio.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${c.titulo}`) } : undefined }
+  },
+
+  async emails(a) {
+    if (!googleConectado()) return falha('O e-mail ainda não está ligado. Diga "conecta minha agenda do Google" (liga os dois).')
+    const busca = str(a.busca)
+    const es = await emailsNovos(busca ? `${busca} newer_than:30d` : 'is:unread category:primary newer_than:2d', busca ? 8 : 12)
+    const texto = busca ? (es.length ? `Achei ${es.length}: ${es.slice(0, 6).map((e) => `${e.de}: "${e.assunto}" (${e.quando.toLocaleDateString('pt-BR')}) — ${e.trecho}`).join('; ')}.` : 'Não achei nenhum e-mail com isso nos últimos 30 dias.') : emailsEmTexto(es)
+    return { ok: true, mensagem: texto, card: es.length ? { tipo: 'memoria', titulo: busca ? 'E-MAILS' : 'E-MAILS NOVOS', itens: es.slice(0, 8).map((e) => `${e.de} · ${e.assunto}`) } : undefined }
+  },
+
+  async autocuidado(a) {
+    const acao = str(a.acao) || 'estado'
+    if (acao === 'atualizar') {
+      const s = ultimaSaude()
+      if (a.confirmado !== true) {
+        return { ok: true, precisaConfirmacao: true, mensagem: `${s.atrasadas.length ? `Tenho ${s.atrasadas.length} ${s.atrasadas.length === 1 ? 'melhoria nova' : 'melhorias novas'}: ${s.atrasadas.slice(0, 4).join('; ')}. ` : ''}Para me atualizar eu fecho, baixo a versão nova, instalo e abro de novo (alguns minutos). Confirme com ele e chame de novo com confirmado: true.` }
+      }
+      return { ok: true, mensagem: atualizarAgora() }
+    }
+    if (acao === 'consertar') {
+      const s = ultimaSaude()
+      if (!s.erros.length) return falha('Não tem erro se repetindo agora.')
+      if (a.confirmado !== true) return { ok: true, precisaConfirmacao: true, mensagem: `O erro que mais se repetiu (${s.erros[0].vezes} vezes): ${s.erros[0].exemplo.slice(0, 160)}. Peço o conserto ao Claude Code? Fica numa branch para ele revisar. Confirme com ele e chame de novo com confirmado: true.` }
+      return { ok: true, mensagem: await pedirConserto() }
+    }
+    const r = acao === 'checar' || !ultimaSaude().quando ? await checarSaude() : null
+    const s = ultimaSaude()
+    const itens = r?.itens ?? s.itens
+    return {
+      ok: true,
+      mensagem: `${r ? '' : `No último check-up (${new Date(s.quando).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}): `}${resumoDaSaude(itens)}`,
+      card: { tipo: 'memoria', titulo: 'AUTOCUIDADO', itens: itens.map((i) => `${i.ok ? '✓' : '!'} ${i.nome}: ${i.detalhe}`) }
+    }
   },
 
   async diagnostico_sistema() {

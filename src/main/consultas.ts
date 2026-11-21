@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { AgenteConsulta, descrever, emAndamento, normalizar, novaConsulta, numeroWhats, type EstadoConsulta, type Lugar } from '../shared/consulta'
 import { criarDecisor } from '../shared/consulta-gemini'
-import { carregarConfig } from './config'
+import { carregarConfig, modeloTexto } from './config'
 import { maosDoPc } from './whatsweb'
 
 export interface EventoConsulta {
@@ -100,7 +100,7 @@ function ligar(estado: EstadoConsulta): void {
   agente = new AgenteConsulta(estado, maosDoPc(() => opcoes.avisar({
     tipo: 'qr',
     texto: 'Abri o WhatsApp na tela. No celular, vá em WhatsApp, Aparelhos conectados, Conectar um aparelho, e leia o QR. É só desta vez.'
-  })), criarDecisor(chave), {
+  })), criarDecisor(chave, modeloTexto()), {
     aoMudar: guardarAtual,
     aoPerguntar(e) {
       opcoes.log(`consulta: perguntando "${e.pergunta?.texto}"`)

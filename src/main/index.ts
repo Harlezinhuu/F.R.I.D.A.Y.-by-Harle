@@ -35,6 +35,10 @@ import { encerrarAr, pedidoAr } from './ar'
 import type { EstadoConsulta } from '../shared/consulta'
 import { sincronizar } from './memoria'
 import { TOOLS_DO_HUD, TOOLS_REMOTAS } from '../shared/tools'
+import { iniciarAutocuidado } from './autocuidado'
+import { iniciarGoogle } from './google'
+import { iniciarGithub } from './github'
+import { iniciarRelatorio } from './relatorio'
 
 type RespostaRemota = { ok: boolean; mensagem: string; precisaConfirmacao?: boolean }
 const pendentesHud = new Map<number, (r: RespostaRemota) => void>()
@@ -415,6 +419,14 @@ app.whenReady().then(() => {
   iniciarAssuntos({ log: (t) => log('assuntos', t), avisar: (texto) => avisarTambemNoCelular(texto, false, 'NOTÍCIA NOVA') })
   // Bem-estar: pausa depois de horas seguidas e hora de dormir (só fala com você no PC)
   iniciarBemEstar((texto) => avisarEmSegundoPlano(texto, true, 'BEM-ESTAR'))
+  // Autocuidado: ela confere a própria saúde todo dia (modelos, versão nova, erros que se repetem)
+  iniciarAutocuidado({ log: (t) => log('autocuidado', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'AUTOCUIDADO') })
+  // Agenda e e-mail do Google (se ligados): aviso 15 min antes e o resumo da manhã
+  iniciarGoogle({ log: (t) => log('google', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'AGENDA') })
+  // Projetos no GitHub: build quebrado, issue nova (estrelas vão para o relatório da semana)
+  iniciarGithub({ log: (t) => log('github', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'GITHUB') })
+  // Relatório da semana: domingo à noite (ou segunda de manhã)
+  iniciarRelatorio({ log: (t) => log('relatorio', t), avisar: (texto, serio) => avisarTambemNoCelular(texto, serio, 'SUA SEMANA') })
   // Check-up semanal do PC, num momento em que ele estiver à toa
   iniciarCheckup({ log: (t) => log('checkup', t), ocioso: () => powerMonitor.getSystemIdleTime(), avisar: (texto) => avisarEmSegundoPlano(texto, false, 'CHECK-UP DO PC') })
   // Pesquisa profunda: quando fica pronta (ou na hora marcada), ela conta no PC e manda para o celular
