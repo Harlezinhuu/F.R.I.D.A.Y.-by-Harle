@@ -16,3 +16,4 @@ resources/models/*
 
 # Visão de Deus (God's Eye View), baixada na primeira vez que você pede
 extras/
+*.tsbuildinfo

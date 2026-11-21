@@ -27,7 +27,7 @@ export class PalavraAtivacao {
     console.log(`[friday] modelo de ativação lido: ${(blob.size / 1024 / 1024).toFixed(1)} MB`)
     const blobUrl = `${URL.createObjectURL(blob)}#vosk-model-small-en-us-0.15.tar.gz`
     const modelo = await createModel(blobUrl)
-    modelo.on?.('error', (m: { error?: string }) => console.error('[friday] erro no modelo de ativação:', m?.error ?? m))
+    modelo.on?.('error', (m) => console.error('[friday] erro no modelo de ativação:', (m as { error?: string })?.error ?? m))
     this.modelo = modelo
     this.criarReconhecedor()
     this.pronto = true
