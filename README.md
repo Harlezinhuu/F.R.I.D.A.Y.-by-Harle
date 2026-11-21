@@ -156,6 +156,38 @@ Com o projeto aberto no VS Code (ela sabe qual é pelo título da janela), ou di
 
 Só roda os comandos liberados no projeto, e arquivos com chaves nunca são lidos para a IA.
 
+### Ela cuida de si mesma
+
+Todo dia ela faz um check-up dela mesma e só fala quando algo precisa de você:
+
+- **Modelos do Gemini:** se o Google tirar do ar o modelo de texto ou de voz (como aconteceu em novembro de 2026), ela troca sozinha pelo substituto mais novo e conta o que fez.
+- **Versão nova:** quando tem melhoria no GitHub, ela avisa. "Pode se atualizar" faz ela fechar, baixar, instalar e abrir de novo.
+- **Erro que se repete:** se o mesmo erro aparece várias vezes no `friday.log`, ela oferece pedir o conserto ao Claude Code. O conserto fica numa branch para você revisar; nada é aplicado sozinho.
+- **Disco quase cheio** e o que mais estiver ligado (o backup, por exemplo).
+
+Pergunte "você está bem?" ou "tem atualização?" a qualquer hora.
+
+### Agenda e e-mail do Google
+
+"O que eu tenho amanhã?", "marca dentista sexta às 15h" (sem convidados: ela nunca manda convite em seu nome), aviso 15 minutos antes de cada compromisso (no PC e no celular) e, de manhã, o resumo do dia com os e-mails que importam. **O e-mail é só leitura**: ela nunca manda, apaga nem marca nada.
+
+Para ligar (uma vez, uns 10 minutos):
+
+1. Em [console.cloud.google.com](https://console.cloud.google.com), crie um projeto (por exemplo, "FRIDAY").
+2. Em *APIs e serviços › Biblioteca*, ative a **Google Calendar API** e a **Gmail API**.
+3. Em *Google Auth Platform* (tela de consentimento), escolha **Externo**, dê um nome e o seu e-mail. Em *Público-alvo*, clique em **Publicar app** (fica "Em produção"). Sem isso, o Google desliga o acesso a cada 7 dias. Na hora de autorizar vai aparecer "app não verificado": é o seu próprio app, clique em *Avançado › continuar*.
+4. Em *Credenciais › Criar credenciais › ID do cliente OAuth*, escolha **App para computador** e copie o ID e a chave secreta para `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no `.env`.
+5. Diga "conecta minha agenda do Google" e autorize no navegador. A chave de acesso fica trancada pelo Windows, só neste PC. "Desconecta minha agenda" apaga tudo.
+
+### Olhar a tela
+
+"Explica esse erro", "o que é isso aqui?", "resume essa página": ela olha a tela (sem o HUD na frente), sabe qual programa e qual arquivo está aberto e responde. Funciona em qualquer programa, inclusive terminal e código, só para ver e explicar. Não olha cofre de senhas, tela de login nem páginas de banco e pagamento.
+
+### Seus projetos no GitHub e o relatório da semana
+
+- **GitHub:** a cada 6 horas ela olha os seus repositórios e avisa quando um build quebra (ou volta) e quando alguém abre issue ou pull request. "Dicas para o meu GitHub" diz o que melhorar para o portfólio (README, descrição, tópicos, demonstração). Sem token, vê os públicos; com `GITHUB_TOKEN` (fine-grained, só leitura), os privados também. Ela nunca mexe em nada no GitHub.
+- **Relatório da semana:** domingo à noite (ou segunda de manhã, se o PC estava desligado) ela junta o que você programou, as tarefas do Claude Code, as novidades do GitHub, a agenda e os lembretes da próxima semana e a saúde dela, salva em *Documentos › FRIDAY › Relatórios* e fala o resumo em um minuto. "Como foi minha semana?" faz na hora.
+
 ### Cérebro reserva (sem internet)
 
 Se você chamar a FRIDAY e não tiver internet (ou o Gemini não responder), ela entra no **modo reserva**, tudo no seu PC:
